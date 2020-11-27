@@ -63,7 +63,7 @@ class GraphData(object):
         self.node_pos = torch.stack([xv.flatten(), yv.flatten(), zv.flatten()], axis=-1)
 
         if self.compression_type == "node":
-            self.node_index = compression(self.node_index, kappa)
+            self.node_index = static_node_compression(self.node_index, kappa)
 
         self.num_nodes = self.node_index.nelement()
 
