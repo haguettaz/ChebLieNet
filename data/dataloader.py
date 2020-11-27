@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch_geometric.data import DataLoader
 
-from dataloader import preprocess_mnist, preprocess_rotated_mnist
+from .dataloader import preprocess_mnist, preprocess_rotated_mnist
 
 
 def get_datalist_mnist(graph_data, processed_path, train=True):

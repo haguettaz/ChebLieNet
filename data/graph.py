@@ -4,25 +4,32 @@ import matplotlib.pyplot as plt
 import torch
 from torch_geometric.data import Data
 
-from utils import metric_tensor
-
-from .utils.utils import random_choice
+from ..utils.utils import random_choice, shuffle
+from .utils import metric_tensor
 
 
 class GraphData(object):
-    def __init__(self, grid_size, num_layers=6, kappa=0.0, self_loop=True, sigma=1.0, weight_threshold=0.3, lambdas=(1.0, 1.0, 1.0)):
+    def __init__(self, grid_size, num_layers=6, static_compression=None, self_loop=True, sigma=1.0, weight_threshold=0.3, lambdas=(1.0, 1.0, 1.0)):
         """
         [summary]
 
         Args:
             grid_size ([type]): [description]
             num_layers (int, optional): [description]. Defaults to 6.
-            kappa (float, optional): [description]. Defaults to 0.0.
+            static_compression (tuple, optional): the static compression algorithm to reduce
+                the graph size. Either ("node", kappa) or ("edge", kappa). Defaults to None.
             self_loop (bool, optional): [description]. Defaults to True.
             sigma (float, optional): [description]. Defaults to 1.0.
             weight_threshold (float, optional): [description]. Defaults to 0.3.
             lambdas (tuple, optional): [description]. Defaults to (1.0, 1.0, 1.0).
         """
+
+        # graph compression
+        if static_compression is not None:
+            self.compression_type, self.kappa = static_compression
+        else:
+            self.compression_type = None
+
         # nodes
         self.nx, self.ny = grid_size
         self.nz = num_layers
@@ -43,7 +50,7 @@ class GraphData(object):
             num_nodes ([type]): [description]
             kappa ([type]): [description]
         """
-        node_index = torch.arange(num_nodes)
+        self.node_index = torch.arange(num_nodes)
 
         # we define the grid points and reshape them to get 1-d arrays
         self.x_axis = torch.arange(0.0, self.nx, 1.0)
@@ -55,7 +62,9 @@ class GraphData(object):
         xv, yv, zv = torch.meshgrid(self.x_axis, self.y_axis, self.z_axis)
         self.node_pos = torch.stack([xv.flatten(), yv.flatten(), zv.flatten()], axis=-1)
 
-        self.node_index = compression(node_index, kappa)
+        if self.compression_type == "node":
+            self.node_index = compression(self.node_index, kappa)
+
         self.num_nodes = self.node_index.nelement()
 
     def init_edges(self):
@@ -163,6 +172,17 @@ class GraphData(object):
 
 
 def get_neighbors(graph_data, node_idx, return_weights=True):
+    """
+    [summary]
+
+    Args:
+        graph_data ([type]): [description]
+        node_idx ([type]): [description]
+        return_weights (bool, optional): [description]. Defaults to True.
+
+    Returns:
+        [type]: [description]
+    """
     mask = (graph_data.edge_index[0] == node_idx) & (graph_data.edge_weight > 0.0)
     neighbors = graph_data.edge_index[1, mask]
 
@@ -173,42 +193,23 @@ def get_neighbors(graph_data, node_idx, return_weights=True):
     return neighbors, weights
 
 
-def visualize_weight_field(graph_data, grid_size=(2, 2)):
-    num_rows, num_cols = grid_size
+def static_node_compression(node_index, kappa):
+    """
+    [summary]
 
-    fig = plt.figure(figsize=(num_rows * 8.0, num_cols * 8.0))
+    Args:
+        node_index ([type]): [description]
+        kappa ([type]): [description]
 
-    for r in range(num_rows):
-        for c in range(num_cols):
-            node_idx = random_choice(graph_data.node_index)
-            neighbors, weights = get_neighbors(graph_data, node_idx)
+    Returns:
+        [type]: [description]
+    """
+    num_nodes = node_index.nelement()
 
-            ax = fig.add_subplot(
-                num_rows,
-                num_cols,
-                r * num_cols + c + 1,
-                projection="3d",
-                xlim=(graph_data.x_axis.min(), graph_data.x_axis.max()),
-                ylim=(graph_data.y_axis.min(), graph_data.y_axis.max()),
-                zlim=(graph_data.z_axis.min(), graph_data.z_axis.max()),
-            )
+    num_to_remove = int(kappa * num_nodes)
+    num_to_keep = num_nodes - num_to_remove
 
-            im = ax.scatter(
-                graph_data.node_pos[neighbors, 0], graph_data.node_pos[neighbors, 1], graph_data.node_pos[neighbors, 2], c=weights, s=50, alpha=0.5
-            )
+    mask = torch.tensor([False] * num_to_remove + [True] * num_to_keep)
+    mask = shuffle(mask)
 
-            plt.colorbar(im, fraction=0.04, pad=0.1)
-            im = ax.scatter(
-                graph_data.node_pos[node_idx, 0],
-                graph_data.node_pos[node_idx, 1],
-                graph_data.node_pos[node_idx, 2],
-                s=50,
-                c="white",
-                edgecolors="black",
-                linewidth=3,
-                alpha=1.0,
-            )
-
-            ax.set_title(f"node #{node_idx.item()}")
-
-    plt.show()
+    return node_index[mask]

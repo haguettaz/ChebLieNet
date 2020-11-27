@@ -6,7 +6,22 @@ from torchvision.datasets.utils import download_and_extract_archive
 
 
 def download_mnist(data_path):
+    """
+    [summary]
+
+    Args:
+        data_path ([type]): [description]
+    """
     def check_exists(processed_path):
+        """
+        [summary]
+
+        Args:
+            processed_path ([type]): [description]
+
+        Returns:
+            [type]: [description]
+        """
         return os.path.exists(os.path.join(processed_path, "training.pt")) and os.path.exists(os.path.join(processed_path, "test.pt"))
 
     resources = [
@@ -49,7 +64,22 @@ def download_mnist(data_path):
 
 
 def download_rotated_mnist(data_path):
+    """
+    [summary]
+
+    Args:
+        data_path ([type]): [description]
+    """
     def check_exists(processed_path):
+        """
+        [summary]
+
+        Args:
+            processed_path ([type]): [description]
+
+        Returns:
+            [type]: [description]
+        """
         return os.path.exists(os.path.join(processed_path, "train_all.npz")) and os.path.exists(os.path.join(processed_path, "test.npz"))
 
     url = "https://staff.fnwi.uva.nl/e.j.bekkers/MLData/ROT_MNIST.zip"
@@ -111,36 +141,3 @@ def preprocess_rotated_mnist(images, targets):
     return images, targets
 
 
-def visualize_samples(datalist, grid_size=(3, 3)):
-    """
-    [summary]
-
-    Args:
-        datalist ([type]): [description]
-        grid_size (tuple, optional): [description]. Defaults to (3,3).
-    """
-    num_rows, num_cols = grid_size
-
-    fig = plt.figure(figsize=(num_rows * 8.0, num_cols * 8.0))
-
-    for r in range(num_rows):
-        for c in range(num_cols):
-            sample_idx = random_choice(torch.arange(len(datalist))).item()
-            sample = datalist[sample_idx]
-            ax = fig.add_subplot(
-                num_rows,
-                num_cols,
-                r * num_cols + c + 1,
-                projection="3d",
-                xlim=(graph_data.x_axis.min(), graph_data.x_axis.max()),
-                ylim=(graph_data.y_axis.min(), graph_data.y_axis.max()),
-                zlim=(graph_data.z_axis.min(), graph_data.z_axis.max()),
-            )
-
-            im = ax.scatter(sample.pos[:, 0], sample.pos[:, 1], sample.pos[:, 2], c=sample.x, s=50, alpha=0.5)
-
-            plt.colorbar(im, fraction=0.04, pad=0.1)
-
-            ax.set_title(f"sample #{sample_idx} labeled {sample.y.item()}")
-
-    plt.show()
