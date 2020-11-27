@@ -275,6 +275,14 @@ class GraphData(object):
         self.edge_metric = self.edge_metric[edge_mask]
         self.edge_weight = self.edge_weight[edge_mask]
 
+    def random_purge_edges(self, frac):
+        # remove random nodes (node at origin cannot be removed)
+        n_edges = self.edge_index.shape[1]
+        n_keep = int(n_edges*(1 - frac))
+        keep_indices=np.random.permutation(n_edges)[:n_keep]
+        self.edge_index = self.edge_index[:, keep_indices]
+        self.edge_weight = self.edge_weight[keep_indices]
+
     def projection(self, images, targets):
             # images dimension : (n_images, height, width, n_orientations, n_channels)
 
@@ -335,6 +343,8 @@ xi = .01
 nx, ny, nz = (28, 28, 12)
 graph_data = GraphData(grid_size=(nx, ny, nz), self_loop=True, weight_threshold=.25, sigma=.25,
                        lambdas=((xi / eps), xi, 1))
+graph_data.random_purge_edges(0.75)
+
 
 fig = plt.figure(figsize=(10, 9))
 
@@ -347,7 +357,6 @@ ax = fig.add_subplot(1, 1, 1, projection="3d",
 plot_weight_field(graph_data, ax, 5002)
 
 plt.show()
-
 
 
 
@@ -666,6 +675,8 @@ xi = .01
 nx, ny, nz = (28, 28, 1)
 graph_data = GraphData(grid_size=(nx, ny, nz), self_loop=True, weight_threshold=.25, sigma=.25,
                        lambdas=((xi / eps), xi, 1))
+graph_data.random_purge_edges(0.5)
+
 
 train_loader, test_loader = get_dataloaders(processed_path, graph_data, train_batch_size=64, test_batch_size=64)
 
@@ -689,7 +700,7 @@ evaluator = create_supervised_evaluator(model, metrics, device=device)
 ProgressBar(persist=False, desc="Training").attach(trainer)
 ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
 
-tensorboard_log = os.path.join("drive", "MyDrive", "tensorboard_mnist", "2d_grid_chebnet")
+tensorboard_log = os.path.join("tensorboard", "mnist", "2d_grid_chebnet_edge_purge_0.5")
 
 if os.path.exists(tensorboard_log):
     shutil.rmtree(tensorboard_log)
@@ -705,8 +716,8 @@ max_epochs = 20
 trainer.run(train_loader, max_epochs=max_epochs)
 writer.close()
 
-# model_path = os.path.join("drive", "MyDrive", "models", "2d_chebnet.pt")
-# torch.save(model.state_dict(), model_path)
+model_path = os.path.join("drive", "MyDrive", "models", "2d_chebnet.pt")
+torch.save(model.state_dict(), model_path)
 
 
 """## Spatial and orientation"""
@@ -716,6 +727,7 @@ xi = .01
 nx, ny, nz = (28, 28, 12)
 graph_data = GraphData(grid_size=(nx, ny, nz), self_loop=True, weight_threshold=.25, sigma=.25,
                        lambdas=((xi / eps), xi, 1))
+graph_data.random_purge_edges(0.5)
 
 train_loader, test_loader = get_dataloaders(processed_path, graph_data, train_batch_size=16, test_batch_size=16)
 
@@ -739,7 +751,7 @@ evaluator = create_supervised_evaluator(model, metrics, device=device)
 ProgressBar(persist=False, desc="Training").attach(trainer)
 ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
 
-tensorboard_log = os.path.join("drive", "MyDrive", "tensorboard_mnist", "3d_grid_chebnet")
+tensorboard_log = os.path.join("tensorboard", "mnist", "se2_grid_chebnet_edge_purge_0.5")
 
 if os.path.exists(tensorboard_log):
     shutil.rmtree(tensorboard_log)
