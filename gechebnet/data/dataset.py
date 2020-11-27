@@ -7,20 +7,20 @@ from torchvision.datasets.utils import download_and_extract_archive
 
 def download_mnist(data_path):
     """
-    [summary]
+    Download MNIST dataset and store it at the given path.
 
     Args:
-        data_path ([type]): [description]
+        data_path (str): the path to the data folder to download data on.
     """
     def check_exists(processed_path):
         """
-        [summary]
+        Check if processed data already exists at the given path. If yes, does not download data again.
 
         Args:
-            processed_path ([type]): [description]
+            processed_path (str): the path to the folder to put processed data on.
 
         Returns:
-            [type]: [description]
+            (bool): the indicator if the processed data already exists at the given path.
         """
         return os.path.exists(os.path.join(processed_path, "training.pt")) and os.path.exists(os.path.join(processed_path, "test.pt"))
 
@@ -65,20 +65,20 @@ def download_mnist(data_path):
 
 def download_rotated_mnist(data_path):
     """
-    [summary]
+    Download rotated MNIST dataset and store it at the given path.
 
     Args:
-        data_path ([type]): [description]
+        data_path (str): the path to the data folder to download data on.
     """
     def check_exists(processed_path):
         """
-        [summary]
+        Check if processed data already exists at the given path. If yes, does not download data again.
 
         Args:
-            processed_path ([type]): [description]
+            processed_path (str): the path to the folder to put processed data on.
 
         Returns:
-            [type]: [description]
+            (bool): the indicator if the processed data already exists at the given path.
         """
         return os.path.exists(os.path.join(processed_path, "train_all.npz")) and os.path.exists(os.path.join(processed_path, "test.npz"))
 

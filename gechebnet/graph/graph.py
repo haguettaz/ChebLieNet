@@ -4,24 +4,26 @@ import matplotlib.pyplot as plt
 import torch
 from torch_geometric.data import Data
 
-from ..utils.utils import random_choice, shuffle
+from ..utils import random_choice, shuffle
 from .utils import metric_tensor
 
 
 class GraphData(object):
     def __init__(self, grid_size, num_layers=6, static_compression=None, self_loop=True, sigma=1.0, weight_threshold=0.3, lambdas=(1.0, 1.0, 1.0)):
         """
-        [summary]
+        Initialise the GraphData object:
+            - init the nodes and positions
+            - init the edges and weights
 
         Args:
-            grid_size ([type]): [description]
-            num_layers (int, optional): [description]. Defaults to 6.
+            grid_size (tuple): the spatial dimension of the graph in format (nx, ny).
+            num_layers (int, optional): the orientation dimension of the graph. Defaults to 6.
             static_compression (tuple, optional): the static compression algorithm to reduce
                 the graph size. Either ("node", kappa) or ("edge", kappa). Defaults to None.
-            self_loop (bool, optional): [description]. Defaults to True.
-            sigma (float, optional): [description]. Defaults to 1.0.
-            weight_threshold (float, optional): [description]. Defaults to 0.3.
-            lambdas (tuple, optional): [description]. Defaults to (1.0, 1.0, 1.0).
+            self_loop (bool, optional): the indicator if the graph can contains self-loop. Defaults to True.
+            sigma (float, optional): the sigma parameter of the exponential weight function. Defaults to 1.0.
+            weight_threshold (float, optional): the threshold for the weight to be considered non nulle. Defaults to 0.3.
+            lambdas (tuple, optional): the anisotropic intensities. Defaults to (1.0, 1.0, 1.0).
         """
 
         # graph compression
@@ -33,7 +35,7 @@ class GraphData(object):
         # nodes
         self.nx, self.ny = grid_size
         self.nz = num_layers
-        self.init_nodes(self.nx * self.ny * self.nz, kappa)
+        self.init_nodes(self.nx * self.ny * self.nz)
 
         # edges
         self.self_loop = self_loop
@@ -42,13 +44,15 @@ class GraphData(object):
         self.l1, self.l2, self.l3 = lambdas
         self.init_edges()
 
-    def init_nodes(self, num_nodes, kappa):
+    def init_nodes(self, num_nodes):
         """
-        [summary]
+        Initialise the nodes' indices and their positions.
+            - `self.node_index` is a tensor with shape (num_nodes) 
+            - `self.node_pos` is a tensor with shape (self.nx * self.ny * self.nz, 3)        
+        If the compression algorithm is the static node compression, remove a proportion kappa of nodes.
 
         Args:
-            num_nodes ([type]): [description]
-            kappa ([type]): [description]
+            num_nodes (int): the number of nodes of the graph.
         """
         self.node_index = torch.arange(num_nodes)
 
@@ -63,29 +67,35 @@ class GraphData(object):
         self.node_pos = torch.stack([xv.flatten(), yv.flatten(), zv.flatten()], axis=-1)
 
         if self.compression_type == "node":
-            self.node_index = static_node_compression(self.node_index, kappa)
+            self.node_index = static_node_compression(self.node_index, self.kappa)
 
         self.num_nodes = self.node_index.nelement()
 
     def init_edges(self):
         """
-        [summary]
+        Initialize the edges' indices and their weights. 
+            - `self.edge_index` is a tensor with shape (2, num_edges) 
+            - `self.edge_weight` is a tensor with shape (num_edges)
+
+        If the compression algorithm is the static edge compression, remove a proportion kappa of edges.
         """
         distances = self.compute_distances()
         weights = self.compute_weights(distances)
-        edge_indices = torch.reshape(torch.stack(torch.meshgrid(self.node_index, self.node_index), -1), [-1, 2])
+        edge_index = torch.reshape(torch.stack(torch.meshgrid(self.node_index, self.node_index), -1), [-1, 2])
         threshold_mask = weights >= self.weight_threshold
 
-        self.edge_index = torch.transpose(edge_indices[threshold_mask], 1, 0)
-        self.edge_metric = distances[threshold_mask]
+        self.edge_index = edge_index[threshold_mask].permute(1, 0)
         self.edge_weight = weights[threshold_mask]
+
+        if self.compression_type == "edge":
+            self.edge_index, self.edge_weight = static_edge_compression(self.edge_index, self.edge_weight, self.kappa)
 
     def compute_distances(self):
         """
-        [summary]
+        Compute distances between each pair of nodes of the graph.
 
         Returns:
-            [type]: [description]
+            (torch.tensor): the distances tensor.
         """
         distances = torch.zeros([self.num_nodes, self.num_nodes], dtype=torch.float32)
         difference_vectors = torch.cat(
@@ -110,29 +120,30 @@ class GraphData(object):
 
     def compute_weights(self, distances):
         """
-        [summary]
+        Compute the edge weights from the distances between each pair of nodes. The weight function is 
+        an exponential function with parameter sigma.
 
         Args:
-            distances ([type]): [description]
+            distances (torch.tensor): the tensor of pairwise distances.
 
         Returns:
-            [type]: [description]
+            (torch.tensor): the tensor of edge's weights
         """
         return torch.exp(-(distances ** 2) / (2 * self.sigma ** 2))
 
     def embed_on_graph(self, images, targets=None):
         """
-        [summary]
+        Embed images and targets on a the graph and return a list of Data object with the embedding.
 
         Args:
-            images ([type]): [description]
-            targets ([type], optional): [description]. Defaults to None.
+            images (torch.tensor): the images in format (N, C, H, W).
+            targets (torch.tensor, optional): the target in format (N, D). Defaults to None.
 
         Raises:
-            ValueError: [description]
+            ValueError: in case images cannot be embedded on the graph due to dimension incompatibility.
 
         Returns:
-            [type]: [description]
+            (list): the list of Data object with the embedding of images and targets on the graph.
         """
         num_images, channels, height, width = images.shape
 
@@ -163,25 +174,27 @@ class GraphData(object):
     @property
     def data(self):
         """
-        [summary]
+        Access the Data object containing the graph
 
         Returns:
-            [type]: [description]
+            (Data): the graph on a Data object.
         """
         return Data(edge_index=self.edge_index, edge_attr=self.edge_weight, num_nodes=self.num_nodes)
 
 
 def get_neighbors(graph_data, node_idx, return_weights=True):
     """
-    [summary]
+    Get the node indices of the neighbors of a given node. 
 
     Args:
-        graph_data ([type]): [description]
-        node_idx ([type]): [description]
-        return_weights (bool, optional): [description]. Defaults to True.
+        graph_data (GraphData): the GraphData object containing information about the graph.
+        node_idx ([type]): the node index of interest
+        return_weights (bool, optional): the indicator to return weights associated to each neighbors. 
+            Defaults to True.
 
     Returns:
-        [type]: [description]
+        (torch.tensor): the node indices of the neighbors of the node.
+        (torch.tensor, optional): the weights of the edges between the node and its neighbors
     """
     mask = (graph_data.edge_index[0] == node_idx) & (graph_data.edge_weight > 0.0)
     neighbors = graph_data.edge_index[1, mask]
@@ -195,14 +208,14 @@ def get_neighbors(graph_data, node_idx, return_weights=True):
 
 def static_node_compression(node_index, kappa):
     """
-    [summary]
+    Randomly remove a given rate of nodes from the original tensor of node's indices
 
     Args:
-        node_index ([type]): [description]
-        kappa ([type]): [description]
+        node_index (torch.tensor): the original node's indices.
+        kappa (float): the rate of nodes to remove.
 
     Returns:
-        [type]: [description]
+        (torch.tensor): the compressed node's indices.
     """
     num_nodes = node_index.nelement()
 
@@ -213,3 +226,27 @@ def static_node_compression(node_index, kappa):
     mask = shuffle(mask)
 
     return node_index[mask]
+
+
+def static_edge_compression(edge_index, edge_weight, kappa):
+    """
+    Randomly remove a given rate of edges from the original tensor of edge's indices.
+
+    Args:
+        edge_index (torch.tensor): the original edge's indices.
+        edge_weight (torch.tensor): the original edge's weights.
+        kappa (float): the rate of edges to remove.
+
+    Returns:
+        (torch.tensor): the compressed edge's indices.
+        (torch.tensor): the compressed edge's weights.
+    """
+    num_edges = edge_index.shape[1]
+
+    num_to_remove = int(kappa * num_edges)
+    num_to_keep = num_edges - num_to_remove
+
+    mask = torch.tensor([False] * num_to_remove + [True] * num_to_keep)
+    mask = shuffle(mask)
+
+    return edge_index[:, mask], edge_weight[mask]
