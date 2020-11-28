@@ -1,7 +1,9 @@
 import os
 
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
+from torchvision.datasets.mnist import read_image_file, read_label_file
 from torchvision.datasets.utils import download_and_extract_archive
 
 
@@ -12,6 +14,7 @@ def download_mnist(data_path):
     Args:
         data_path (str): the path to the data folder to download data on.
     """
+
     def check_exists(processed_path):
         """
         Check if processed data already exists at the given path. If yes, does not download data again.
@@ -70,6 +73,7 @@ def download_rotated_mnist(data_path):
     Args:
         data_path (str): the path to the data folder to download data on.
     """
+
     def check_exists(processed_path):
         """
         Check if processed data already exists at the given path. If yes, does not download data again.
@@ -139,5 +143,3 @@ def preprocess_rotated_mnist(images, targets):
 
     # Return preprocessed dataset
     return images, targets
-
-
