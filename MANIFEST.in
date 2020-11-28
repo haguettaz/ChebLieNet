@@ -1,0 +1,3 @@
+include requirements.txt
+include requirements-tests.txt
+recursive-include gechebnet-resources/ *

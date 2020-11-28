@@ -1,18 +1,13 @@
 matplotlib==3.2.2 
 numpy<1.20
 
---find-links https://download.pytorch.org/whl/torch_stable.html
-torch==1.7.0+cu101
+torch==1.7.0+cu101 -f https://download.pytorch.org/whl/torch_stable.html
 torchvision<0.9
 
---find-links https://pytorch-geometric.com/whl/torch-1.7.0.html
-torch-scatter==latest+cu101 
---find-links https://pytorch-geometric.com/whl/torch-1.7.0.html
-torch-sparse==latest+cu101
---find-links https://pytorch-geometric.com/whl/torch-1.7.0.html
-torch-cluster==latest+cu101
---find-links https://pytorch-geometric.com/whl/torch-1.7.0.html
-torch-spline-conv==latest+cu101
+torch-scatter==latest+cu101 -f https://pytorch-geometric.com/whl/torch-1.7.0.html
+torch-sparse==latest+cu101 -f https://pytorch-geometric.com/whl/torch-1.7.0.html
+torch-cluster==latest+cu101 -f https://pytorch-geometric.com/whl/torch-1.7.0.html
+torch-spline-conv==latest+cu101 -f https://pytorch-geometric.com/whl/torch-1.7.0.html
 torch-geometric<1.7
 
 pytorch-ignite<0.5

@@ -24,9 +24,9 @@ def visualize_graph(graph_data):
     )
 
     ax.scatter(
-        graph_data.node_pos[graph_data.edge_index, 0],
-        graph_data.node_pos[graph_data.edge_index, 1],
-        graph_data.node_pos[graph_data.edge_index, 2],
+        graph_data.node_pos[graph_data.node_index, 0],
+        graph_data.node_pos[graph_data.node_index, 1],
+        graph_data.node_pos[graph_data.node_index, 2],
         s=50,
         alpha=0.5,
     )
