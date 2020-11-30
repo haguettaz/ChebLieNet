@@ -33,7 +33,7 @@ import matplotlib.colors as colors
 # class GraphData(object):
 #     def __init__(self, grid_size, self_loop=True, sigma=1, weight_threshold=1, lambdas=(1., 1., 1.)):
 #         """
-#             grid_size (tuple): the size of the grid in format (nx, ny, nz)
+#             grid_size (tuple): the size of the grid in format (nx1, nx2, nx3)
 #             self_loop (bool): the indicator if the graph contains self loop or not
 #             connection (tuple): the scheme to construct edges, it contains the name of the scheme ("tg" or "nn") with float parameter
 #             origin_center (bool): the indicator if the grid must by centered at origin
@@ -41,9 +41,9 @@ import matplotlib.colors as colors
 #             ker_orient (tuple): the orientation angles of the first eigen vector of the anisotropic tensor
 #             ker_lambda (tuple): the eigenvalues of the anisotropic tensor, correspond to anisotropy intensity
 #         """
-#         self.nx, self.ny, self.nz = grid_size
+#         self.nx1, self.nx2, self.nx3 = grid_size
 #
-#         self.num_nodes = self.nx * self.ny * self.nz
+#         self.num_nodes = self.nx1 * self.nx2 * self.nx3
 #
 #         self.self_loop = self_loop
 #         self.weight_threshold = weight_threshold
@@ -65,27 +65,27 @@ import matplotlib.colors as colors
 #             self.signal = signal.flatten()
 #             return
 #
-#         if signal.shape[0] != self.nx or signal.shape[1] != self.ny:
+#         if signal.shape[0] != self.nx1 or signal.shape[1] != self.nx2:
 #             raise ValueError(f"the size of the signal does not coincide with the size of the graph")
 #
-#         self.signal = signal.expand(self.nz, -1, -1).permute(2, 1, 0).flatten()
+#         self.signal = signal.expand(self.nx3, -1, -1).permute(2, 1, 0).flatten()
 #
 #     def init_ref(self):
 #
 #         z_min, z_max = 0, 2 * np.pi
-#         z_res = 2 * np.pi / self.nz
+#         z_res = 2 * np.pi / self.nx3
 #
-#         self.centroid_idx = self.nx // 2 * self.ny * self.nz + self.ny // 2 * self.nz + self.nz // 2
+#         self.centroid_idx = self.nx1 // 2 * self.nx2 * self.nx3 + self.nx2 // 2 * self.nx3 + self.nx3 // 2
 #
 #         # we define the 3 axis
-#         self.x_axis = torch.arange(0., self.nx, 1.)
-#         self.y_axis = torch.arange(0., self.ny, 1.)
-#         self.z_axis = torch.arange(0., 2 * np.pi, z_res)
+#         self.x1_axis = torch.arange(0., self.nx1, 1.)
+#         self.x2_axis = torch.arange(0., self.nx2, 1.)
+#         self.x3_axis = torch.arange(0., 2 * np.pi, z_res)
 #
 #     def init_nodes(self):
 #         self.node_index = torch.arange(self.num_nodes)
 #         # we define the grid points and reshape them to get 1-d arrays
-#         xv, yv, zv = torch.meshgrid(self.x_axis, self.y_axis, self.z_axis)
+#         xv, yv, zv = torch.meshgrid(self.x1_axis, self.x2_axis, self.x3_axis)
 #         self.node_pos = torch.stack([xv.flatten(), yv.flatten(), zv.flatten()], axis=-1)
 #
 #     def init_edges(self):
@@ -114,7 +114,7 @@ import matplotlib.colors as colors
 #
 #         distances = torch.zeros([len(self.node_pos), len(self.node_pos)], dtype=torch.float32)
 #         difference_vectors = (self.node_pos[:, None, :] - self.node_pos[None, :, :])
-#         for z in self.z_axis:
+#         for z in self.x3_axis:
 #             z_selection = (self.node_pos[:, 2] == z)
 #             dists = torch.matmul(difference_vectors[z_selection, :, None, :],
 #                                  torch.matmul(self.metric_tensor(z), difference_vectors[z_selection, :, :, None]))
@@ -125,37 +125,36 @@ import matplotlib.colors as colors
 #     def compute_weights(self, distances):
 #         return torch.exp(-distances ** 2 / (2 * self.sigma ** 2))
 #
-    # def projection(self, images, targets):
-    #     # images dimension : (n_images, height, width, n_orientations, n_channels)
-    #
-    #     if len(images.shape) != 5:
-    #         raise ValueError("images must be in format (n_images, n_orientations, height, width, n_channels)")
-    #
-    #     n_images, height, width, _, n_channels = images.size()
-    #
-    #     if self.nx != width or self.ny != height:
-    #         raise ValueError(f"grid size and image size should coincide but are ({self.nx, self.ny}"
-    #                          f"and ({width, height})")
-    #     if n_channels > 1:
-    #         raise ValueError(f"images with channels > 1 are supported for the moment")
-    #
-    #     x = images.permute(0, 2, 1, 3, 4).expand(-1, -1, -1, self.nz, -1).reshape(n_images, -1, n_channels)
-    #
-    #     if n_images == 1:
-    #         return Data(x=x[0], y=targets, pos=self.node_pos, edge_index=self.edge_index, edge_attr=self.edge_weight)
-    #
-    #     return [Data(x=x[idx],
-    #                  pos=self.node_pos,
-    #                  y=targets[idx],
-    #                  edge_index=self.edge_index,
-    #                  edge_attr=self.edge_weight) for idx in range(n_images)]
-
+# def projection(self, images, targets):
+#     # images dimension : (n_images, height, width, n_orientations, n_channels)
+#
+#     if len(images.shape) != 5:
+#         raise ValueError("images must be in format (n_images, n_orientations, height, width, n_channels)")
+#
+#     n_images, height, width, _, n_channels = images.size()
+#
+#     if self.nx1 != width or self.nx2 != height:
+#         raise ValueError(f"grid size and image size should coincide but are ({self.nx1, self.nx2}"
+#                          f"and ({width, height})")
+#     if n_channels > 1:
+#         raise ValueError(f"images with channels > 1 are supported for the moment")
+#
+#     x = images.permute(0, 2, 1, 3, 4).expand(-1, -1, -1, self.nx3, -1).reshape(n_images, -1, n_channels)
+#
+#     if n_images == 1:
+#         return Data(x=x[0], y=targets, pos=self.node_pos, edge_index=self.edge_index, edge_attr=self.edge_weight)
+#
+#     return [Data(x=x[idx],
+#                  pos=self.node_pos,
+#                  y=targets[idx],
+#                  edge_index=self.edge_index,
+#                  edge_attr=self.edge_weight) for idx in range(n_images)]
 
 
 class GraphData(object):
-    def __init__(self, grid_size, self_loop=True, sigma = 1, weight_threshold = 1, lambdas=(1., 1., 1.)):
+    def __init__(self, grid_size, self_loop=True, sigma=1, weight_threshold=1, lambdas=(1.0, 1.0, 1.0)):
         """
-            grid_size (tuple): the size of the grid in format (nx, ny, nz)
+            grid_size (tuple): the size of the grid in format (nx1, nx2, nx3)
             self_loop (bool): the indicator if the graph contains self loop or not
             connection (tuple): the scheme to construct edges, it contains the name of the scheme ("tg" or "nn") with float parameter
             origin_center (bool): the indicator if the grid must by centered at origin
@@ -163,8 +162,8 @@ class GraphData(object):
             ker_orient (tuple): the orientation angles of the first eigen vector of the anisotropic tensor
             ker_lambda (tuple): the eigenvalues of the anisotropic tensor, correspond to anisotropy intensity
         """
-        self.nx, self.ny, self.nz = grid_size
-        self.num_nodes = self.nx * self.ny * self.nz
+        self.nx1, self.nx2, self.nx3 = grid_size
+        self.num_nodes = self.nx1 * self.nx2 * self.nx3
         self.self_loop = self_loop
         self.weight_threshold = weight_threshold
         self.sigma = sigma
@@ -181,91 +180,86 @@ class GraphData(object):
         if len(signal) == self.num_nodes:
             self.signal = signal.flatten()
             return
-        if signal.shape[0] != self.nx or signal.shape[1] != self.ny:
+        if signal.shape[0] != self.nx1 or signal.shape[1] != self.nx2:
             raise ValueError(f"the size of the signal does not coincide with the size of the graph")
-        self.signal = signal.expand(self.nz, -1, -1).permute(2, 1, 0).flatten()
+        self.signal = signal.expand(self.nx3, -1, -1).permute(2, 1, 0).flatten()
 
     def init_ref(self):
         # we define the 3 axis
-        self.x_axis = torch.arange(0., self.nx, 1.)
-        self.y_axis = torch.arange(0., self.ny, 1.)
-        self.z_axis = torch.arange(0., math.pi, math.pi/self.nz)
+        self.x1_axis = torch.arange(0.0, self.nx1, 1.0)
+        self.x2_axis = torch.arange(0.0, self.nx2, 1.0)
+        self.x3_axis = torch.arange(0.0, math.pi, math.pi / self.nx3)
 
     def init_nodes(self):
         self.node_index = torch.arange(self.num_nodes)
         # we define the grid points and reshape them to get 1-d arrays
-        xv, yv, zv = torch.meshgrid(self.x_axis, self.y_axis, self.z_axis)
+        xv, yv, zv = torch.meshgrid(self.x1_axis, self.x2_axis, self.x3_axis)
         self.node_pos = torch.stack([xv.flatten(), yv.flatten(), zv.flatten()], axis=-1)
 
     def init_edges(self):
         distances = self.compute_distances()
         weights = self.compute_weights(distances)
-        edge_indices = torch.reshape(torch.stack(torch.meshgrid(self.node_index,self.node_index),-1),[-1,2])
-        threshold_mask = (weights >= self.weight_threshold)
-        self.edge_index = torch.transpose(edge_indices[threshold_mask],1,0)
+        edge_indices = torch.reshape(torch.stack(torch.meshgrid(self.node_index, self.node_index), -1), [-1, 2])
+        threshold_mask = weights >= self.weight_threshold
+        self.edge_index = torch.transpose(edge_indices[threshold_mask], 1, 0)
         self.edge_metric = distances[threshold_mask]
         self.edge_weight = weights[threshold_mask]
 
     def metric_tensor(self, theta):
-        e1 = torch.tensor([math.cos(theta),math.sin(theta),0],dtype=torch.float32)
-        e2 = torch.tensor([-math.sin(theta),math.cos(theta),0],dtype=torch.float32)
-        e3 = torch.tensor([0,0,1],dtype=torch.float32)
-        D = e1.unsqueeze(1)*e1.unsqueeze(0)*self.l1
-        D += e2.unsqueeze(1)*e2.unsqueeze(0)*self.l2
-        D += e3.unsqueeze(1)*e3.unsqueeze(0)*self.l3
+        e1 = torch.tensor([math.cos(theta), math.sin(theta), 0], dtype=torch.float32)
+        e2 = torch.tensor([-math.sin(theta), math.cos(theta), 0], dtype=torch.float32)
+        e3 = torch.tensor([0, 0, 1], dtype=torch.float32)
+        D = e1.unsqueeze(1) * e1.unsqueeze(0) * self.l1
+        D += e2.unsqueeze(1) * e2.unsqueeze(0) * self.l2
+        D += e3.unsqueeze(1) * e3.unsqueeze(0) * self.l3
         return D
 
     def compute_distances(self):
-        distances = torch.zeros([len(self.node_pos),len(self.node_pos)],dtype=torch.float32)
+        distances = torch.zeros([len(self.node_pos), len(self.node_pos)], dtype=torch.float32)
         difference_vectors = torch.cat(
             (
-                self.node_pos[:,:2].unsqueeze(1)-self.node_pos[:,:2].unsqueeze(0),
-                (((self.node_pos[:,2].unsqueeze(1)-self.node_pos[:,2].unsqueeze(0)-math.pi/2)%math.pi)-math.pi/2).unsqueeze(2)
+                self.node_pos[:, :2].unsqueeze(1) - self.node_pos[:, :2].unsqueeze(0),
+                (((self.node_pos[:, 2].unsqueeze(1) - self.node_pos[:, 2].unsqueeze(0) - math.pi / 2) % math.pi) - math.pi / 2).unsqueeze(2),
             ),
-            dim=2
+            dim=2,
         )
-        for z in self.z_axis:
-            z_selection = (self.node_pos[:,2]==z)
-            dists = torch.matmul(difference_vectors[z_selection].unsqueeze(2),
-                                 torch.matmul(self.metric_tensor(z),
-                                              difference_vectors[z_selection].unsqueeze(3)))
-            distances[z_selection,:] = dists[:,:,0,0]
+        for z in self.x3_axis:
+            z_selection = self.node_pos[:, 2] == z
+            dists = torch.matmul(
+                difference_vectors[z_selection].unsqueeze(2), torch.matmul(self.metric_tensor(z), difference_vectors[z_selection].unsqueeze(3))
+            )
+            distances[z_selection, :] = dists[:, :, 0, 0]
         return distances.flatten()
 
     def compute_weights(self, distances):
-        return torch.exp(-distances**2/(2*self.sigma**2))
+        return torch.exp(-(distances ** 2) / (2 * self.sigma ** 2))
 
     def embed_on_graph(self, images, targets):
         # images dimension : (n_images, height, width, n_orientations, n_channels)
         if len(images.shape) != 5:
             raise ValueError("images must be in format (n_images, n_orientations, height, width, n_channels)")
         n_images, height, width, _, n_channels = images.size()
-        if self.nx != width or self.ny != height:
-            raise ValueError(f"grid size and image size should coincide but are ({self.nx, self.ny}"
-                             f"and ({width, height})")
+        if self.nx1 != width or self.nx2 != height:
+            raise ValueError(f"grid size and image size should coincide but are ({self.nx1, self.nx2}" f"and ({width, height})")
         if n_channels > 1:
             raise ValueError(f"images with channels > 1 are supported for the moment")
-        x = images.permute(0, 2, 1, 3, 4).expand(-1, -1, -1, self.nz, -1).reshape(n_images, -1, n_channels)
+        x = images.permute(0, 2, 1, 3, 4).expand(-1, -1, -1, self.nx3, -1).reshape(n_images, -1, n_channels)
         if n_images == 1:
             return Data(x=x[0], y=targets, pos=self.node_pos, edge_index=self.edge_index, edge_attr=self.edge_weight)
-        return [Data(x=x[idx],
-                     pos=self.node_pos,
-                     y=targets[idx],
-                     edge_index=self.edge_index,
-                     edge_attr=self.edge_weight) for idx in range(n_images)]
+        return [Data(x=x[idx], pos=self.node_pos, y=targets[idx], edge_index=self.edge_index, edge_attr=self.edge_weight) for idx in range(n_images)]
 
     def random_mask(self, num_true, num_false, true_force=None):
         mask = torch.zeros(num_true + num_false)
-        mask[:num_true] = 1.
+        mask[:num_true] = 1.0
         if true_force:
-            mask[true_force] = 1.
+            mask[true_force] = 1.0
         idx = torch.randperm(mask.nelement())
         mask = mask.view(-1)[idx].view(mask.size())
         return mask.bool()
 
     def random_purge(self, frac):
         # remove random nodes (node at origin cannot be removed)
-        node_mask = self.random_mask(self.num_nodes-int(frac*self.num_nodes), int(frac*self.num_nodes), self.o_idx)
+        node_mask = self.random_mask(self.num_nodes - int(frac * self.num_nodes), int(frac * self.num_nodes), self.o_idx)
         node_index = self.node_index[node_mask]
         # remove edges between these nodes
         source_mask = torch.stack([(self.edge_index[0] == n) for n in node_index]).sum(0).bool()
@@ -278,89 +272,83 @@ class GraphData(object):
     def random_purge_edges(self, frac):
         # remove random nodes (node at origin cannot be removed)
         n_edges = self.edge_index.shape[1]
-        n_keep = int(n_edges*(1 - frac))
-        keep_indices=np.random.permutation(n_edges)[:n_keep]
+        n_keep = int(n_edges * (1 - frac))
+        keep_indices = np.random.permutation(n_edges)[:n_keep]
         self.edge_index = self.edge_index[:, keep_indices]
         self.edge_weight = self.edge_weight[keep_indices]
 
     def projection(self, images, targets):
-            # images dimension : (n_images, height, width, n_orientations, n_channels)
+        # images dimension : (n_images, height, width, n_orientations, n_channels)
 
-            if len(images.shape) != 5:
-                raise ValueError("images must be in format (n_images, n_orientations, height, width, n_channels)")
+        if len(images.shape) != 5:
+            raise ValueError("images must be in format (n_images, n_orientations, height, width, n_channels)")
 
-            n_images, height, width, _, n_channels = images.size()
+        n_images, height, width, _, n_channels = images.size()
 
-            if self.nx != width or self.ny != height:
-                raise ValueError(f"grid size and image size should coincide but are ({self.nx, self.ny}"
-                                 f"and ({width, height})")
-            if n_channels > 1:
-                raise ValueError(f"images with channels > 1 are supported for the moment")
+        if self.nx1 != width or self.nx2 != height:
+            raise ValueError(f"grid size and image size should coincide but are ({self.nx1, self.nx2}" f"and ({width, height})")
+        if n_channels > 1:
+            raise ValueError(f"images with channels > 1 are supported for the moment")
 
-            x = images.permute(0, 2, 1, 3, 4).expand(-1, -1, -1, self.nz, -1).reshape(n_images, -1, n_channels)
+        x = images.permute(0, 2, 1, 3, 4).expand(-1, -1, -1, self.nx3, -1).reshape(n_images, -1, n_channels)
 
-            if n_images == 1:
-                return Data(x=x[0], y=targets, pos=self.node_pos, edge_index=self.edge_index,
-                            edge_attr=self.edge_weight)
+        if n_images == 1:
+            return Data(x=x[0], y=targets, pos=self.node_pos, edge_index=self.edge_index, edge_attr=self.edge_weight)
 
-            return [Data(x=x[idx],
-                         pos=self.node_pos,
-                         y=targets[idx],
-                         edge_index=self.edge_index,
-                         edge_attr=self.edge_weight) for idx in range(n_images)]
+        return [Data(x=x[idx], pos=self.node_pos, y=targets[idx], edge_index=self.edge_index, edge_attr=self.edge_weight) for idx in range(n_images)]
 
 
 def plot_weight_field(graph_data, ax, node_idx, only_neighbors=False):
-    mask = (graph_data.edge_index[0] == node_idx)
+    mask = graph_data.edge_index[0] == node_idx
 
     targets = graph_data.edge_index[:, mask][1]
     weight = graph_data.edge_weight[mask]
 
     if only_neighbors:
-        mask = (weight > 0)
+        mask = weight > 0
 
-        im = ax.scatter(graph_data.node_pos[targets[mask], 0],
-                        graph_data.node_pos[targets[mask], 1],
-                        graph_data.node_pos[targets[mask], 2],
-                        c=weight, s=100, alpha=0.5)
+        im = ax.scatter(
+            graph_data.node_pos[targets[mask], 0],
+            graph_data.node_pos[targets[mask], 1],
+            graph_data.node_pos[targets[mask], 2],
+            c=weight,
+            s=100,
+            alpha=0.5,
+        )
 
     else:
-        im = ax.scatter(graph_data.node_pos[targets, 0],
-                        graph_data.node_pos[targets, 1],
-                        graph_data.node_pos[targets, 2],
-                        c=weight, s=100, alpha=0.5)
+        im = ax.scatter(graph_data.node_pos[targets, 0], graph_data.node_pos[targets, 1], graph_data.node_pos[targets, 2], c=weight, s=100, alpha=0.5)
 
     plt.colorbar(im, fraction=0.04, pad=0.1)
-    im = ax.scatter(graph_data.node_pos[node_idx, 0],
-                    graph_data.node_pos[node_idx, 1],
-                    graph_data.node_pos[node_idx, 2],
-                    s=100, c="white", edgecolors="black", linewidth=3, alpha=1.)
+    im = ax.scatter(
+        graph_data.node_pos[node_idx, 0],
+        graph_data.node_pos[node_idx, 1],
+        graph_data.node_pos[node_idx, 2],
+        s=100,
+        c="white",
+        edgecolors="black",
+        linewidth=3,
+        alpha=1.0,
+    )
 
     ax.set_title(f"weight field from node {node_idx}")
 
-eps = .25
-xi = .01
-nx, ny, nz = (28, 28, 12)
-graph_data = GraphData(grid_size=(nx, ny, nz), self_loop=True, weight_threshold=.25, sigma=.25,
-                       lambdas=((xi / eps), xi, 1))
+
+eps = 0.25
+xi = 0.01
+nx1, nx2, nx3 = (28, 28, 12)
+graph_data = GraphData(grid_size=(nx1, nx2, nx3), self_loop=True, weight_threshold=0.25, sigma=0.25, lambdas=((xi / eps), xi, 1))
 graph_data.random_purge_edges(0.75)
 
 
 fig = plt.figure(figsize=(10, 9))
 
-ax = fig.add_subplot(1, 1, 1, projection="3d",
-                     xlabel="x", ylabel="y", zlabel="z",
-                     xlim=(0., graph_data.nx - 1),
-                     ylim=(0., graph_data.ny - 1),
-                     zlim=(0., np.pi)
-                     )
+ax = fig.add_subplot(
+    1, 1, 1, projection="3d", xlabel="x", ylabel="y", zlabel="z", xlim=(0.0, graph_data.nx1 - 1), ylim=(0.0, graph_data.nx2 - 1), zlim=(0.0, np.pi)
+)
 plot_weight_field(graph_data, ax, 5002)
 
 plt.show()
-
-
-
-
 
 
 """# Image on graph"""
@@ -368,14 +356,13 @@ plt.show()
 
 def download_mnist(data_path):
     def check_exists(processed_path):
-        return (os.path.exists(os.path.join(processed_path, "training.pt")) and
-                os.path.exists(os.path.join(processed_path, "test.pt")))
+        return os.path.exists(os.path.join(processed_path, "training.pt")) and os.path.exists(os.path.join(processed_path, "test.pt"))
 
     resources = [
         ("http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz", "f68b3c2dcbeaaa9fbdd348bbdeb94873"),
         ("http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz", "d53e105ee54ea40749a09fcbcd1e9432"),
         ("http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz", "9fb629c4189551a2d022fa330f9573f3"),
-        ("http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz", "ec29112dd5afa0611ce80d1b7f02629c")
+        ("http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz", "ec29112dd5afa0611ce80d1b7f02629c"),
     ]
 
     raw_path = os.path.join(data_path, "MNIST", "raw")
@@ -389,26 +376,23 @@ def download_mnist(data_path):
 
     # download files
     for url, md5 in resources:
-        filename = url.rpartition('/')[2]
+        filename = url.rpartition("/")[2]
         download_and_extract_archive(url, download_root=raw_path, filename=filename, md5=md5)
 
     # process and save as torch files
-    print('Processing...')
+    print("Processing...")
 
     training_set = (
-        read_image_file(os.path.join(raw_path, 'train-images-idx3-ubyte')),
-        read_label_file(os.path.join(raw_path, 'train-labels-idx1-ubyte'))
+        read_image_file(os.path.join(raw_path, "train-images-idx3-ubyte")),
+        read_label_file(os.path.join(raw_path, "train-labels-idx1-ubyte")),
     )
-    test_set = (
-        read_image_file(os.path.join(raw_path, 't10k-images-idx3-ubyte')),
-        read_label_file(os.path.join(raw_path, 't10k-labels-idx1-ubyte'))
-    )
-    with open(os.path.join(processed_path, "training.pt"), 'wb') as f:
+    test_set = (read_image_file(os.path.join(raw_path, "t10k-images-idx3-ubyte")), read_label_file(os.path.join(raw_path, "t10k-labels-idx1-ubyte")))
+    with open(os.path.join(processed_path, "training.pt"), "wb") as f:
         torch.save(training_set, f)
-    with open(os.path.join(processed_path, "test.pt"), 'wb') as f:
+    with open(os.path.join(processed_path, "test.pt"), "wb") as f:
         torch.save(test_set, f)
 
-    print('Done!')
+    print("Done!")
 
     return processed_path
 
@@ -427,13 +411,11 @@ def preprocess_mnist(images, targets):
 
 def plot_graph_signal(graph_data, signal, ax, mask_zero=False, color_bar=True):
     if mask_zero:
-        mask = (signal > 1e-3)
-        im = ax.scatter(graph_data.node_pos[mask, 0], graph_data.node_pos[mask, 1], graph_data.node_pos[mask, 2],
-                        c=signal[mask], alpha=0.5)
+        mask = signal > 1e-3
+        im = ax.scatter(graph_data.node_pos[mask, 0], graph_data.node_pos[mask, 1], graph_data.node_pos[mask, 2], c=signal[mask], alpha=0.5)
 
     else:
-        im = ax.scatter(graph_data.node_pos[:, 0], graph_data.node_pos[:, 1], graph_data.node_pos[:, 2], c=signal,
-                        alpha=0.5)
+        im = ax.scatter(graph_data.node_pos[:, 0], graph_data.node_pos[:, 1], graph_data.node_pos[:, 2], c=signal, alpha=0.5)
 
     if color_bar:
         plt.colorbar(im, fraction=0.04, pad=0.1)
@@ -456,11 +438,8 @@ def get_datalist(graph_data, processed_path, train=True):
     return graph_data.projection(images, targets)
 
 
-
-
 data_path = "data"
 processed_path = download_mnist(data_path)
-
 
 
 """# Neural networks : Chebyschev"""
@@ -571,17 +550,17 @@ def rescale_pos(pos):
     return pos.ceil()
 
 
-def spatial_subsampling(pos, batch, divider=2.):
+def spatial_subsampling(pos, batch, divider=2.0):
     pos = rescale_pos(pos)
 
     # number of nodes along each dimension
-    nX, _ = pos.max(dim=0)
-    nX = nX + 1
+    nx1, _ = pos.max(dim=0)
+    nx1 = nx1 + 1
 
-    divider = torch.tensor([divider, divider, 1.], device=pos.device)
+    divider = torch.tensor([divider, divider, 1.0], device=pos.device)
 
     cluster = torch.floor_divide(pos, divider)
-    cluster = batch * torch.prod(nX) + cluster[:, 2] * torch.prod(nX[:2]) + cluster[:, 1] * nX[0] + cluster[:, 0]
+    cluster = batch * torch.prod(nx1) + cluster[:, 2] * torch.prod(nx1[:2]) + cluster[:, 1] * nx1[0] + cluster[:, 0]
 
     return cluster.double()
 
@@ -591,16 +570,15 @@ def orientation_subsampling(pos, batch):
     pos = rescale_pos(pos)
 
     # number of nodes along each dimension
-    nX, _ = pos.max(dim=0)
-    nX = nX + 1
+    nx1, _ = pos.max(dim=0)
+    nx1 = nx1 + 1
 
-    cluster = batch * torch.prod(nX) + pos[:, 1] * nX[0] + pos[:, 0]
+    cluster = batch * torch.prod(nx1) + pos[:, 1] * nx1[0] + pos[:, 0]
 
     return cluster.double()
 
 
 class ChebNet(torch.nn.Module):
-
     def __init__(self, K):
         super(ChebNet, self).__init__()
         self.conv1 = ChebConv(1, 8, K)  # 1*16*K weights + 16 bias
@@ -628,7 +606,7 @@ class ChebNet(torch.nn.Module):
         data.x = self.bn2(data.x)
         data.x = data.x.relu()
 
-        cluster = spatial_subsampling(data.pos, data.batch, 2.)
+        cluster = spatial_subsampling(data.pos, data.batch, 2.0)
         data = max_pool(cluster, data)
 
         # Second layer: 2 Chebyschev convolution - Spatial max pooling /2
@@ -640,7 +618,7 @@ class ChebNet(torch.nn.Module):
         data.x = self.bn4(data.x)
         data.x = data.x.relu()
 
-        cluster = spatial_subsampling(data.pos, data.batch, 2.)
+        cluster = spatial_subsampling(data.pos, data.batch, 2.0)
         data = max_pool(cluster, data)
 
         # Second layer: 2 Chebyschev convolution - Spatial max pooling /2
@@ -651,7 +629,7 @@ class ChebNet(torch.nn.Module):
         data.x = self.conv6(data.x, data.edge_index, data.edge_attr, data.batch)
         data.x = data.x.relu()
 
-        cluster = spatial_subsampling(data.pos, data.batch, 2.)
+        cluster = spatial_subsampling(data.pos, data.batch, 2.0)
         data = max_pool(cluster, data)
 
         # Third layer: Orientation max pooling
@@ -671,21 +649,20 @@ class ChebNet(torch.nn.Module):
 """## Only spatial"""
 
 eps = 1
-xi = .01
-nx, ny, nz = (28, 28, 1)
-graph_data = GraphData(grid_size=(nx, ny, nz), self_loop=True, weight_threshold=.25, sigma=.25,
-                       lambdas=((xi / eps), xi, 1))
+xi = 0.01
+nx1, nx2, nx3 = (28, 28, 1)
+graph_data = GraphData(grid_size=(nx1, nx2, nx3), self_loop=True, weight_threshold=0.25, sigma=0.25, lambdas=((xi / eps), xi, 1))
 graph_data.random_purge_edges(0.5)
 
 
 train_loader, test_loader = get_dataloaders(processed_path, graph_data, train_batch_size=64, test_batch_size=64)
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model = ChebNet(10)
 optimizer = torch.optim.Adam(model.parameters())
 
-print('model capacity 2D',model.capacity)
+print("model capacity 2D", model.capacity)
 
 metrics = {
     "accuracy": Accuracy(),
@@ -722,21 +699,20 @@ torch.save(model.state_dict(), model_path)
 
 """## Spatial and orientation"""
 
-eps = .25
-xi = .01
-nx, ny, nz = (28, 28, 12)
-graph_data = GraphData(grid_size=(nx, ny, nz), self_loop=True, weight_threshold=.25, sigma=.25,
-                       lambdas=((xi / eps), xi, 1))
+eps = 0.25
+xi = 0.01
+nx1, nx2, nx3 = (28, 28, 12)
+graph_data = GraphData(grid_size=(nx1, nx2, nx3), self_loop=True, weight_threshold=0.25, sigma=0.25, lambdas=((xi / eps), xi, 1))
 graph_data.random_purge_edges(0.5)
 
 train_loader, test_loader = get_dataloaders(processed_path, graph_data, train_batch_size=16, test_batch_size=16)
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model = ChebNet(10)
 optimizer = torch.optim.Adam(model.parameters())
 
-print('model capacity',model.capacity)
+print("model capacity", model.capacity)
 
 metrics = {
     "accuracy": Accuracy(),
@@ -766,5 +742,3 @@ _ = trainer.add_event_handler(Events.EPOCH_COMPLETED, log_test_results)
 max_epochs = 20
 trainer.run(train_loader, max_epochs=max_epochs)
 writer.close()
-
-
