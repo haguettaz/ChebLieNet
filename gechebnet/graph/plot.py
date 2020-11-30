@@ -17,9 +17,9 @@ def visualize_graph(graph_data):
     ax = fig.add_subplot(
         111,
         projection="3d",
-        xlim=(graph_data.x_axis.min(), graph_data.x_axis.max()),
-        ylim=(graph_data.y_axis.min(), graph_data.y_axis.max()),
-        zlim=(graph_data.z_axis.min(), graph_data.z_axis.max()),
+        xlim=(graph_data.x1_axis.min(), graph_data.x1_axis.max()),
+        ylim=(graph_data.x2_axis.min(), graph_data.x2_axis.max()),
+        zlim=(graph_data.x3_axis.min(), graph_data.x3_axis.max()),
         title=f"{graph_data.data.num_nodes} nodes - {graph_data.data.num_edges} edges",
     )
 
@@ -56,9 +56,9 @@ def visualize_weight_fields(graph_data, grid_size=(2, 2)):
                 num_cols,
                 r * num_cols + c + 1,
                 projection="3d",
-                xlim=(graph_data.x_axis.min(), graph_data.x_axis.max()),
-                ylim=(graph_data.y_axis.min(), graph_data.y_axis.max()),
-                zlim=(graph_data.z_axis.min(), graph_data.z_axis.max()),
+                xlim=(graph_data.x1_axis.min(), graph_data.x1_axis.max()),
+                ylim=(graph_data.x2_axis.min(), graph_data.x2_axis.max()),
+                zlim=(graph_data.x3_axis.min(), graph_data.x3_axis.max()),
             )
 
             im = ax.scatter(

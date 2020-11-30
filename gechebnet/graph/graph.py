@@ -9,21 +9,32 @@ from .utils import metric_tensor
 
 
 class GraphData(object):
-    def __init__(self, grid_size, num_layers=6, static_compression=None, self_loop=True, sigma=1.0, weight_threshold=0.3, lambdas=(1.0, 1.0, 1.0)):
+    def __init__(
+        self,
+        grid_size,
+        num_layers=6,
+        static_compression=None,
+        self_loop=True,
+        sigma=1.0,
+        dist_threshold=1.0,
+        lambdas=(1.0, 1.0, 1.0),
+        batch_size=1000,
+    ):
         """
         Initialise the GraphData object:
             - init the nodes and positions
             - init the edges and weights
 
         Args:
-            grid_size (tuple): the spatial dimension of the graph in format (nx, ny).
+            grid_size (tuple): the spatial dimension of the graph in format (nx1, nx2).
             num_layers (int, optional): the orientation dimension of the graph. Defaults to 6.
             static_compression (tuple, optional): the static compression algorithm to reduce
                 the graph size. Either ("node", kappa) or ("edge", kappa). Defaults to None.
             self_loop (bool, optional): the indicator if the graph can contains self-loop. Defaults to True.
             sigma (float, optional): the sigma parameter of the exponential weight function. Defaults to 1.0.
-            weight_threshold (float, optional): the threshold for the weight to be considered non nulle. Defaults to 0.3.
+            dist_threshold (float, optional): the maximum distance between two nodes to be linked. Defaults to 1.0.
             lambdas (tuple, optional): the anisotropic intensities. Defaults to (1.0, 1.0, 1.0).
+            batch_size (int, optional): the batch size when computing edges' weights. Defaults to 1000.
         """
 
         # graph compression
@@ -33,22 +44,22 @@ class GraphData(object):
             self.compression_type = None
 
         # nodes
-        self.nx, self.ny = grid_size
-        self.nz = num_layers
-        self.init_nodes(self.nx * self.ny * self.nz)
+        self.nx1, self.nx2 = grid_size
+        self.nx3 = num_layers
+        self.init_nodes(self.nx1 * self.nx2 * self.nx3)
 
         # edges
         self.self_loop = self_loop
-        self.weight_threshold = weight_threshold
+        self.dist_threshold = dist_threshold
         self.sigma = sigma
         self.l1, self.l2, self.l3 = lambdas
-        self.init_edges()
+        self.init_edges(batch_size)
 
     def init_nodes(self, num_nodes):
         """
         Initialise the nodes' indices and their positions.
             - `self.node_index` is a tensor with shape (num_nodes) 
-            - `self.node_pos` is a tensor with shape (self.nx * self.ny * self.nz, 3)        
+            - `self.node_pos` is a tensor with shape (self.nx1 * self.nx2 * self.nx3, 3)        
         If the compression algorithm is the static node compression, remove a proportion kappa of nodes.
 
         Args:
@@ -57,66 +68,80 @@ class GraphData(object):
         self.node_index = torch.arange(num_nodes)
 
         # we define the grid points and reshape them to get 1-d arrays
-        self.x_axis = torch.arange(0.0, self.nx, 1.0)
-        self.y_axis = torch.arange(0.0, self.ny, 1.0)
-        self.z_axis = torch.arange(0.0, math.pi, math.pi / self.nz)
+        self.x1_axis = torch.arange(0.0, self.nx1, 1.0)
+        self.x2_axis = torch.arange(0.0, self.nx2, 1.0)
+        self.x3_axis = torch.arange(0.0, math.pi, math.pi / self.nx3)
 
         # we keep in memory the position of all the nodes, before compression
         # easier to deal with indices from here
-        xv, yv, zv = torch.meshgrid(self.x_axis, self.y_axis, self.z_axis)
-        self.node_pos = torch.stack([xv.flatten(), yv.flatten(), zv.flatten()], axis=-1)
+        x3_, x2_, x1_ = torch.meshgrid(self.x3_axis, self.x2_axis, self.x1_axis)
+        self.node_pos = torch.stack([x1_.flatten(), x2_.flatten(), x3_.flatten()], axis=-1)
 
         if self.compression_type == "node":
             self.node_index = static_node_compression(self.node_index, self.kappa)
 
         self.num_nodes = self.node_index.nelement()
 
-    def init_edges(self):
+    def init_edges(self, batch_size):
         """
         Initialize the edges' indices and their weights. 
             - `self.edge_index` is a tensor with shape (2, num_edges) 
             - `self.edge_weight` is a tensor with shape (num_edges)
 
         If the compression algorithm is the static edge compression, remove a proportion kappa of edges.
+        
+        Args:
+            batch_size (int): the size of a batch when computing distances between nodes
         """
-        distances = self.compute_distances()
-        weights = self.compute_weights(distances)
-        edge_index = torch.reshape(torch.stack(torch.meshgrid(self.node_index, self.node_index), -1), [-1, 2])
-        threshold_mask = weights >= self.weight_threshold
+        list_of_edges = []
+        list_of_weights = []
 
-        self.edge_index = edge_index[threshold_mask].permute(1, 0)
-        self.edge_weight = weights[threshold_mask]
+        for batch in torch.split(self.node_index, batch_size):
+            edge_index = torch.stack((batch.repeat_interleave(self.num_nodes), self.node_index.repeat(len(batch))))
+
+            distances = self.compute_distances(self.node_pos[edge_index[0]], self.node_pos[edge_index[1]])
+
+            threshold_mask = distances <= self.dist_threshold
+
+            list_of_edges.append(edge_index[:, threshold_mask])
+            list_of_weights.append(self.compute_weights(distances[threshold_mask]))
+
+        self.edge_index = torch.cat(list_of_edges, axis=1)
+        self.edge_weight = torch.cat(list_of_weights)
 
         if self.compression_type == "edge":
             self.edge_index, self.edge_weight = static_edge_compression(self.edge_index, self.edge_weight, self.kappa)
 
-    def compute_distances(self):
+    def compute_distances(self, source_pos, target_pos):
         """
         Compute distances between each pair of nodes of the graph.
 
         Returns:
             (torch.tensor): the distances tensor.
         """
-        distances = torch.zeros([self.num_nodes, self.num_nodes], dtype=torch.float32)
-        difference_vectors = torch.cat(
-            (
-                self.node_pos[self.node_index, :2].unsqueeze(1) - self.node_pos[self.node_index, :2].unsqueeze(0),
-                (
-                    ((self.node_pos[self.node_index, 2].unsqueeze(1) - self.node_pos[self.node_index, 2].unsqueeze(0) - math.pi / 2) % math.pi)
-                    - math.pi / 2
-                ).unsqueeze(2),
-            ),
-            dim=2,
-        )
-        for z in self.z_axis:
-            z_selection = self.node_pos[self.node_index, 2] == z
-            dists = torch.matmul(
-                difference_vectors[z_selection].unsqueeze(2),
-                torch.matmul(metric_tensor(z, self.l1, self.l2, self.l3), difference_vectors[z_selection].unsqueeze(3)),
-            )
-            distances[z_selection, :] = dists[:, :, 0, 0]
+        num_edges = source_pos.shape[0]
 
-        return distances.flatten()
+        distances = torch.zeros(num_edges)
+
+        delta_pos = torch.cat(
+            (source_pos[:, :2] - target_pos[:, :2], (((source_pos[:, 2] - target_pos[:, 2] - math.pi / 2) % math.pi) - math.pi / 2).unsqueeze(1),),
+            dim=1,
+        )
+
+        for x3 in self.x3_axis:
+            x3_mask = source_pos[:, 2] == x3
+
+            delta_pos = torch.cat(
+                (
+                    source_pos[x3_mask, :2] - target_pos[x3_mask, :2],
+                    (((source_pos[x3_mask, 2] - target_pos[x3_mask, 2] - math.pi / 2) % math.pi) - math.pi / 2).unsqueeze(1),
+                ),
+                dim=1,
+            )
+
+            distances[x3_mask] = torch.bmm((delta_pos @ metric_tensor(x3, self.l1, self.l2, self.l3)).unsqueeze(1), delta_pos.unsqueeze(2)).flatten()
+
+        return distances
 
     def compute_weights(self, distances):
         """
@@ -147,11 +172,11 @@ class GraphData(object):
         """
         num_images, channels, height, width = images.shape
 
-        if height != self.ny or width != self.nx:
+        if height != self.nx2 or width != self.nx1:
             raise ValueError("Impossible to embed images on the graph, the dimensions don't fit")
 
         images = images.unsqueeze(4).permute(0, 3, 2, 4, 1)
-        images = images.expand(num_images, self.nx, self.ny, self.nz, channels)
+        images = images.expand(num_images, self.nx1, self.nx2, self.nx3, channels)
         images = images.reshape(num_images, -1, channels)
 
         if targets is None:
