@@ -5,20 +5,12 @@ import torch
 from torch_geometric.data import Data
 
 from ..utils import random_choice, shuffle
-from .utils import metric_tensor
+from .utils import GaussianKernel, metric_tensor
 
 
 class GraphData(object):
     def __init__(
-        self,
-        grid_size,
-        num_layers=6,
-        static_compression=None,
-        self_loop=True,
-        sigma=1.0,
-        dist_threshold=1.0,
-        lambdas=(1.0, 1.0, 1.0),
-        batch_size=1000,
+        self, grid_size, num_layers=6, static_compression=None, self_loop=True, weight_kernel=None, sigmas=(1.0, 1.0, 1.0), batch_size=1000,
     ):
         """
         Initialise the GraphData object:
@@ -31,9 +23,9 @@ class GraphData(object):
             static_compression (tuple, optional): the static compression algorithm to reduce
                 the graph size. Either ("node", kappa) or ("edge", kappa). Defaults to None.
             self_loop (bool, optional): the indicator if the graph can contains self-loop. Defaults to True.
-            sigma (float, optional): the sigma parameter of the exponential weight function. Defaults to 1.0.
+            weight_kernel (WeightKernel, optional): the weights' kernel. Defaults to None.
             dist_threshold (float, optional): the maximum distance between two nodes to be linked. Defaults to 1.0.
-            lambdas (tuple, optional): the anisotropic intensities. Defaults to (1.0, 1.0, 1.0).
+            sigmas (tuple, optional): the anisotropic intensities. Defaults to (1.0, 1.0, 1.0).
             batch_size (int, optional): the batch size when computing edges' weights. Defaults to 1000.
         """
 
@@ -50,9 +42,8 @@ class GraphData(object):
 
         # edges
         self.self_loop = self_loop
-        self.dist_threshold = dist_threshold
-        self.sigma = sigma
-        self.l1, self.l2, self.l3 = lambdas
+        self.weight_kernel = weight_kernel or WeightKernel()
+        self.sigmas = sigmas
         self.init_edges(batch_size)
 
     def init_nodes(self, num_nodes):
@@ -99,12 +90,13 @@ class GraphData(object):
         for batch in torch.split(self.node_index, batch_size):
             edge_index = torch.stack((batch.repeat_interleave(self.num_nodes), self.node_index.repeat(len(batch))))
 
-            distances = self.compute_distances(self.node_pos[edge_index[0]], self.node_pos[edge_index[1]])
+            distances_2 = self.compute_distances_2(self.node_pos[edge_index[0]], self.node_pos[edge_index[1]])
 
-            threshold_mask = distances <= self.dist_threshold
+            edge_weights = self.weight_kernel.compute(distances_2)
+            nonzero_mask = torch.nonzero(edge_weights)
 
-            list_of_edges.append(edge_index[:, threshold_mask])
-            list_of_weights.append(self.compute_weights(distances[threshold_mask]))
+            list_of_edges.append(edge_index[:, nonzero_mask])
+            list_of_weights.append(edge_weights[nonzero_mask])
 
         self.edge_index = torch.cat(list_of_edges, axis=1)
         self.edge_weight = torch.cat(list_of_weights)
@@ -112,16 +104,16 @@ class GraphData(object):
         if self.compression_type == "edge":
             self.edge_index, self.edge_weight = static_edge_compression(self.edge_index, self.edge_weight, self.kappa)
 
-    def compute_distances(self, source_pos, target_pos):
+    def compute_distances_2(self, source_pos, target_pos):
         """
-        Compute distances between each pair of nodes of the graph.
+        Compute distances between each pair of nodes of the graph. 
 
         Returns:
-            (torch.tensor): the distances tensor.
+            (torch.tensor): the squared distances tensor.
         """
         num_edges = source_pos.shape[0]
 
-        distances = torch.zeros(num_edges)
+        distances_2 = torch.zeros(num_edges)
 
         delta_pos = torch.cat(
             (source_pos[:, :2] - target_pos[:, :2], (((source_pos[:, 2] - target_pos[:, 2] - math.pi / 2) % math.pi) - math.pi / 2).unsqueeze(1),),
@@ -139,22 +131,11 @@ class GraphData(object):
                 dim=1,
             )
 
-            distances[x3_mask] = torch.bmm((delta_pos @ metric_tensor(x3, self.l1, self.l2, self.l3)).unsqueeze(1), delta_pos.unsqueeze(2)).flatten()
+            distances_2[x3_mask] = torch.bmm(
+                (delta_pos @ metric_tensor(x3, self.sigmas)).unsqueeze(1), delta_pos.unsqueeze(2)
+            ).flatten()
 
-        return distances
-
-    def compute_weights(self, distances):
-        """
-        Compute the edge weights from the distances between each pair of nodes. The weight function is 
-        an exponential function with parameter sigma.
-
-        Args:
-            distances (torch.tensor): the tensor of pairwise distances.
-
-        Returns:
-            (torch.tensor): the tensor of edge's weights
-        """
-        return torch.exp(-(distances ** 2) / (2 * self.sigma ** 2))
+        return distances_2
 
     def embed_on_graph(self, images, targets=None):
         """
