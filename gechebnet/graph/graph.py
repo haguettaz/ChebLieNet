@@ -93,13 +93,18 @@ class GraphData(object):
             distances_2 = self.compute_distances_2(self.node_pos[edge_index[0]], self.node_pos[edge_index[1]])
 
             edge_weights = self.weight_kernel.compute(distances_2)
-            nonzero_mask = torch.nonzero(edge_weights)
+            nonzero_mask = torch.nonzero(edge_weights).flatten()
 
             list_of_edges.append(edge_index[:, nonzero_mask])
             list_of_weights.append(edge_weights[nonzero_mask])
 
         self.edge_index = torch.cat(list_of_edges, axis=1)
         self.edge_weight = torch.cat(list_of_weights)
+
+        if not self.self_loop:
+            self_loop_mask = self.edge_index[0] != self.edge_index[1]
+            self.edge_index = self.edge_index[:, self_loop_mask]
+            self.edge_weight = self.edge_weight[self_loop_mask]
 
         if self.compression_type == "edge":
             self.edge_index, self.edge_weight = static_edge_compression(self.edge_index, self.edge_weight, self.kappa)
@@ -131,9 +136,7 @@ class GraphData(object):
                 dim=1,
             )
 
-            distances_2[x3_mask] = torch.bmm(
-                (delta_pos @ metric_tensor(x3, self.sigmas)).unsqueeze(1), delta_pos.unsqueeze(2)
-            ).flatten()
+            distances_2[x3_mask] = torch.bmm((delta_pos @ metric_tensor(x3, self.sigmas)).unsqueeze(1), delta_pos.unsqueeze(2)).flatten()
 
         return distances_2
 
