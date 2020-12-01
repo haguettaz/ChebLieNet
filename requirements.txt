@@ -1,5 +1,6 @@
 matplotlib==3.2.2 
 numpy<1.20
+pygsp<0.6
 
 torch==1.7.0+cu101 -f https://download.pytorch.org/whl/torch_stable.html
 torchvision<0.9
