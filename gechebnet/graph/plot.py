@@ -109,3 +109,33 @@ def visualize_samples(data_list, grid_size=(3, 3)):
             ax.set_title(f"sample #{sample_idx} labeled {sample.y.item()}")
 
     plt.show()
+
+
+def visualize_signal(graph_data, signal):
+    """
+    3d visualization of a signal on the graph.
+
+    Args:
+        graph_data (GraphData): the GraphData object containing the graph.
+        signal (torch.tensor): the signal on the graph to plot
+    """
+    fig = plt.figure(figsize=(8.0, 8.0))
+
+    ax = fig.add_subplot(
+        111,
+        projection="3d",
+        xlim=(graph_data.x1_axis.min(), graph_data.x1_axis.max()),
+        ylim=(graph_data.x2_axis.min(), graph_data.x2_axis.max()),
+        zlim=(graph_data.x3_axis.min(), graph_data.x3_axis.max()),
+    )
+
+    im = ax.scatter(
+        graph_data.node_pos[graph_data.node_index, 0],
+        graph_data.node_pos[graph_data.node_index, 1],
+        graph_data.node_pos[graph_data.node_index, 2],
+        c=signal,
+        s=50,
+        alpha=0.5,
+    )
+
+    plt.colorbar(im, fraction=0.04, pad=0.1)
