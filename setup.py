@@ -47,29 +47,28 @@ def get_requirements(file_name):
         file_name (string): File which contains requirements
 
     Returns:
-        (list): list of requirements
-        (list): list of dependecy links
+        list: list of requirements
     """
-    with open(path.join(THIS_DIRECTORY, "{}.txt".format(file_name)), "r") as file:
+    with open(path.join(THIS_DIRECTORY, f"{file_name}.txt"), "r") as file:
         reqs = []
-        dep_links = []
 
-        for line in file.readlines():
-            if not line.startswith("#"):
-                if "-f" in line:
-                    _, dep_link = line.split("-f")
-                    dep_links.append(dep_link)
-
+        for req in file.readlines():
+            if not req.startswith("#"):
+                print(req)
+                if req.startswith("git+"):
+                    name = req.split("#")[-1].replace("egg=", "").strip()
+                    req.replace("git+", "")
+                    reqs.append(f"{name} @ {req}")
                 else:
-                    reqs.append(line)
+                    reqs.append(req)
 
-        return reqs, dep_links
+        return reqs
 
 
-INSTALL_REQUIRES, DEPENDENCY_LINKS = get_requirements("requirements")
-TESTS_REQUIRES, _ = get_requirements("requirements-tests")
+INSTALL_REQUIRES = get_requirements("requirements")
+TESTS_REQUIRES = get_requirements("requirements-tests")
 
-EXTRA_REQUIRE = {"tests": TESTS_REQUIRES}
+EXTRA_REQUIRES = {"tests": TESTS_REQUIRES}
 
 
 setup(
@@ -79,8 +78,7 @@ setup(
     long_description=read("README.md"),
     long_description_content_type="text/markdown",
     install_requires=INSTALL_REQUIRES,
-    dependency_lins=DEPENDENCY_LINKS,
-    extras_require=EXTRA_REQUIRE,
+    extras_require=EXTRA_REQUIRES,
     packages=find_packages(),
     include_package_data=True,
 )
