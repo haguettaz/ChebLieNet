@@ -19,7 +19,7 @@ $ pip install torch-spline-conv -f https://pytorch-geometric.com/whl/torch-1.7.0
 $ pip install torch-geometric
 ```
 
-where ${CUDA} should be replaced by either cpu, cu92, cu101, cu102, or cu110 depending on your PyTorch installation.
+where `${CUDA}` should be replaced by either `cpu`, `cu92`, `cu101`, `cu102`, or `cu110` depending on your PyTorch installation.
 
 3. Install the package GroupEquivariantChebNets
 ```
