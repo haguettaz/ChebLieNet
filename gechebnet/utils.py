@@ -21,7 +21,7 @@ def prepare_batch(batch, device, non_blocking):
     return x, y
 
 
-def track_loss(trainer):
+def wandb_loss(trainer):
     """
     [summary]
 
@@ -31,7 +31,7 @@ def track_loss(trainer):
     wandb.log({"iteration": trainer.state.iteration, "loss": trainer.state.output})
 
 
-def track_metrics(trainer, evaluator, data_loader, name):
+def wandb_log(trainer, evaluator, data_loader):
     """
     [summary]
 
@@ -39,11 +39,12 @@ def track_metrics(trainer, evaluator, data_loader, name):
         trainer ([type]): [description]
         evaluator ([type]): [description]
         data_loader ([type]): [description]
-        name ([type]): the name of the dataset where the model is evaluated.
     """
     evaluator.run(data_loader)
     metrics = evaluator.state.metrics
-    wandb.log({f"{k} on {name} set": metrics[k] for k in metrics})
+
+    for k in metrics:
+        wandb.log({k: metrics[k], "epoch": trainer.state.epoch})
 
 
 def shuffle(tensor):
