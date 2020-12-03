@@ -3,6 +3,7 @@ import os
 
 import torch
 import torch.nn.functional as F
+import wandb
 from gechebnet.data.dataloader import get_data_list_mnist, get_data_loader
 from gechebnet.data.dataset import download_mnist, download_rotated_mnist
 from gechebnet.data.utils import split_data_list
@@ -14,8 +15,6 @@ from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events, create_supervised_evaluator, create_supervised_trainer
 from ignite.metrics import Accuracy, Loss
 from torch.optim import SGD, Adam
-
-import wandb
 
 DATA_PATH = os.path.join("..", "data")
 
@@ -123,7 +122,7 @@ def train(config=None):
         _ = trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, evaluator, val_loader)
 
         # save best model
-        # trainer.run(train_loader, max_epochs=config.epochs)
+        trainer.run(train_loader, max_epochs=config.epochs)
 
 
 if __name__ == "__main__":

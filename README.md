@@ -1,10 +1,10 @@
 # GroupEquivariantChebNets
 
-To use this code, please follow the procedure:
+To use this package, we recommend using a conda environment:
 
-1. Create a new environment with python 3.6 and activate it
+1. Create a new environment with python 3.8 and activate it
 ```
-$ conda create -n chebnets python=3.6
+$ conda create -n chebnets python=3.8
 $ conda activate chebnets
 ```
 
