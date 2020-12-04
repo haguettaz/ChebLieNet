@@ -16,8 +16,7 @@ from ignite.engine import Events, create_supervised_evaluator, create_supervised
 from ignite.metrics import Accuracy, Loss
 from torch.optim import SGD, Adam
 
-DATA_PATH = os.path.join("..", "data")
-
+DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 INPUT_DIM = 1
@@ -25,11 +24,12 @@ OUTPUT_DIM = 10
 
 
 def build_sweep_config():
-    sweep_config = {"method": "random"}
+    sweep_config = {"method": "bayes", "metric": {"name": "val_mnist_acc", "goal": "maximize"}}
 
     parameters_dict = {
         "batch_size": {"values": [16, 32, 64]},
         "dist_thresh": {"values": [2.0, 4.0, 8.0, 16.0]},
+        "edge_red": {"values": ["mean", "max"]},
         "epochs": {"value": 20},
         "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
         "hidden_dim": {"value": 10},
@@ -76,11 +76,11 @@ def build_optimizer(network, optimizer, learning_rate):
     return optimizer
 
 
-def build_network(K, nx3, input_dim, output_dim, hidden_dim, device=None):
+def build_network(K, nx3, input_dim, output_dim, hidden_dim, edge_red, device=None):
 
     device = device or torch.device("cpu")
 
-    model = ChebNet(K, nx3, input_dim, output_dim, hidden_dim)
+    model = ChebNet(K, nx3, input_dim, output_dim, hidden_dim, edge_red)
 
     return model.to(device)
 
@@ -105,7 +105,7 @@ def train(config=None):
             val_ratio=config.val_ratio,
         )
 
-        network = build_network(config.K, config.nx3, INPUT_DIM, OUTPUT_DIM, config.hidden_dim, DEVICE)
+        network = build_network(config.K, config.nx3, INPUT_DIM, OUTPUT_DIM, config.hidden_dim, config.edge_red, DEVICE)
         optimizer = build_optimizer(network, config.optimizer, config.learning_rate)
 
         loss_fn = F.nll_loss
@@ -128,4 +128,4 @@ def train(config=None):
 if __name__ == "__main__":
     sweep_config = build_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project="gechebnet")
-    wandb.agent(sweep_id, train, count=2)
+    wandb.agent(sweep_id, train, count=20)

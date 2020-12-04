@@ -1,13 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import ChebConv, global_max_pool, max_pool, voxel_grid
+from torch_geometric.nn import ChebConv, global_max_pool
 
-from .pooling import orientation_subsampling, spatial_subsampling
+from .pooling import max_pool, orientation_subsampling, spatial_subsampling
 
 
 class ChebNet(torch.nn.Module):
-    def __init__(self, K, num_layers, input_dim=1, output_dim=10, hidden_dim=10):
+    def __init__(self, K, num_layers, input_dim=1, output_dim=10, hidden_dim=10, edge_red="add"):
         """
         Initialize a ChebNet with 6 convolutional layers and batch normalization.
 
@@ -35,6 +35,7 @@ class ChebNet(torch.nn.Module):
         self.bn5 = torch.nn.BatchNorm1d(hidden_dim)
 
         self.num_layers = num_layers
+        self.edge_red = edge_red
 
     def forward(self, data):
         """
@@ -55,7 +56,7 @@ class ChebNet(torch.nn.Module):
         data.x = data.x.relu()
 
         cluster = spatial_subsampling(data.pos, data.batch, 2.0)
-        data = max_pool(cluster, data)
+        data = max_pool(cluster, data, self.edge_red)
 
         data.x = self.conv3(data.x, data.edge_index, data.edge_attr, data.batch)
         data.x = self.bn3(data.x)
@@ -66,7 +67,7 @@ class ChebNet(torch.nn.Module):
         data.x = data.x.relu()
 
         cluster = spatial_subsampling(data.pos, data.batch, 2.0)
-        data = max_pool(cluster, data)
+        data = max_pool(cluster, data, self.edge_red)
 
         data.x = self.conv5(data.x, data.edge_index, data.edge_attr, data.batch)
         data.x = self.bn5(data.x)
@@ -76,7 +77,7 @@ class ChebNet(torch.nn.Module):
         data.x = data.x.relu()
 
         cluster = spatial_subsampling(data.pos, data.batch, 2.0)
-        data = max_pool(cluster, data)
+        data = max_pool(cluster, data, self.edge_red)
 
         cluster = orientation_subsampling(data.pos, data.batch, float(self.num_layers))
         data = max_pool(cluster, data)
