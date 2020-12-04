@@ -1,8 +1,9 @@
 import torch
 from torch_geometric.data import Batch
+from torch_geometric.nn.pool import voxel_grid
 from torch_geometric.nn.pool.consecutive import consecutive_cluster
 from torch_geometric.nn.pool.max_pool import _max_pool_x
-from torch_geometric.nn.pool.pool import pool_batch, pool_pos, voxel_grid
+from torch_geometric.nn.pool.pool import pool_batch, pool_pos
 from torch_geometric.utils import remove_self_loops
 from torch_scatter import scatter_mean
 from torch_sparse import coalesce
