@@ -32,8 +32,8 @@ def build_sweep_config():
         "edge_red": {"values": ["mean", "max"]},
         "epochs": {"value": 20},
         "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
-        "hidden_dim": {"value": 10},
-        "K": {"values": [5, 10, 25]},
+        "hidden_dim": {"value": 16},
+        "K": {"values": [5, 10, 15]},
         "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-4), "max": math.log(1e-1)},
         "nx1": {"value": 28},
         "nx2": {"value": 28},
@@ -106,6 +106,7 @@ def train(config=None):
         )
 
         network = build_network(config.K, config.nx3, INPUT_DIM, OUTPUT_DIM, config.hidden_dim, config.edge_red, DEVICE)
+
         optimizer = build_optimizer(network, config.optimizer, config.learning_rate)
 
         loss_fn = F.nll_loss
