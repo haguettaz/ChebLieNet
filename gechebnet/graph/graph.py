@@ -10,7 +10,14 @@ from .utils import GaussianKernel, metric_tensor
 
 class GraphData(object):
     def __init__(
-        self, grid_size, num_layers=6, static_compression=None, self_loop=True, weight_kernel=None, sigmas=(1.0, 1.0, 1.0), batch_size=1000,
+        self,
+        grid_size,
+        num_layers=6,
+        static_compression=None,
+        self_loop=True,
+        weight_kernel=None,
+        sigmas=(1.0, 1.0, 1.0),
+        batch_size=1000,
     ):
         """
         Initialise the GraphData object:
@@ -49,8 +56,8 @@ class GraphData(object):
     def init_nodes(self, num_nodes):
         """
         Initialise the nodes' indices and their positions.
-            - `self.node_index` is a tensor with shape (num_nodes) 
-            - `self.node_pos` is a tensor with shape (self.nx1 * self.nx2 * self.nx3, 3)        
+            - `self.node_index` is a tensor with shape (num_nodes)
+            - `self.node_pos` is a tensor with shape (self.nx1 * self.nx2 * self.nx3, 3)
         If the compression algorithm is the static node compression, remove a proportion kappa of nodes.
 
         Args:
@@ -75,12 +82,12 @@ class GraphData(object):
 
     def init_edges(self, batch_size):
         """
-        Initialize the edges' indices and their weights. 
-            - `self.edge_index` is a tensor with shape (2, num_edges) 
+        Initialize the edges' indices and their weights.
+            - `self.edge_index` is a tensor with shape (2, num_edges)
             - `self.edge_weight` is a tensor with shape (num_edges)
 
         If the compression algorithm is the static edge compression, remove a proportion kappa of edges.
-        
+
         Args:
             batch_size (int): the size of a batch when computing distances between nodes
         """
@@ -111,7 +118,7 @@ class GraphData(object):
 
     def compute_distances_2(self, source_pos, target_pos):
         """
-        Compute distances between each pair of nodes of the graph. 
+        Compute distances between each pair of nodes of the graph.
 
         Returns:
             (torch.tensor): the squared distances tensor.
@@ -121,7 +128,10 @@ class GraphData(object):
         distances_2 = torch.zeros(num_edges)
 
         delta_pos = torch.cat(
-            (source_pos[:, :2] - target_pos[:, :2], (((source_pos[:, 2] - target_pos[:, 2] - math.pi / 2) % math.pi) - math.pi / 2).unsqueeze(1),),
+            (
+                source_pos[:, :2] - target_pos[:, :2],
+                (((source_pos[:, 2] - target_pos[:, 2] - math.pi / 2) % math.pi) - math.pi / 2).unsqueeze(1),
+            ),
             dim=1,
         )
 
@@ -193,12 +203,12 @@ class GraphData(object):
 
 def get_neighbors(graph_data, node_idx, return_weights=True):
     """
-    Get the node indices of the neighbors of a given node. 
+    Get the node indices of the neighbors of a given node.
 
     Args:
         graph_data (GraphData): the GraphData object containing information about the graph.
         node_idx ([type]): the node index of interest
-        return_weights (bool, optional): the indicator to return weights associated to each neighbors. 
+        return_weights (bool, optional): the indicator to return weights associated to each neighbors.
             Defaults to True.
 
     Returns:

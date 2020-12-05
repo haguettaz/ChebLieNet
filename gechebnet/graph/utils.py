@@ -35,12 +35,12 @@ class WeightKernel:
     The base class for the weight kernels.
     """
 
-    def __init__(self, threshold=2.0, sigma=1.0, *args, **kwargs):
+    def __init__(self, threshold=0.5, sigma=1.0, *args, **kwargs):
         """
         Initialize the weight kernel with hyperparameters.
 
         Args:
-            threshold (float): the maximum squared distances between two nodes to be linked.
+            threshold (float): the threshold on the weights.
             sigma (float): the sigma parameter of the kernel.
         """
         self.threshold = threshold
@@ -91,7 +91,7 @@ class CauchyKernel(WeightKernel):
         Returns:
             (torch.tensor): the tensor of edge's weights
         """
-        mask_threshold = distances_2 > self.threshold
         weights = torch.div(1, 1 + torch.div(distances_2, self.sigma ** 2))
+        mask_threshold = weights < self.threshold
         weights[mask_threshold] = 0.0
         return weights

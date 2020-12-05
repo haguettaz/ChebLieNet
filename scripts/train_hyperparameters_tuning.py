@@ -27,8 +27,8 @@ def build_sweep_config():
     sweep_config = {"method": "bayes", "metric": {"name": "val_mnist_acc", "goal": "maximize"}}
 
     parameters_dict = {
-        "batch_size": {"values": [16, 32, 64]},
-        "dist_thresh": {"values": [2.0, 4.0, 8.0, 16.0]},
+        "batch_size": {"values": [8, 16, 32]},
+        "weight_thresh": {"distribution": "uniform", "min": 0.3, "max": 1.0},
         "edge_red": {"values": ["mean", "max"]},
         "epochs": {"value": 20},
         "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
@@ -39,7 +39,7 @@ def build_sweep_config():
         "nx2": {"value": 28},
         "nx3": {"values": [2, 3, 6]},
         "optimizer": {"values": ["adam", "sgd"]},
-        "sigma_weight": {"values": [0.2, 0.5, 1.0]},
+        "sigma_weight": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
         "val_ratio": {"value": 0.2},
         "xi": {"distribution": "log_uniform", "min": math.log(0.01), "max": math.log(1.0)},
     }
@@ -48,13 +48,13 @@ def build_sweep_config():
     return sweep_config
 
 
-def build_data_loaders(nx1, nx2, nx3, sigma1, sigma2, sigma3, dist_thresh, sigma_weight, batch_size, val_ratio):
+def build_data_loaders(nx1, nx2, nx3, sigma1, sigma2, sigma3, weight_thresh, sigma_weight, batch_size, val_ratio):
 
     graph_data = GraphData(
         grid_size=(nx1, nx2),
         num_layers=nx3,
         self_loop=True,
-        weight_kernel=GaussianKernel(dist_thresh, sigma_weight),
+        weight_kernel=GaussianKernel(weight_thresh, sigma_weight),
         sigmas=(sigma1, sigma2, sigma3),
     )
 
@@ -99,7 +99,7 @@ def train(config=None):
             sigma1=config.xi / config.eps,
             sigma2=config.xi,
             sigma3=1.0,
-            dist_thresh=config.dist_thresh,
+            weight_thresh=config.weight_thresh,
             sigma_weight=config.sigma_weight,
             batch_size=config.batch_size,
             val_ratio=config.val_ratio,
@@ -129,4 +129,4 @@ def train(config=None):
 if __name__ == "__main__":
     sweep_config = build_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project="gechebnet")
-    wandb.agent(sweep_id, train, count=20)
+    wandb.agent(sweep_id, train, count=50)
