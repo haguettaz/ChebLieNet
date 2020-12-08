@@ -169,8 +169,9 @@ class GraphData(object):
         if height != self.nx2 or width != self.nx1:
             raise ValueError("Impossible to embed images on the graph, the dimensions don't fit")
 
-        images = images.unsqueeze(4).permute(0, 3, 2, 4, 1)
-        images = images.expand(num_images, self.nx1, self.nx2, self.nx3, channels)
+        images = images.unsqueeze(1).permute(0, 1, 3, 4, 2)
+
+        images = images.expand(num_images, self.nx3, self.nx2, self.nx1, channels)
         images = images.reshape(num_images, -1, channels)
 
         if targets is None:
