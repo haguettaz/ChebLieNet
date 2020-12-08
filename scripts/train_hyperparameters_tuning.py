@@ -7,10 +7,10 @@ import wandb
 from gechebnet.data.dataloader import get_data_list_mnist, get_data_loader
 from gechebnet.data.dataset import download_mnist
 from gechebnet.data.utils import split_data_list
-from gechebnet.graph.graph import GraphData
+from gechebnet.graph.graph import GraphData, get_neighbors
 from gechebnet.graph.utils import CauchyKernel, GaussianKernel
 from gechebnet.model.chebnet import ChebNet
-from gechebnet.utils import prepare_batch, wandb_log
+from gechebnet.utils import prepare_batch, random_choice, wandb_log
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events, create_supervised_evaluator, create_supervised_trainer
 from ignite.metrics import Accuracy, Loss
@@ -27,16 +27,18 @@ def build_sweep_config():
     sweep_config = {"method": "bayes", "metric": {"name": "val_mnist_acc", "goal": "maximize"}}
 
     parameters_dict = {
-        "batch_size": {"values": [8, 16, 32]},
+        "batch_size": {"values": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(64)}},
+        "compression_type": {"values": ["node", "edge"]},
+        "compression_rate": {"values": {"distribution": "log_uniform", "min": math.log(1e-9), "max": math.log(1.0)}},
         "edge_red": {"values": ["mean", "max"]},
         "epochs": {"value": 20},
         "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
-        "hidden_dim": {"value": 16},
-        "K": {"values": [5, 10, 15]},
+        "K": {"values": {"distribution": "q_uniform", "min": 1, "max": 15}},
         "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-4), "max": math.log(1e-1)},
+        "num_parameters": {"value": 10000},
         "nx1": {"value": 28},
         "nx2": {"value": 28},
-        "nx3": {"values": [2, 3, 6]},
+        "nx3": {"values": {"distribution": "q_uniform", "min": 2, "max": 9}},
         "optimizer": {"values": ["adam", "sgd"]},
         "weight_sigma": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
         "val_ratio": {"value": 0.2},
@@ -57,13 +59,10 @@ def build_data_loaders(nx1, nx2, nx3, sigma1, sigma2, sigma3, weight_kernel, wei
     elif weight_kernel == "cauchy":
         weight_kernel = CauchyKernel(weight_thresh, weight_sigma)
 
-    graph_data = GraphData(
-        grid_size=(nx1, nx2),
-        num_layers=nx3,
-        self_loop=True,
-        weight_kernel=weight_kernel,
-        sigmas=(sigma1, sigma2, sigma3),
-    )
+    graph_data = GraphData(grid_size=(nx1, nx2), num_layers=nx3, self_loop=True, weight_kernel=weight_kernel, sigmas=(sigma1, sigma2, sigma3))
+
+    wandb.log({"num_nodes": graph_data.data.num_nodes})
+    wandb.log({"num_edges": graph_data.data.num_edges})
 
     processed_path = download_mnist(DATA_PATH)
 
@@ -83,12 +82,18 @@ def build_optimizer(network, optimizer, learning_rate, weight_decay):
     return optimizer
 
 
-def build_network(K, nx3, input_dim, output_dim, hidden_dim, edge_red, device=None):
+def build_network(K, nx3, input_dim, output_dim, edge_red, num_param, device=None):
 
     device = device or torch.device("cpu")
 
+    # choose hidden dim such that the number of parameters is close to the given one
+    hidden_dim = 1
     model = ChebNet(K, nx3, input_dim, output_dim, hidden_dim, edge_red)
+    while model.capacity < num_param:
+        hidden_dim += 1
+        model = ChebNet(K, nx3, input_dim, output_dim, hidden_dim + 1, edge_red)
 
+    wandb.log({"capacity": model.capacity})
     return model.to(device)
 
 
