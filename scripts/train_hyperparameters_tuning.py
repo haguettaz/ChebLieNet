@@ -35,7 +35,7 @@ def build_sweep_config():
         "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
         "K": {"distribution": "int_uniform", "min": 1, "max": 15},
         "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-4), "max": math.log(1e-1)},
-        "num_parameters": {"value": 10000},
+        "num_params": {"value": 10000},
         "nx1": {"value": 28},
         "nx2": {"value": 28},
         "nx3": {"distribution": "int_uniform", "min": 2, "max": 9},
@@ -82,18 +82,19 @@ def build_optimizer(network, optimizer, learning_rate, weight_decay):
     return optimizer
 
 
-def build_network(K, nx3, input_dim, output_dim, edge_red, num_param, device=None):
+def build_network(K, nx3, input_dim, output_dim, edge_red, num_params, device=None):
 
     device = device or torch.device("cpu")
 
     # choose hidden dim such that the number of parameters is close to the given one
     hidden_dim = 1
     model = ChebNet(K, nx3, input_dim, output_dim, hidden_dim, edge_red)
-    while model.capacity < num_param:
+    while model.capacity < num_params:
         hidden_dim += 1
         model = ChebNet(K, nx3, input_dim, output_dim, hidden_dim + 1, edge_red)
 
     wandb.log({"capacity": model.capacity})
+
     return model.to(device)
 
 
@@ -118,7 +119,7 @@ def train(config=None):
             val_ratio=config.val_ratio,
         )
 
-        network = build_network(config.K, config.nx3, INPUT_DIM, OUTPUT_DIM, config.hidden_dim, config.edge_red, DEVICE)
+        network = build_network(config.K, config.nx3, INPUT_DIM, OUTPUT_DIM, config.edge_red, config.num_params, DEVICE)
 
         optimizer = build_optimizer(network, config.optimizer, config.learning_rate, config.weight_decay)
 
