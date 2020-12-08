@@ -74,9 +74,8 @@ class GaussianKernel(WeightKernel):
         Returns:
             (torch.tensor): the tensor of edge's weights
         """
-        mask_threshold = distances_2 > self.threshold
         weights = torch.exp(-(distances_2 ** 2) / (2 * self.sigma ** 2))
-        weights[mask_threshold] = 0.0
+        weights[weights < self.threshold] = 0.0
         return weights
 
 
@@ -92,6 +91,5 @@ class CauchyKernel(WeightKernel):
             (torch.tensor): the tensor of edge's weights
         """
         weights = torch.div(1, 1 + torch.div(distances_2, self.sigma ** 2))
-        mask_threshold = weights < self.threshold
-        weights[mask_threshold] = 0.0
+        weights[weights < self.threshold] = 0.0
         return weights

@@ -100,6 +100,47 @@ def download_rotated_mnist(data_path):
     return processed_path
 
 
+def download_stl10(data_path):
+    """
+    Download STL10 dataset and store it at the given path.
+
+    Args:
+        data_path (str): the path to the data folder to download data on.
+    """
+
+    def check_exists(root_path):
+        """
+        Check if processed data already exists at the given path. If yes, does not download data again.
+
+        Args:
+            processed_path (str): the path to the folder to put processed data on.
+
+        Returns:
+            (bool): the indicator if the processed data already exists at the given path.
+        """
+        return (
+            os.path.exists(os.path.join(processed_path, "stl10_binary", "train_X.bin"))
+            and os.path.exists(os.path.join(root_path, "stl10_binary", "train_y.bin"))
+            and os.path.exists(os.path.join(root_path, "stl10_binary", "test_X.bin"))
+            and os.path.exists(os.path.join(root_path, "stl10_binary", "test_y.bin"))
+        )
+
+    url = "http://ai.stanford.edu/~acoates/stl10/stl10_binary.tar.gz"
+    filename = "stl10_binary.tar.gz"
+    tgz_md5 = "91f7769df0f17e558f3565bffb0c7dfb"
+
+    raw_path = os.path.join(data_path, "stl10", "raw")
+    processed_path = os.path.join(data_path, "stl10", "processed")
+
+    if check_exists(processed_path):
+        return processed_path
+
+    download_and_extract_archive(url, download_root=raw_path, extract_root=processed_path, filename=filename, md5=tgz_md5)
+    print("Done!")
+
+    return processed_path
+
+
 def preprocess_mnist(images, targets):
     """
     Preprocess a tensor of images and a tensor of targets from MNIST dataset. The images
@@ -114,12 +155,13 @@ def preprocess_mnist(images, targets):
         targets (torch.tensor): the targets with shape (N, D)
     """
     images = images.float()
+    # flip image on the y axis and add the channel dimension
+    images = images.flip(1).unsqueeze(1)
+    # per channel normalization
+    images = torch.divide(images - images.mean(axis=[0, 2, 3], keepdim=True), images.std(axis=[0, 2, 3], keepdim=True))
+
     targets = targets.long()
 
-    images = torch.divide(images - images.mean(), images.std())
-    images = images.flip(1).unsqueeze(1)  # flip image on the y axis and add the channel dimension
-
-    # Return preprocessed dataset
     return images, targets
 
 
@@ -137,9 +179,33 @@ def preprocess_rotated_mnist(images, targets):
         targets (torch.tensor): the targets with shape (N, D)
     """
     images = torch.from_numpy(images.astype(np.float32))
-    images = torch.divide(images - images.mean(), images.std())
+    # per channel normalization
+    images = torch.divide(images - images.mean(axis=[0, 2, 3], keepdim=True), images.std(axis=[0, 2, 3], keepdim=True))
 
     targets = torch.from_numpy(targets.astype(np.int64)).unsqueeze(1)
 
-    # Return preprocessed dataset
+    return images, targets
+
+
+def preprocess_stl10(images, targets):
+    """
+    Preprocess a tensor of images and a tensor of targets from rotated MNIST dataset. The images
+    are normalized.
+
+    Args:
+        images (torch.tensor): the images with shape (N, C, H, W)
+        targets (torch.tensor): the targets with shape (N)
+
+    Returns:
+        images (torch.tensor): the images with shape (N, C, H, W)
+        targets (torch.tensor): the targets with shape (N, D)
+    """
+    images = torch.from_numpy(images.astype(np.float32))
+    images = images.reshape(-1, 3, 96, 96).permute(0, 1, 3, 2)
+
+    # per channel normalization
+    images = torch.divide(images - images.mean(axis=[0, 2, 3], keepdim=True), images.std(axis=[0, 2, 3], keepdim=True))
+
+    targets = torch.from_numpy(targets.astype(np.int64)).unsqueeze(1)
+
     return images, targets

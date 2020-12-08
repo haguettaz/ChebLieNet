@@ -5,10 +5,10 @@ import torch
 import torch.nn.functional as F
 import wandb
 from gechebnet.data.dataloader import get_data_list_mnist, get_data_loader
-from gechebnet.data.dataset import download_mnist
+from gechebnet.data.dataset import download_mnist, download_rotated_mnist
 from gechebnet.data.utils import split_data_list
 from gechebnet.graph.graph import GraphData
-from gechebnet.graph.utils import CauchyKernel, GaussianKernel
+from gechebnet.graph.utils import GaussianKernel
 from gechebnet.model.chebnet import ChebNet
 from gechebnet.utils import prepare_batch, wandb_log
 from ignite.contrib.handlers import ProgressBar
@@ -23,45 +23,41 @@ INPUT_DIM = 1
 OUTPUT_DIM = 10
 
 
-def build_sweep_config():
-    sweep_config = {"method": "bayes", "metric": {"name": "val_mnist_acc", "goal": "maximize"}}
+# def build_sweep_config():
+#     sweep_config = {"method": "random", "metric": {"name": "val_mnist_acc", "goal": "maximize"}}
 
-    parameters_dict = {
-        "batch_size": {"values": [8, 16, 32]},
-        "edge_red": {"values": ["mean", "max"]},
-        "epochs": {"value": 20},
-        "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
-        "hidden_dim": {"value": 16},
-        "K": {"values": [5, 10, 15]},
-        "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-4), "max": math.log(1e-1)},
-        "nx1": {"value": 28},
-        "nx2": {"value": 28},
-        "nx3": {"values": [2, 3, 6]},
-        "optimizer": {"values": ["adam", "sgd"]},
-        "weight_sigma": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
-        "val_ratio": {"value": 0.2},
-        "weight_decay": {"distribution": "log_uniform", "min": math.log(1e-6), "max": math.log(1e-3)},
-        "weight_kernel": {"values": ["cauchy", "gaussian"]},
-        "weight_thresh": {"distribution": "uniform", "min": 0.3, "max": 1.0},
-        "xi": {"distribution": "log_uniform", "min": math.log(0.01), "max": math.log(1.0)},
-    }
-    sweep_config["parameters"] = parameters_dict
+#     parameters_dict = {
+#         "batch_size": {"value": },
+#         "weight_thresh": {"value": },
+#         "edge_red": {"value": },
+#         "epochs": {"value": 20},
+#         "eps": {"value": },
+#         "hidden_dim": {"value": 16},
+#         "K": {"value": },
+#         "learning_rate": {"value": },
+#         "nx1": {"value": 28},
+#         "nx2": {"value": 28},
+#         "nx3": {"values": [2, 3, 6]},
+#         "optimizer": {"value": },
+#         "weight_sigma": {"value": },
+#         "val_ratio": {"value": 0.2},
+#         "xi": {"value": },
+#         "compression_type": {"values": ["node", "edge"]},
+#         "compression_rate": {"values": [0.2, 0.5, 0.9]}
+#     }
+#     sweep_config["parameters"] = parameters_dict
 
-    return sweep_config
+#     return sweep_config
 
 
-def build_data_loaders(nx1, nx2, nx3, sigma1, sigma2, sigma3, weight_kernel, weight_thresh, weight_sigma, batch_size, val_ratio):
-
-    if weight_kernel == "gaussian":
-        weight_kernel = GaussianKernel(weight_thresh, weight_sigma)
-    elif weight_kernel == "cauchy":
-        weight_kernel = CauchyKernel(weight_thresh, weight_sigma)
+def build_data_loaders(nx1, nx2, nx3, sigma1, sigma2, sigma3, weight_thresh, weight_sigma, compression_type, kappa, batch_size, val_ratio):
 
     graph_data = GraphData(
         grid_size=(nx1, nx2),
         num_layers=nx3,
         self_loop=True,
-        weight_kernel=weight_kernel,
+        static_compression=(compression_type, kappa),
+        weight_kernel=GaussianKernel(weight_thresh, weight_sigma),
         sigmas=(sigma1, sigma2, sigma3),
     )
 
@@ -75,11 +71,11 @@ def build_data_loaders(nx1, nx2, nx3, sigma1, sigma2, sigma3, weight_kernel, wei
     return train_loader, val_loader
 
 
-def build_optimizer(network, optimizer, learning_rate, weight_decay):
+def build_optimizer(network, optimizer, learning_rate):
     if optimizer == "sgd":
-        optimizer = SGD(network.parameters(), lr=learning_rate, momentum=0.9, weight_decay=weight_decay)
+        optimizer = SGD(network.parameters(), lr=learning_rate, momentum=0.9)
     elif optimizer == "adam":
-        optimizer = Adam(network.parameters(), lr=learning_rate, weight_decay=weight_decay)
+        optimizer = Adam(network.parameters(), lr=learning_rate)
     return optimizer
 
 
@@ -106,16 +102,17 @@ def train(config=None):
             sigma1=config.xi / config.eps,
             sigma2=config.xi,
             sigma3=1.0,
-            weight_kernel=config.weight_kernel,
             weight_thresh=config.weight_thresh,
             weight_sigma=config.weight_sigma,
+            compression_type=config.compression_type,
+            kappa=config.compression_rate,
             batch_size=config.batch_size,
             val_ratio=config.val_ratio,
         )
 
         network = build_network(config.K, config.nx3, INPUT_DIM, OUTPUT_DIM, config.hidden_dim, config.edge_red, DEVICE)
 
-        optimizer = build_optimizer(network, config.optimizer, config.learning_rate, config.weight_decay)
+        optimizer = build_optimizer(network, config.optimizer, config.learning_rate)
 
         loss_fn = F.nll_loss
         metrics = {"val_mnist_acc": Accuracy(), "val_mnist_loss": Loss(loss_fn)}
@@ -137,4 +134,4 @@ def train(config=None):
 if __name__ == "__main__":
     sweep_config = build_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project="gechebnet")
-    wandb.agent(sweep_id, train, count=100)
+    wandb.agent(sweep_id, train, count=50)

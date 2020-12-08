@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch_geometric.data import DataLoader
 
-from .dataset import preprocess_mnist, preprocess_rotated_mnist
+from .dataset import preprocess_mnist, preprocess_rotated_mnist, preprocess_stl10
 
 
 def get_data_list_mnist(graph_data, processed_path, train=True):
@@ -47,6 +47,44 @@ def get_data_list_rotated_mnist(graph_data, processed_path, train=True):
         dataset = np.load(os.path.join(processed_path, "test.npz"))
 
     images, targets = preprocess_rotated_mnist(dataset["data"], dataset["labels"])
+
+    return graph_data.embed_on_graph(images, targets)
+
+
+def get_data_list_stl10(graph_data, processed_path, train=True):
+    """
+    Get the list of Data object with rotated MNIST images and targets embedded on the given graph.
+
+    Args:
+        graph_data (GraphData): the graph data object.
+        processed_path ([type]): the path to the folder containing the processed dataset.
+        train (bool, optional): the indicator wether to use training dataset or not. Defaults to True.
+
+    Returns:
+        (list): the list of Data object.
+    """
+
+    def load_file(images_file, targets_file):
+        with open(targets_file, "rb") as f:
+            targets = np.fromfile(f, dtype=np.uint8) - 1  # 0-based
+
+        with open(images_file, "rb") as f:
+            # read whole file in uint8 chunks
+            images = np.fromfile(f, dtype=np.uint8)
+
+        return images, targets
+
+    if train:
+        images_file = os.path.join(processed_path, "stl10_binary", "train_X.bin")
+        targets_file = os.path.join(processed_path, "stl10_binary", "train_y.bin")
+        images, targets = load_file(images_file, targets_file)
+
+    else:
+        images_file = os.path.join(processed_path, "stl10_binary", "test_X.bin")
+        targets_file = os.path.join(processed_path, "stl10_binary", "test_y.bin")
+        images, targets = load_file(images_file, targets_file)
+
+    images, targets = preprocess_stl10(images, targets)
 
     return graph_data.embed_on_graph(images, targets)
 
