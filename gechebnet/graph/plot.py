@@ -129,11 +129,18 @@ def visualize_samples(data_list, grid_size=(3, 3)):
         for c in range(num_cols):
             sample_idx = random_choice(torch.arange(len(data_list))).item()
             sample = data_list[sample_idx]
+            max_, _ = sample.x.max(dim=0)
+            min_, _ = sample.x.min(dim=0)
+
             ax = fig.add_subplot(num_rows, num_cols, r * num_cols + c + 1, projection="3d")
 
-            im = ax.scatter(sample.pos[:, 0], sample.pos[:, 1], sample.pos[:, 2], c=sample.x, s=50, alpha=0.5)
-
-            plt.colorbar(im, fraction=0.04, pad=0.1)
+            ax.scatter(
+                sample.pos[:, 0],
+                sample.pos[:, 1],
+                sample.pos[:, 2],
+                c=(sample.x - min_) / (max_ - min_),
+                alpha=0.5,
+            )
 
             ax.set_title(f"sample #{sample_idx} labeled {sample.y.item()}")
 

@@ -201,7 +201,7 @@ def preprocess_stl10(images, targets):
         targets (torch.tensor): the targets with shape (N, D)
     """
     images = torch.from_numpy(images.astype(np.float32))
-    images = images.reshape(-1, 3, 96, 96).permute(0, 1, 3, 2)
+    images = images.reshape(-1, 3, 96, 96).permute(0, 1, 3, 2).flip(2)
 
     # per channel normalization
     images = torch.divide(images - images.mean(axis=[0, 2, 3], keepdim=True), images.std(axis=[0, 2, 3], keepdim=True))
