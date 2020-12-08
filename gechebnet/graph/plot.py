@@ -34,23 +34,27 @@ def visualize_graph(graph_data):
     return fig
 
 
-def visualize_weight_fields(graph_data, grid_size=(2, 2)):
+def visualize_weight_fields(graph_data):
     """
     3d visualizations of the weight field from randomly picked nodes of the graph.
 
     Args:
         graph_data (GraphData): the GraphData object containing the graph.
-        grid_size (tuple, optional): the size of the grid containing the 3d visualization in format
-            (num_rows, num_cols). The total number of visualization is num_rows * num_cols. Defaults
-            to (2, 2).
     """
-    num_rows, num_cols = grid_size
+    num_rows, num_cols = (2, 2)
 
     fig = plt.figure(figsize=(num_rows * 8.0, num_cols * 8.0))
 
+    node_indices = (
+        int(graph_data.nx1 / 2) + int(graph_data.nx2 / 2) * graph_data.nx1 + int(graph_data.nx3 / 2) * graph_data.nx1 * graph_data.nx2,
+        int(graph_data.nx2 / 2) * graph_data.nx1 + int(graph_data.nx3 / 2) * graph_data.nx1 * graph_data.nx2,
+        int(graph_data.nx1 / 2) + int(graph_data.nx3 / 2) * graph_data.nx1 * graph_data.nx2,
+        int(graph_data.nx1 / 2) + int(graph_data.nx2 / 2) * graph_data.nx1,
+    )
+
     for r in range(num_rows):
         for c in range(num_cols):
-            node_idx = random_choice(graph_data.node_index)
+            node_idx = node_indices[r * num_cols + c]
             neighbors, weights = get_neighbors(graph_data, node_idx)
 
             ax = fig.add_subplot(
@@ -79,12 +83,12 @@ def visualize_weight_fields(graph_data, grid_size=(2, 2)):
                 alpha=1.0,
             )
 
-            ax.set_title(f"node #{node_idx.item()}")
+            ax.set_title(f"node #{node_idx}")
 
     return fig
 
 
-def visualize_weight_field(graph_data):
+def visualize_weight_field(graph_data, node_index):
     """
     3d visualizations of the weight field from randomly picked nodes of the graph.
 
@@ -93,8 +97,7 @@ def visualize_weight_field(graph_data):
     """
     fig = plt.figure(figsize=(8.0, 8.0))
 
-    node_idx = random_choice(graph_data.node_index)
-    neighbors, weights = get_neighbors(graph_data, node_idx)
+    neighbors, weights = get_neighbors(graph_data, node_index)
 
     ax = fig.add_subplot(
         111,
@@ -106,7 +109,7 @@ def visualize_weight_field(graph_data):
 
     ax.scatter(graph_data.node_pos[neighbors, 0], graph_data.node_pos[neighbors, 1], graph_data.node_pos[neighbors, 2], c=weights, s=50, alpha=0.5)
 
-    ax.set_title(f"node #{node_idx.item()}")
+    ax.set_title(f"node #{node_index}")
 
     return fig
 

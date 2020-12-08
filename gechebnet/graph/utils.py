@@ -46,50 +46,50 @@ class WeightKernel:
         self.threshold = threshold
         self.sigma = sigma
 
-    def compute(self, distances_2):
+    def compute(self, sq_dist):
         """
         Compute the edge weights from the distances between each pair of nodes. All nodes with distances below
         a threshold have an equal weighted edges between them.
 
         Args:
-            distances_2 (torch.tensor): the tensor of pairwise squared distances.
+            sq_dist (torch.tensor): the tensor of pairwise squared distances.
 
         Returns:
             (torch.tensor): the tensor of edge's weights
         """
-        mask_threshold = distances_2 <= self.threshold
-        weights = torch.zeros(distances_2.shape)
+        mask_threshold = sq_dist <= self.threshold
+        weights = torch.zeros(sq_dist.shape)
         weights[mask_threshold] = self.sigma
         return weights
 
 
 class GaussianKernel(WeightKernel):
-    def compute(self, distances_2):
+    def compute(self, sq_dist):
         """
         Compute the edge weights from the distances between each pair of nodes using a gaussian kernel.
 
         Args:
-            distances_2 (torch.tensor): the tensor of pairwise squared distances.
+            sq_dist (torch.tensor): the tensor of pairwise squared distances.
 
         Returns:
             (torch.tensor): the tensor of edge's weights
         """
-        weights = torch.exp(-(distances_2 ** 2) / (2 * self.sigma ** 2))
+        weights = torch.exp(-(sq_dist ** 2) / (2 * self.sigma ** 2))
         weights[weights < self.threshold] = 0.0
         return weights
 
 
 class CauchyKernel(WeightKernel):
-    def compute(self, distances_2):
+    def compute(self, sq_dist):
         """
         Compute the edge weights from the distances between each pair of nodes using a cauchy kernel.
 
         Args:
-            distances_2 (torch.tensor): the tensor of pairwise squared distances.
+            sq_dist (torch.tensor): the tensor of pairwise squared distances.
 
         Returns:
             (torch.tensor): the tensor of edge's weights
         """
-        weights = torch.div(1, 1 + torch.div(distances_2, self.sigma ** 2))
+        weights = torch.div(1, 1 + torch.div(sq_dist, self.sigma ** 2))
         weights[weights < self.threshold] = 0.0
         return weights
