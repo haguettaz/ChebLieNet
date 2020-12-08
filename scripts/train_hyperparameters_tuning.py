@@ -29,7 +29,7 @@ def build_sweep_config():
     parameters_dict = {
         "batch_size": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(64)},
         "compression_type": {"values": ["node", "edge"]},
-        "compression_rate": {"distribution": "log_uniform", "min": math.log(1e-9), "max": math.log(1.0)},
+        "compression_rate": {"distribution": "uniform", "min": math.log(0.0), "max": math.log(1.0)},
         "edge_red": {"values": ["mean", "max"]},
         "epochs": {"value": 20},
         "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
