@@ -27,18 +27,18 @@ def build_sweep_config():
     sweep_config = {"method": "bayes", "metric": {"name": "val_mnist_acc", "goal": "maximize"}}
 
     parameters_dict = {
-        "batch_size": {"values": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(64)}},
+        "batch_size": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(64)},
         "compression_type": {"values": ["node", "edge"]},
-        "compression_rate": {"values": {"distribution": "log_uniform", "min": math.log(1e-9), "max": math.log(1.0)}},
+        "compression_rate": {"distribution": "log_uniform", "min": math.log(1e-9), "max": math.log(1.0)},
         "edge_red": {"values": ["mean", "max"]},
         "epochs": {"value": 20},
         "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
-        "K": {"values": {"distribution": "q_uniform", "min": 1, "max": 15}},
+        "K": {"distribution": "int_uniform", "min": 1, "max": 15},
         "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-4), "max": math.log(1e-1)},
         "num_parameters": {"value": 10000},
         "nx1": {"value": 28},
         "nx2": {"value": 28},
-        "nx3": {"values": {"distribution": "q_uniform", "min": 2, "max": 9}},
+        "nx3": {"distribution": "int_uniform", "min": 2, "max": 9},
         "optimizer": {"values": ["adam", "sgd"]},
         "weight_sigma": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
         "val_ratio": {"value": 0.2},
