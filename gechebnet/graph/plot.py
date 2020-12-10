@@ -1,8 +1,10 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
 
 from ..utils import random_choice
 from .graph import get_neighbors
+from .utils import compute_fourier_basis
 
 
 def visualize_graph(graph_data):
@@ -34,22 +36,29 @@ def visualize_graph(graph_data):
     return fig
 
 
-def visualize_weight_fields(graph_data):
+def visualize_weight_fields(graph_data, grid_size=(2, 2)):
     """
     3d visualizations of the weight field from randomly picked nodes of the graph.
 
     Args:
         graph_data (GraphData): the GraphData object containing the graph.
+        grid_size (tuple, optional): the size of the grid containing the 3d visualization in format
+            (num_rows, num_cols). The total number of visualization is num_rows * num_cols and must
+            be equal to 4. Defaults
+            to (2, 2).
     """
-    num_rows, num_cols = (2, 2)
+    num_rows, num_cols = grid_size
 
-    fig = plt.figure(figsize=(num_rows * 8.0, num_cols * 8.0))
+    if num_rows * num_cols != 4:
+        raise ValueError("the grid size is not compatible with the number of visualisation")
+
+    fig = plt.figure(figsize=(num_cols * 8.0, num_rows * 8.0))
 
     node_indices = (
-        int(graph_data.nx1 / 2) + int(graph_data.nx2 / 2) * graph_data.nx1 + int(graph_data.nx3 / 2) * graph_data.nx1 * graph_data.nx2,
-        int(graph_data.nx2 / 2) * graph_data.nx1 + int(graph_data.nx3 / 2) * graph_data.nx1 * graph_data.nx2,
-        int(graph_data.nx1 / 2) + int(graph_data.nx3 / 2) * graph_data.nx1 * graph_data.nx2,
-        int(graph_data.nx1 / 2) + int(graph_data.nx2 / 2) * graph_data.nx1,
+        graph_data.centroid_index,
+        graph_data.centroid_index - int(graph_data.nx1 / 2),
+        graph_data.centroid_index - int(graph_data.nx2 / 2) * graph_data.nx1,
+        graph_data.centroid_index - int(graph_data.nx3 / 2) * graph_data.nx1 * graph_data.nx2,
     )
 
     for r in range(num_rows):
@@ -150,33 +159,37 @@ def visualize_samples(data_list, grid_size=(3, 3)):
     return fig
 
 
-def visualize_signal(graph_data, signal):
-    """
-    3d visualization of a signal on the graph.
+def visualize_heat_diffusion(graph_data, f0, times=(0.0, 0.1, 0.2, 0.4), normalization=None):
 
-    Args:
-        graph_data (GraphData): the GraphData object containing the graph.
-        signal (torch.tensor): the signal on the graph to plot
-    """
-    fig = plt.figure(figsize=(8.0, 8.0))
+    num_cols = len(times)
+    fig = plt.figure(figsize=(num_cols * 8.0, 8.0))
 
-    ax = fig.add_subplot(
-        111,
-        projection="3d",
-        xlim=(graph_data.x1_axis.min(), graph_data.x1_axis.max()),
-        ylim=(graph_data.x2_axis.min(), graph_data.x2_axis.max()),
-        zlim=(graph_data.x3_axis.min(), graph_data.x3_axis.max()),
-    )
+    lambdas, Phi = compute_fourier_basis(graph_data, normalization)
+    eps = 1e-9
 
-    im = ax.scatter(
-        graph_data.node_pos[graph_data.node_index, 0],
-        graph_data.node_pos[graph_data.node_index, 1],
-        graph_data.node_pos[graph_data.node_index, 2],
-        c=signal,
-        s=50,
-        alpha=0.5,
-    )
+    for c in range(num_cols):
+        ft = Phi @ np.diag(np.exp(times[c] * lambdas)) @ Phi.T @ f0
+        mask_nonzeros = [np.abs(ft) > eps]
 
-    plt.colorbar(im, fraction=0.04, pad=0.1)
+        ax = fig.add_subplot(
+            1,
+            num_cols,
+            c + 1,
+            projection="3d",
+            xlim=(graph_data.x1_axis.min(), graph_data.x1_axis.max()),
+            ylim=(graph_data.x2_axis.min(), graph_data.x2_axis.max()),
+            zlim=(graph_data.x3_axis.min(), graph_data.x3_axis.max()),
+        )
+
+        ax.scatter(
+            graph_data.node_pos[graph_data.node_index, 0][mask_nonzeros],
+            graph_data.node_pos[graph_data.node_index, 1][mask_nonzeros],
+            graph_data.node_pos[graph_data.node_index, 2][mask_nonzeros],
+            c=ft[mask_nonzeros],
+            s=50,
+            alpha=0.5,
+        )
+
+        ax.set_title(fr"heat diffusion at $t = {times[c]}$")
 
     return fig
