@@ -18,6 +18,7 @@ class GraphData(object):
         weight_kernel=None,
         sigmas=(1.0, 1.0, 1.0),
         batch_size=1000,
+        shuffle_orientation=False,
     ):
         """
         Initialise the GraphData object:
@@ -34,6 +35,7 @@ class GraphData(object):
             dist_threshold (float, optional): the maximum distance between two nodes to be linked. Defaults to 1.0.
             sigmas (tuple, optional): the anisotropic intensities. Defaults to (1.0, 1.0, 1.0).
             batch_size (int, optional): the batch size when computing edges' weights. Defaults to 1000.
+            shuffle_orientation (bool, optional): wether to shuffle the orientation axis or not. Defaults to False.
         """
 
         # graph compression
@@ -45,7 +47,7 @@ class GraphData(object):
         # nodes
         self.nx1, self.nx2 = grid_size
         self.nx3 = num_layers
-        self.init_nodes(self.nx1 * self.nx2 * self.nx3)
+        self.init_nodes(self.nx1 * self.nx2 * self.nx3, shuffle_orientation)
 
         # edges
         self.self_loop = self_loop
@@ -53,7 +55,7 @@ class GraphData(object):
         self.sigmas = sigmas
         self.init_edges(batch_size)
 
-    def init_nodes(self, num_nodes):
+    def init_nodes(self, num_nodes, shuffle_orientation):
         """
         Initialise the nodes' indices and their positions.
             - `self.node_index` is a tensor with shape (num_nodes)
@@ -62,6 +64,7 @@ class GraphData(object):
 
         Args:
             num_nodes (int): the number of nodes of the graph.
+            shuffle_orientation (bool): wether to shuffle the orientation axis or not.
         """
         self.node_index = torch.arange(num_nodes)
 
@@ -69,6 +72,8 @@ class GraphData(object):
         self.x1_axis = torch.arange(0.0, self.nx1, 1.0)
         self.x2_axis = torch.arange(0.0, self.nx2, 1.0)
         self.x3_axis = torch.arange(0.0, math.pi, math.pi / self.nx3)
+        if shuffle_orientation:
+            self.x3_axis = shuffle(self.x3_axis)
 
         # we keep in memory the position of all the nodes, before compression
         # easier to deal with indices from here
@@ -79,6 +84,7 @@ class GraphData(object):
             self.node_index = static_node_compression(self.node_index, self.kappa)
 
         self.num_nodes = self.node_index.nelement()
+        self.centroid_index = int(self.nx1 / 2) + int(self.nx2 / 2) * self.nx1 + int(self.nx3 / 2) * self.nx1 * self.nx2
 
     def init_edges(self, batch_size):
         """

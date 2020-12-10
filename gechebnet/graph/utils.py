@@ -1,6 +1,10 @@
 import math
 
+import numpy as np
 import torch
+from numpy.linalg import eigh
+from scipy.sparse import csc_matrix
+from torch_geometric.utils import get_laplacian
 
 
 def metric_tensor(theta, sigmas):
@@ -28,6 +32,17 @@ def metric_tensor(theta, sigmas):
     D += e3.unsqueeze(1) * e3.unsqueeze(0) * sigma_3
 
     return D
+
+
+def compute_fourier_basis(graph_data, normalization):
+
+    num_nodes = graph_data.edge_index.max() + 1
+    L_edges, L_weights = get_laplacian(graph_data.edge_index, graph_data.edge_weight, normalization=normalization, num_nodes=num_nodes)
+
+    L = csc_matrix((L_weights, L_edges), shape=(num_nodes, num_nodes), dtype=np.float64)
+
+    lambdas, Phi = eigh(L.toarray())
+    return lambdas, Phi
 
 
 class WeightKernel:
