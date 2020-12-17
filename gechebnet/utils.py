@@ -1,53 +1,15 @@
+import scipy
 import torch
-import wandb
 
 
-def prepare_batch(batch, device, non_blocking):
-    """
-    Prepare the batch and return freshly baked inputs and targets to feed the model with.
+def normalize(signal):
+    max_, _ = torch.max(signal, dim=0)
+    min_, _ = torch.min(signal, dim=0)
 
-    Args:
-        batch (Batch): the batch.
-        device (torch.device): the device to put tensors on.
-        non_blocking (bool): ...
-
-    Returns:
-        (torch.tensor): the input.
-        (torch.tensor): the target.
-    """
-    device = device or torch.device("cpu")
-    x = batch.to(device)
-    y = batch.y.to(device)
-    return x, y
+    return torch.divide(signal - min_, max_ - min_)
 
 
-def wandb_loss(trainer):
-    """
-    [summary]
-
-    Args:
-        trainer ([type]): [description]
-    """
-    wandb.log({"iteration": trainer.state.iteration, "loss": trainer.state.output})
-
-
-def wandb_log(trainer, evaluator, data_loader):
-    """
-    [summary]
-
-    Args:
-        trainer ([type]): [description]
-        evaluator ([type]): [description]
-        data_loader ([type]): [description]
-    """
-    evaluator.run(data_loader)
-    metrics = evaluator.state.metrics
-
-    for k in metrics:
-        wandb.log({k: metrics[k], "epoch": trainer.state.epoch})
-
-
-def shuffle(tensor):
+def shuffle_tensor(tensor):
     """
     Randomly permute elements of a tensor.
 
@@ -71,3 +33,23 @@ def random_choice(tensor):
         (torch.tensor): the picked element.
     """
     return tensor[torch.randint(tensor.nelement(), (1,))]
+
+
+def sparsity_measure(sparse_tensor):
+    return sparse_tensor._nnz() / (sparse_tensor.size(0) * sparse_tensor.size(1))
+
+
+def sparse_tensor_to_sparse_array(sparse_tensor):
+    sparse_tensor = sparse_tensor.cpu()
+
+    row, col = sparse_tensor._indices()
+    value = sparse_tensor._values()
+
+    out = scipy.sparse.coo_matrix((value, (row, col)), sparse_tensor.size())
+    return out
+
+
+def sparse_tensor_diag(n, diag=None, device=None):
+    diag = diag or torch.ones(n)
+
+    return torch.sparse.FloatTensor(torch.arange(n).expand(2, -1), diag, torch.Size((n, n))).to(device)

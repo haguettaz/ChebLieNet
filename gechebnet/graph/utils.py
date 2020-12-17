@@ -1,13 +1,7 @@
-import math
-
-import numpy as np
 import torch
-from numpy.linalg import eigh
-from scipy.sparse import csc_matrix
-from torch_geometric.utils import get_laplacian
 
 
-def metric_tensor(theta, sigmas):
+def metric_tensor(X, sigmas, device):
     """
     Return the anisotropic metric tensor, the main directions of the kernel are:
         1. aligned with theta and orthogonal to the orientation axis.
@@ -21,90 +15,15 @@ def metric_tensor(theta, sigmas):
     Returns:
         (torch.tensor): the metric tensor with shape (3, 3).
     """
+    s1, s2, s3 = sigmas
 
-    sigma_1, sigma_2, sigma_3 = sigmas
-    e1 = torch.tensor([math.cos(theta), math.sin(theta), 0], dtype=torch.float32)
-    e2 = torch.tensor([-math.sin(theta), math.cos(theta), 0], dtype=torch.float32)
-    e3 = torch.tensor([0, 0, 1], dtype=torch.float32)
+    e1 = torch.stack((torch.cos(X[:, 2]), torch.sin(X[:, 2]), torch.zeros(X[:, 2].shape, device=device)), dim=1)
 
-    D = e1.unsqueeze(1) * e1.unsqueeze(0) * sigma_1
-    D += e2.unsqueeze(1) * e2.unsqueeze(0) * sigma_2
-    D += e3.unsqueeze(1) * e3.unsqueeze(0) * sigma_3
+    e2 = torch.stack((-torch.sin(X[:, 2]), torch.cos(X[:, 2]), torch.zeros(X[:, 2].shape, device=device)), dim=1)
 
-    return D
+    e3 = torch.stack(
+        (torch.zeros(X[:, 2].shape, device=device), torch.zeros(X[:, 2].shape, device=device), torch.ones(X[:, 2].shape, device=device)), dim=1
+    )
 
-
-def compute_fourier_basis(graph_data, normalization):
-
-    num_nodes = graph_data.edge_index.max() + 1
-    L_edges, L_weights = get_laplacian(graph_data.edge_index, graph_data.edge_weight, normalization=normalization, num_nodes=num_nodes)
-
-    L = csc_matrix((L_weights, L_edges), shape=(num_nodes, num_nodes), dtype=np.float64)
-
-    lambdas, Phi = eigh(L.toarray())
-    return lambdas, Phi
-
-
-class WeightKernel:
-    """
-    The base class for the weight kernels.
-    """
-
-    def __init__(self, threshold=0.5, sigma=1.0, *args, **kwargs):
-        """
-        Initialize the weight kernel with hyperparameters.
-
-        Args:
-            threshold (float): the threshold on the weights.
-            sigma (float): the sigma parameter of the kernel.
-        """
-        self.threshold = threshold
-        self.sigma = sigma
-
-    def compute(self, sq_dist):
-        """
-        Compute the edge weights from the distances between each pair of nodes. All nodes with distances below
-        a threshold have an equal weighted edges between them.
-
-        Args:
-            sq_dist (torch.tensor): the tensor of pairwise squared distances.
-
-        Returns:
-            (torch.tensor): the tensor of edge's weights
-        """
-        mask_threshold = sq_dist <= self.threshold
-        weights = torch.zeros(sq_dist.shape)
-        weights[mask_threshold] = self.sigma
-        return weights
-
-
-class GaussianKernel(WeightKernel):
-    def compute(self, sq_dist):
-        """
-        Compute the edge weights from the distances between each pair of nodes using a gaussian kernel.
-
-        Args:
-            sq_dist (torch.tensor): the tensor of pairwise squared distances.
-
-        Returns:
-            (torch.tensor): the tensor of edge's weights
-        """
-        weights = torch.exp(-(sq_dist ** 2) / (2 * self.sigma ** 2))
-        weights[weights < self.threshold] = 0.0
-        return weights
-
-
-class CauchyKernel(WeightKernel):
-    def compute(self, sq_dist):
-        """
-        Compute the edge weights from the distances between each pair of nodes using a cauchy kernel.
-
-        Args:
-            sq_dist (torch.tensor): the tensor of pairwise squared distances.
-
-        Returns:
-            (torch.tensor): the tensor of edge's weights
-        """
-        weights = torch.div(1, 1 + torch.div(sq_dist, self.sigma ** 2))
-        weights[weights < self.threshold] = 0.0
-        return weights
+    D = e1.unsqueeze(2) * e1.unsqueeze(1) * s1 + e2.unsqueeze(2) * e2.unsqueeze(1) * s2 + e3.unsqueeze(2) * e3.unsqueeze(1) * s3
+    return D.reshape(-1, 9)
