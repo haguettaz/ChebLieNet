@@ -3,12 +3,11 @@ import math
 import torch
 from pykeops.torch import LazyTensor, Pm, Vi, Vj
 from scipy.sparse.linalg import eigsh
-from torch_geometric.utils import remove_self_loops
 
 from ..utils import sparse_tensor_to_sparse_array
 from .compression import edge_compression, node_compression
 from .signal_processing import get_laplacian
-from .utils import metric_tensor
+from .utils import delta_pos, metric_tensor, remove_self_loops, square_distance, to_undirected
 
 
 class Graph:
@@ -37,6 +36,12 @@ class Graph:
 
         weights = self.edge_weight[mask]
         return neighbors, weights
+
+    def process_edges(self, edge_index, edge_sqdist, self_loop):
+        if not self_loop:
+            edge_index, edge_sqdist = remove_self_loops(edge_index, edge_sqdist)
+        edge_index, edge_sqdist = to_undirected(edge_index, edge_sqdist)
+        return edge_index, edge_sqdist
 
 
 class HyperCubeGraph(Graph):
@@ -112,39 +117,26 @@ class HyperCubeGraph(Graph):
 
         xi = Vi(node_pos)
         xj = Vj(node_pos)
-        Sj = Vj(metric_tensor(node_pos, sigmas, device))
-        pi = Pm([torch.tensor([math.pi], device=device)])
 
-        dx1 = (xi[0] - xj[0]).abs()
-        dx2 = (xi[1] - xj[1]).abs()
-        dx3 = LazyTensor.cat(((xi[2] - xj[2]).abs(), pi - (xi[2] - xj[2]).abs()), dim=-1).min()  # periodicity x3_axis
+        dx = delta_pos(xi, xj)
+        S = metric_tensor(dx[2].abs(), sigmas, device)
+        sqdist = square_distance(dx, S)
 
-        dx = LazyTensor.cat((dx1, dx2, dx3), dim=-1)
+        edge_sqdist, neighbors = (sqdist).Kmin_argKmin(knn, dim=0)
+        edge_index = torch.stack((self.node_index.repeat_interleave(knn), neighbors.flatten().cpu()), dim=0)
+        edge_sqdist = edge_sqdist.cpu().flatten()
+        edge_index, edge_sqdist = self.process_edges(edge_index, edge_sqdist, self_loop)
 
         if weight_kernel == "gaussian":
-            kernel = lambda dxc, Sc, sigmac: (-dxc.weightedsqnorm(Sc) / (sigmac ** 2)).exp()
+            kernel = lambda sqdistc: (-sqdistc / (weight_sigma ** 2)).exp()
         elif weight_kernel == "laplacian":
-            kernel = lambda dxc, Sc, sigmac: (-(dxc.weightedsqnorm(Sc).sqrt() / (sigmac))).exp()
+            kernel = lambda sqdistc: (-(sqdistc.sqrt() / (weight_sigma))).exp()
         elif weight_kernel == "cauchy":
-            kernel = lambda dxc, Sc, sigmac: (1 + dxc.weightedsqnorm(Sc) / (sigmac ** 2)).power(-1)
+            kernel = lambda sqdistc: (1 + sqdistc / (weight_sigma ** 2)).power(-1)
 
-        weights_tensor = kernel(dx, Sj, weight_sigma)
+        edge_weight = kernel(edge_sqdist)
 
-        neg_weights, neighbors = (-weights_tensor).Kmin_argKmin(knn, dim=0)
-
-        edge_index = torch.stack((self.node_index.repeat_interleave(knn), neighbors.flatten().cpu()), dim=0)
-        edge_weight = -neg_weights.cpu().flatten()
-
-        self.process_edges(edge_index, edge_weight, self_loop)
-
-    def process_edges(self, edge_index, edge_weight, self_loop):
-        if not self_loop:
-            edge_index, edge_weight = remove_self_loops(edge_index, edge_weight)
-
-        # remove edges at the boundaries of the images, based on the minimal weight of the centroid node's neighborhood
-        mask_neighborhood = edge_index[0] == self.centroid_index
-        mask_threshold = edge_weight >= edge_weight[mask_neighborhood].min()
-        self.edge_index, self.edge_weight = edge_index[:, mask_threshold], edge_weight[mask_threshold]
+        self.edge_index, self.edge_weight = edge_index, edge_weight
 
     @property
     def centroid_index(self):

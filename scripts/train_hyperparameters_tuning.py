@@ -27,7 +27,6 @@ OUT_CHANNELS = 10
 HIDDEN_CHANNELS = 10
 
 EPOCHS = 20
-NUM_PARAMS = 10000
 
 
 def build_sweep_config():

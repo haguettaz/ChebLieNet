@@ -1,10 +1,10 @@
 import torch
 from scipy.linalg import eigh
 from scipy.sparse.linalg import eigsh
-from torch_geometric.utils import is_undirected
 from torch_scatter import scatter_add
 
 from ..utils import sparse_tensor_diag, sparse_tensor_to_sparse_array
+from .utils import is_undirected
 
 
 def get_laplacian(edge_index, edge_weight, num_nodes, norm=None):
