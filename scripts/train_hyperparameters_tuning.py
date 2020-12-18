@@ -5,7 +5,8 @@ import torch
 import torch.nn.functional as F
 import wandb
 from gechebnet.data.dataloader import get_train_val_data_loaders
-from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
+from gechebnet.engine.engine import (create_supervised_evaluator,
+                                     create_supervised_trainer)
 from gechebnet.engine.utils import prepare_batch, wandb_log
 from gechebnet.graph.graph import HyperCubeGraph
 from gechebnet.model.chebnet import ChebNet
@@ -27,7 +28,7 @@ OUT_CHANNELS = 10
 HIDDEN_CHANNELS = 10
 
 EPOCHS = 20
-OPTIMIZER = "ADAM"
+OPTIMIZER = "adam"
 
 
 def build_sweep_config():
