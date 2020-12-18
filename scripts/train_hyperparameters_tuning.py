@@ -35,7 +35,11 @@ def build_sweep_config():
 
     parameters_dict = {
         "batch_size": {"distribution": "q_log_uniform", "min": math.log(16), "max": math.log(256)},
-        "eps": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
+        "eps": {
+            "distribution": "uniform",
+            "min": 0.1,
+            "max": 1.0,
+        },
         "K": {"distribution": "int_uniform", "min": 5, "max": 20},
         "knn": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(64)},
         "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-5), "max": math.log(1e-2)},
@@ -44,7 +48,7 @@ def build_sweep_config():
         "weight_sigma": {"distribution": "log_uniform", "min": math.log(0.2), "max": math.log(5.0)},
         "weight_decay": {"distribution": "log_uniform", "min": math.log(1e-6), "max": math.log(1e-3)},
         "weight_kernel": {"values": ["cauchy", "gaussian", "laplacian"]},
-        "xi": {"distribution": "log_uniform", "min": math.log(1e-3), "max": math.log(1.0)},
+        "xi": {"distribution": "uniform", "min": 0.1, "max": 1.0},
     }
     sweep_config["parameters"] = parameters_dict
 
@@ -64,22 +68,20 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
         ),
         HyperCubeGraph(
             grid_size=(NX1 // 2, NX2 // 2),
-            spatial_step=2.0,
             nx3=nx3,
             weight_kernel=weight_kernel,
             weight_sigma=weight_sigma,
-            knn=knn,
-            sigmas=(xi / eps, xi, 1.0),
+            knn=knn // 2,
+            sigmas=(2 ** 2 * xi / eps, 2 ** 2 * xi, 1.0),
             weight_comp_device=DEVICE,
         ),
         HyperCubeGraph(
             grid_size=(NX1 // 2 // 2, NX2 // 2 // 2),
-            spatial_step=4.0,
             nx3=nx3,
             weight_kernel=weight_kernel,
             weight_sigma=weight_sigma,
-            knn=knn,
-            sigmas=(xi / eps, xi, 1.0),
+            knn=knn // 2 // 2,
+            sigmas=(2 ** 4 * xi / eps, 2 ** 4 * xi, 1.0),
             weight_comp_device=DEVICE,
         ),
     ]
