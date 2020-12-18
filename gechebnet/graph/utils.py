@@ -5,6 +5,8 @@ import torch
 from pykeops.torch import LazyTensor, Pm
 from torch_sparse import coalesce, transpose
 
+from ..utils import mod
+
 
 def metric_tensor(abs_dx3: LazyTensor, sigmas: Tuple[float, float, float], device: Optional[torch.device] = None) -> LazyTensor:
     r"""Return the anisotropic metric tensor, based on the angles' differences given by :attr:`abs_dx3`. The main
@@ -53,7 +55,7 @@ def delta_pos(xi: LazyTensor, xj: LazyTensor) -> LazyTensor:
     """
     dx1 = xj[0] - xi[0]
     dx2 = xj[1] - xi[1]
-    dx3 = mod_pi_pi_2(xj[2] - xi[2])
+    dx3 = mod(xj[2] - xi[2], math.pi, -math.pi / 2)
 
     dx = LazyTensor.cat((dx1, dx2, dx3), dim=-1)
 

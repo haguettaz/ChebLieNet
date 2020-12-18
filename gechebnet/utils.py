@@ -2,6 +2,20 @@ import scipy
 import torch
 
 
+def rect(x, a, b):
+    # a is inclusive, b is exclusive
+    eps = 1e-5
+    return (-x + b - eps).step() * (x - a).step()
+
+
+def mod(x, divider, offset):
+    return (
+        rect(x, offset - divider, offset) * (x + 1.5 * divider + offset)
+        + rect(x, offset, offset + divider) * (x + 0.5 * divider + offset)
+        + rect(x, offset + divider, offset + 2 * divider) * (x - 0.5 * divider + offset)
+    )
+
+
 def normalize(signal):
     max_, _ = torch.max(signal, dim=0)
     min_, _ = torch.min(signal, dim=0)
