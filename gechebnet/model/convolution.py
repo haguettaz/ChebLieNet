@@ -32,7 +32,7 @@ def cheb_conv(laplacian, x, weight):
 
     x = x0.unsqueeze(0)  # (V, B*Cin) -> (1, V, B*Cin)
 
-    if K > 0:
+    if K > 1:
         x1 = torch.mm(laplacian, x0)  # (V, B*Cin)
         x = torch.cat((x, x1.unsqueeze(0)), 0)  # (1, V, B*Cin) -> (2, V, B*Cin)
         for _ in range(1, K - 1):
@@ -62,6 +62,9 @@ class ChebConv(torch.nn.Module):
         super().__init__()
         laplacian_device = laplacian_device or torch.device("cpu")
 
+        if kernel_size < 1:
+            raise ValueError(f"{kernel_size} is not a valid value for kernel_size: must be strictly positive")
+
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
@@ -80,7 +83,7 @@ class ChebConv(torch.nn.Module):
         self.laplacian = self._norm(graph.laplacian, graph.lmax, graph.num_nodes).to(laplacian_device)
 
     def _norm(self, laplacian, lmax, num_nodes):
-        """Scale the eigenvalues from [0, lmax] to [-scale, scale]."""
+        """Scale the eigenvalues from [0, lmax] to [-1, 1]."""
         return 2 * laplacian / lmax - sparse_tensor_diag(num_nodes)
 
     def _kaiming_initialization(self):

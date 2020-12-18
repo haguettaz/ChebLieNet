@@ -1,6 +1,5 @@
 import torch
 from scipy.linalg import eigh
-from scipy.sparse.linalg import eigsh
 from torch_scatter import scatter_add
 
 from ..utils import sparse_tensor_diag, sparse_tensor_to_sparse_array
@@ -35,8 +34,8 @@ def get_laplacian(edge_index, edge_weight, num_nodes, norm=None):
 
 
 def get_fourier_basis(edge_index, edge_weight, num_nodes, norm=None):
-    if not is_undirected(edge_index, edge_weight):
-        raise ValueError("The graph is directed, the laplacian might do not have a proper eigen decomposition")
+    if not is_undirected(edge_index, edge_weight, num_nodes):
+        raise ValueError("The graph is directed, the laplacian might not have a proper eigen decomposition")
 
     laplacian = get_laplacian(edge_index, edge_weight, num_nodes, norm)
     lambdas, Phi = eigh(sparse_tensor_to_sparse_array(laplacian).toarray())

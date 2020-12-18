@@ -20,7 +20,7 @@ def prepare_batch(batch, nx, device):
     if H != nx2 or W != nx1:
         raise ValueError("Dimension incompatibility between graph and data")
 
-    x = x.unsqueeze(2).expand(B, C, nx3, nx2, nx1).reshape(B, C, -1)  # (B, C, V)
+    x = x.unsqueeze(2).expand(B, C, nx3, nx2, nx1).reshape(B, C, -1)  # (B, C, L*H*W)
 
     return x.to(device), y.to(device)
 

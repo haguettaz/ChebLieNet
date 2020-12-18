@@ -19,7 +19,7 @@ def node_compression(graph, kappa):
     num_to_keep = graph.num_nodes - num_to_remove
 
     node_mask = torch.tensor([True] * num_to_remove + [False] * num_to_keep)
-    node_mask = shuffle(node_mask)
+    node_mask = shuffle_tensor(node_mask)
 
     edge_mask = torch.tensor([False] * graph.num_edges)
 
@@ -51,7 +51,7 @@ def edge_compression(graph, kappa):
     num_to_keep = graph.num_edges - num_to_remove
 
     mask = torch.tensor([True] * num_to_remove + [False] * num_to_keep)
-    mask = shuffle(mask)
+    mask = shuffle_tensor(mask)
 
     graph.edge_index = graph.edge_index[:, ~mask]
     graph.edge_weight = graph.edge_weight[~mask]

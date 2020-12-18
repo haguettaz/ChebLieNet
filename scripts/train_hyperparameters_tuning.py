@@ -102,8 +102,7 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
 def train(config=None):
     # Initialize a new wandb run
     with wandb.init(config=config):
-        # If called by wandb.agent, as below,
-        # this config will be set by Sweep Controller
+        # If called by wandb.agent, as below, this config will be set by Sweep Controller
         config = wandb.config
 
         train_loader, val_loader = get_train_val_data_loaders(DATASET, batch_size=config.batch_size, val_ratio=VAL_RATIO, data_path=DATA_PATH)
