@@ -5,8 +5,7 @@ import torch
 import torch.nn.functional as F
 import wandb
 from gechebnet.data.dataloader import get_train_val_data_loaders
-from gechebnet.engine.engine import (create_supervised_evaluator,
-                                     create_supervised_trainer)
+from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engine.utils import prepare_batch, wandb_log
 from gechebnet.graph.graph import HyperCubeGraph
 from gechebnet.model.chebnet import ChebNet
@@ -42,7 +41,7 @@ def build_sweep_config():
         "learning_rate": {"value": 1e-3},
         "nx3": {"value": 8},
         "pooling": {"value": "max"},
-        "weight_sigma": {"value": 0.1},
+        "weight_sigma": {"value": 1.0},
         "weight_decay": {"value": 1e-6},
         "weight_kernel": {"value": "gaussian"},
         "xi": {"value": 0.01},
@@ -52,7 +51,7 @@ def build_sweep_config():
         # "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-5), "max": math.log(1e-2)},
         # "nx3": {"distribution": "int_uniform", "min": 2, "max": 12},
         # "pooling": {"values": ["max", "avg"]},
-        # "weight_sigma": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
+        # "weight_sigma": {"distribution": "log_uniform", "min": math.log(0.5), "max": math.log(5.)},
         # "weight_decay": {"distribution": "log_uniform", "min": math.log(1e-6), "max": math.log(1e-3)},
         # "weight_kernel": {"values": ["cauchy", "gaussian", "laplacian"]},
         # "xi": {"distribution": "log_uniform", "min": math.log(1e-3), "max": math.log(1.0)},
