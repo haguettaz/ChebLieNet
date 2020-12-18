@@ -19,7 +19,7 @@ DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 DATASET = "MNIST"
-VAL_RATIO = 0.3
+VAL_RATIO = 0.2
 NX1, NX2 = (28, 28)
 
 IN_CHANNELS = 1
@@ -71,8 +71,8 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
             nx3=nx3,
             weight_kernel=weight_kernel,
             weight_sigma=weight_sigma,
-            knn=knn // 2,
-            sigmas=(2 ** 2 * xi / eps, 2 ** 2 * xi, 1.0),
+            knn=knn // 2,  # adapt the number of neighbors to the size of the graph
+            sigmas=(xi / eps, xi, 1.0),  # adapt the metric kernel to the size of the graph
             weight_comp_device=DEVICE,
         ),
         HyperCubeGraph(
@@ -80,8 +80,8 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
             nx3=nx3,
             weight_kernel=weight_kernel,
             weight_sigma=weight_sigma,
-            knn=knn // 2 // 2,
-            sigmas=(2 ** 4 * xi / eps, 2 ** 4 * xi, 1.0),
+            knn=knn // 2 // 2,  # adapt the number of neighbors to the size of the graph
+            sigmas=(xi / eps, xi, 1.0),  # adapt the metric kernel to the size of the graph
             weight_comp_device=DEVICE,
         ),
     ]
