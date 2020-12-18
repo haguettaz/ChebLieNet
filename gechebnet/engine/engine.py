@@ -58,7 +58,6 @@ def create_supervised_trainer(
         x, y = prepare_batch(batch, nx, device)
         y_pred = model(x)
         loss = loss_fn(y_pred, y)
-        print(loss)
         loss.backward()
         optimizer.step()
 
