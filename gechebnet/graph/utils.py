@@ -51,18 +51,26 @@ def delta_pos(xi: LazyTensor, xj: LazyTensor) -> LazyTensor:
     Returns:
         LazyTensor: pairwise delta position on each dimension between :attr:`xi` and :attr:`xj`
     """
-    eps = 1e-3
     dx1 = xj[0] - xi[0]
     dx2 = xj[1] - xi[1]
-
-    range1 = LazyTensor.step(-(xj[2] - xi[2]).abs() + math.pi / 2)  # y3 - pi/2 <= y3 <= x3 + pi/2
-    range2 = LazyTensor.step(xi[2] - xj[2] - math.pi / 2 - eps)  # y3 + eps <= x3 - pi/2
-    range3 = LazyTensor.step(xj[2] - xi[2] - math.pi / 2 - eps)  # y3 - eps >= x3 + pi/2
-    dx3 = range1 * (xj[2] - xi[2]) + range2 * (xj[2] - xi[2] + math.pi) + range3 * (xj[2] - xi[2] - math.pi)
+    dx3 = mod_pi_pi_2(xj[2] - xi[2])
 
     dx = LazyTensor.cat((dx1, dx2, dx3), dim=-1)
 
     return dx
+
+
+def mod_pi_pi_2(x):
+
+    eps = 1e-3
+
+    range1 = LazyTensor.step(x - math.pi / 2 - eps)
+    range2 = LazyTensor.step(-(x).abs() + math.pi / 2)
+    range3 = LazyTensor.step(x - math.pi / 2 - eps)
+
+    x = range1 * (x + math.pi) + range2 * x + range3 * (x - math.pi)
+
+    return x
 
 
 def square_distance(dx: LazyTensor, S: LazyTensor) -> LazyTensor:

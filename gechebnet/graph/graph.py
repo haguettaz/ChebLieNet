@@ -48,6 +48,7 @@ class HyperCubeGraph(Graph):
     def __init__(
         self,
         grid_size,
+        spatial_step=1.0,
         nx3=6,
         compression=None,
         self_loop=False,
@@ -103,8 +104,8 @@ class HyperCubeGraph(Graph):
         self.node_index = torch.arange(self.nx1 * self.nx2 * self.nx3)
 
         # we define the grid points and reshape them to get 1-d arrays
-        self.x1_axis = torch.arange(0.0, self.nx1, 1.0)
-        self.x2_axis = torch.arange(0.0, self.nx2, 1.0)
+        self.x1_axis = torch.arange(0.0, self.nx1, spatial_step)
+        self.x2_axis = torch.arange(0.0, self.nx2, spatial_step)
         self.x3_axis = torch.arange(0.0, math.pi, math.pi / self.nx3)
 
         # we keep in memory the position of all the nodes, before compression

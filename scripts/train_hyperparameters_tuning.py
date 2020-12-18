@@ -35,26 +35,16 @@ def build_sweep_config():
 
     parameters_dict = {
         "batch_size": {"distribution": "q_log_uniform", "min": math.log(16), "max": math.log(256)},
-        "eps": {"value": 0.1},
-        "K": {"value": 10},
-        "knn": {"value": 20},
-        "learning_rate": {"value": 1e-4},
-        "nx3": {"value": 8},
-        "pooling": {"value": "max"},
-        "weight_sigma": {"value": 1.0},
-        "weight_decay": {"value": 1e-6},
-        "weight_kernel": {"value": "gaussian"},
-        "xi": {"value": 0.01},
-        # "eps": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
-        # "K": {"distribution": "int_uniform", "min": 5, "max": 20},
-        # "knn": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(64)},
-        # "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-5), "max": math.log(1e-2)},
-        # "nx3": {"distribution": "int_uniform", "min": 2, "max": 12},
-        # "pooling": {"values": ["max", "avg"]},
-        # "weight_sigma": {"distribution": "log_uniform", "min": math.log(0.5), "max": math.log(5.)},
-        # "weight_decay": {"distribution": "log_uniform", "min": math.log(1e-6), "max": math.log(1e-3)},
-        # "weight_kernel": {"values": ["cauchy", "gaussian", "laplacian"]},
-        # "xi": {"distribution": "log_uniform", "min": math.log(1e-3), "max": math.log(1.0)},
+        "eps": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
+        "K": {"distribution": "int_uniform", "min": 5, "max": 20},
+        "knn": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(64)},
+        "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-5), "max": math.log(1e-2)},
+        "nx3": {"distribution": "int_uniform", "min": 2, "max": 12},
+        "pooling": {"values": ["max", "avg"]},
+        "weight_sigma": {"distribution": "log_uniform", "min": math.log(0.2), "max": math.log(5.0)},
+        "weight_decay": {"distribution": "log_uniform", "min": math.log(1e-6), "max": math.log(1e-3)},
+        "weight_kernel": {"values": ["cauchy", "gaussian", "laplacian"]},
+        "xi": {"distribution": "log_uniform", "min": math.log(1e-3), "max": math.log(1.0)},
     }
     sweep_config["parameters"] = parameters_dict
 
@@ -74,6 +64,7 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
         ),
         HyperCubeGraph(
             grid_size=(NX1 // 2, NX2 // 2),
+            spatial_step=2.0,
             nx3=nx3,
             weight_kernel=weight_kernel,
             weight_sigma=weight_sigma,
@@ -83,6 +74,7 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
         ),
         HyperCubeGraph(
             grid_size=(NX1 // 2 // 2, NX2 // 2 // 2),
+            spatial_step=4.0,
             nx3=nx3,
             weight_kernel=weight_kernel,
             weight_sigma=weight_sigma,
@@ -91,6 +83,9 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
             weight_comp_device=DEVICE,
         ),
     ]
+
+    for idx, graph in enumerate(graphs):
+        wandb.log({f"graph_{idx}_nodes": graph.num_nodes, f"graph_{idx}_edges": graph.num_edges})
 
     model = ChebNet(graphs, K, IN_CHANNELS, OUT_CHANNELS, HIDDEN_CHANNELS, laplacian_device=DEVICE, pooling=pooling)
 
