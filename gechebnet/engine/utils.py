@@ -47,5 +47,5 @@ def wandb_log(trainer, evaluator, data_loader):
     evaluator.run(data_loader)
     metrics = evaluator.state.metrics
 
-    for k in metrics:
-        wandb.log({k: metrics[k], "epoch": trainer.state.epoch})
+    wanfor k in metrics:
+        db.log({k: metrics[k], "epoch": trainer.state.epoch})

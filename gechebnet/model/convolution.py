@@ -26,24 +26,22 @@ def cheb_conv(laplacian, x, weight):
     # K = order of Chebyshev polynomials
 
     B, Cin, V = x.shape  # (B, Cin, V)
-    K, _, Cout = weight.shape  # (K, Cin, Cout)
+    K, _, _ = weight.shape  # (K, Cin, Cout)
 
-    x0 = x.permute(2, 0, 1).reshape(V, B * Cin)  # (V, B*Cin)
+    x0 = x.permute(2, 0, 1).contiguous().view(V, B * Cin)  # (B, Cin, V) -> (V, B*Cin)
 
-    x = x0.unsqueeze(0)  # (1, V, B*Cin)
+    x = x0.unsqueeze(0)  # (V, B*Cin) -> (1, V, B*Cin)
 
     if K > 0:
         x1 = torch.mm(laplacian, x0)  # (V, B*Cin)
-        x = torch.cat((x, x1.unsqueeze(0)), 0)  # (2, V, B*Cin)
+        x = torch.cat((x, x1.unsqueeze(0)), 0)  # (1, V, B*Cin) -> (2, V, B*Cin)
         for _ in range(1, K - 1):
-            x2 = torch.addmm(x0, laplacian, x1, beta=-1, alpha=2)  # (V, B*Cin)
-            x = torch.cat((x, x2.unsqueeze(0)), 0)  # (k, V, B*Cin)
+            x2 = torch.addmm(x0, laplacian, x1, beta=-1, alpha=2)  # -> (V, B*Cin)
+            x = torch.cat((x, x2.unsqueeze(0)), 0)  # (k-1, V, B*Cin) -> (k, V, B*Cin)
             x0, x1 = x1, x2  # (V, B*Cin), (V, B*Cin)
 
-    x = x.reshape(K, V, B, Cin).permute(2, 1, 3, 0).reshape(B * V, Cin * K)  # (B*V, Cin*K)
-    weight = weight.view(Cin * K, Cout)  # (Cin*K, Cout)
-
-    x = torch.mm(x, weight).reshape(B, V, Cout)  # (B, V, Cout)
+    x = x.contiguous().view(K, V, B, Cin)  # (K, V, B*Cin) -> (K, V, B, Cin)
+    x = torch.tensordot(x, weight, dims=([0, 3], [0, 1]))  # (V, B, Cout)
 
     return x
 
@@ -103,7 +101,7 @@ class ChebConv(torch.nn.Module):
         x = self._conv(self.laplacian, x, self.weight)
 
         if self.bias is not None:
-            x += self.bias
+            x += self.bias  # (V, B, Cout)
 
-        x = x.permute(0, 2, 1)  # (B, Cout, V)
+        x = x.permute(1, 2, 0).contiguous()  # (B, Cout, V)
         return x
