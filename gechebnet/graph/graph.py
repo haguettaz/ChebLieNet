@@ -82,7 +82,7 @@ class HyperCubeGraph(Graph):
 
         self.nx1, self.nx2 = grid_size
         self.nx3 = nx3
-        self._initnodes()
+        self._initnodes(self.nx1 * self.nx2 * self.nx3, spatial_step)
         print("Nodes: Done!")
 
         self._initedges(sigmas, knn, weight_kernel, weight_sigma, self_loop, weight_comp_device)
@@ -94,14 +94,14 @@ class HyperCubeGraph(Graph):
         super()._initlaplacian()
         print("Laplacian: Done!")
 
-    def _initnodes(self):
+    def _initnodes(self, num_nodes, spatial_step):
         """
         Initialise the nodes' indices and their positions.
             - `self.node_index` is a tensor with shape (num_nodes)
             - `self.node_pos` is a tensor with shape (self.nx1 * self.nx2 * self.nx3, 3)
         If the compression algorithm is the static node compression, remove a proportion kappa of nodes.
         """
-        self.node_index = torch.arange(self.nx1 * self.nx2 * self.nx3)
+        self.node_index = torch.arange(num_nodes)
 
         # we define the grid points and reshape them to get 1-d arrays
         self.x1_axis = torch.arange(0.0, self.nx1, spatial_step)
