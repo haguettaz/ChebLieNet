@@ -19,7 +19,7 @@ DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 DATASET = "MNIST"
-VAL_RATIO = 0.2
+VAL_RATIO = 0.1
 NX1, NX2 = (28, 28)
 
 IN_CHANNELS = 1
@@ -27,6 +27,7 @@ OUT_CHANNELS = 10
 HIDDEN_CHANNELS = 10
 
 EPOCHS = 20
+OPTIMIZER = "ADAM"
 
 
 def build_sweep_config():
@@ -34,17 +35,26 @@ def build_sweep_config():
 
     parameters_dict = {
         "batch_size": {"distribution": "q_log_uniform", "min": math.log(16), "max": math.log(256)},
-        "eps": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
-        "K": {"distribution": "int_uniform", "min": 5, "max": 20},
-        "knn": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(64)},
-        "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-4), "max": math.log(1e-1)},
-        "nx3": {"distribution": "int_uniform", "min": 2, "max": 12},
-        "optimizer": {"values": ["adam", "sgd"]},
-        "pooling": {"values": ["max", "avg"]},
-        "weight_sigma": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
-        "weight_decay": {"distribution": "log_uniform", "min": math.log(1e-6), "max": math.log(1e-3)},
-        "weight_kernel": {"values": ["cauchy", "gaussian", "laplacian"]},
-        "xi": {"distribution": "log_uniform", "min": math.log(1e-3), "max": math.log(1.0)},
+        "eps": {"value": 0.1},
+        "K": {"value": 10},
+        "knn": {"value": 20},
+        "learning_rate": {"value": 1e-3},
+        "nx3": {"value": 8},
+        "pooling": {"value": "max"},
+        "weight_sigma": {"value": 0.1},
+        "weight_decay": {"value": 1e-6},
+        "weight_kernel": {"value": "gaussian"},
+        "xi": {"value": 0.01},
+        # "eps": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
+        # "K": {"distribution": "int_uniform", "min": 5, "max": 20},
+        # "knn": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(64)},
+        # "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-5), "max": math.log(1e-2)},
+        # "nx3": {"distribution": "int_uniform", "min": 2, "max": 12},
+        # "pooling": {"values": ["max", "avg"]},
+        # "weight_sigma": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
+        # "weight_decay": {"distribution": "log_uniform", "min": math.log(1e-6), "max": math.log(1e-3)},
+        # "weight_kernel": {"values": ["cauchy", "gaussian", "laplacian"]},
+        # "xi": {"distribution": "log_uniform", "min": math.log(1e-3), "max": math.log(1.0)},
     }
     sweep_config["parameters"] = parameters_dict
 
@@ -100,7 +110,7 @@ def train(config=None):
 
         model = get_model(config.nx3, config.knn, config.eps, config.xi, config.weight_sigma, config.weight_kernel, config.K, config.pooling)
 
-        optimizer = get_optimizer(model, config.optimizer, config.learning_rate, config.weight_decay)
+        optimizer = get_optimizer(model, OPTIMIZER, config.learning_rate, config.weight_decay)
 
         loss_fn = F.nll_loss
         metrics = {"val_mnist_acc": Accuracy(), "val_mnist_loss": Loss(loss_fn)}
@@ -109,10 +119,10 @@ def train(config=None):
         trainer = create_supervised_trainer(
             nx=(NX1, NX2, config.nx3), model=model, optimizer=optimizer, loss_fn=F.nll_loss, device=DEVICE, prepare_batch=prepare_batch
         )
-        ProgressBar(persist=False, desc="Training").attach(trainer)
+        # ProgressBar(persist=False, desc="Training").attach(trainer)
 
         evaluator = create_supervised_evaluator(nx=(NX1, NX2, config.nx3), model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch)
-        ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
+        # ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
 
         # track training with wandb
         _ = trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, evaluator, val_loader)

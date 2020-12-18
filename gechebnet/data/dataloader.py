@@ -1,15 +1,35 @@
 import math
+from typing import Optional, Tuple, TypeVar
 
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.sampler import SubsetRandomSampler
 from torchvision.datasets import MNIST, STL10
 from torchvision.transforms import Compose, ToTensor
 
 from ..utils import shuffle_tensor
 
+T_co = TypeVar("T_co", covariant=True)
 
-def get_train_val_data_loaders(dataset, batch_size=32, val_ratio=0.2, data_path="data"):
+
+def get_train_val_data_loaders(
+    dataset: Dataset[T_co], batch_size: Optional[int] = 32, val_ratio: Optional[float] = 0.2, data_path: Optional[str] = "data"
+) -> Tuple[DataLoader, DataLoader]:
+    """
+    [summary]
+
+    Args:
+        dataset (Dataset[T_co]): [description]
+        batch_size (Optional[int], optional): [description]. Defaults to 32.
+        val_ratio (Optional[float], optional): [description]. Defaults to 0.2.
+        data_path (Optional[str], optional): [description]. Defaults to "data".
+
+    Raises:
+        ValueError: [description]
+
+    Returns:
+        Tuple[DataLoader, DataLoader]: [description]
+    """
 
     if dataset not in {"MNIST", "ROT-MNIST", "STL10"}:
         raise ValueError(f"{dataset} is not a valid value for dataset: must be in 'MNIST', 'ROT-MNIST', 'STL10'")
@@ -39,7 +59,21 @@ def get_train_val_data_loaders(dataset, batch_size=32, val_ratio=0.2, data_path=
     return train_loader, valid_loader
 
 
-def get_test_data_loader(dataset, batch_size=32, data_path="data"):
+def get_test_data_loader(dataset: Dataset[T_co], batch_size: Optional[int] = 32, data_path: Optional[str] = "data") -> DataLoader:
+    """
+    [summary]
+
+    Args:
+        dataset (Dataset[T_co]): [description]
+        batch_size (Optional[int], optional): [description]. Defaults to 32.
+        data_path (Optional[str], optional): [description]. Defaults to "data".
+
+    Raises:
+        ValueError: [description]
+
+    Returns:
+        DataLoader: [description]
+    """
 
     if dataset not in {"MNIST", "ROT-MNIST", "STL10"}:
         raise ValueError(f"{dataset} is not a valid value for dataset: must be in 'MNIST', 'ROT-MNIST', 'STL10'")
