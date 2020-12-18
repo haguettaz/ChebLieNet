@@ -19,12 +19,12 @@ DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 DATASET = "MNIST"
-VAL_RATIO = 0.1
+VAL_RATIO = 0.3
 NX1, NX2 = (28, 28)
 
 IN_CHANNELS = 1
 OUT_CHANNELS = 10
-HIDDEN_CHANNELS = 10
+HIDDEN_CHANNELS = 20
 
 EPOCHS = 20
 OPTIMIZER = "adam"
@@ -38,7 +38,7 @@ def build_sweep_config():
         "eps": {"value": 0.1},
         "K": {"value": 10},
         "knn": {"value": 20},
-        "learning_rate": {"value": 1e-3},
+        "learning_rate": {"value": 1e-4},
         "nx3": {"value": 8},
         "pooling": {"value": "max"},
         "weight_sigma": {"value": 1.0},
