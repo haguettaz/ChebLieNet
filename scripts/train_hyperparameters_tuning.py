@@ -130,4 +130,4 @@ def train(config=None):
 if __name__ == "__main__":
     sweep_config = build_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project="gechebnet")
-    wandb.agent(sweep_id, train, count=20)
+    wandb.agent(sweep_id, train, count=100)
