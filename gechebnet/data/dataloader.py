@@ -13,13 +13,13 @@ T_co = TypeVar("T_co", covariant=True)
 
 
 def get_train_val_data_loaders(
-    dataset: Dataset[T_co], batch_size: Optional[int] = 32, val_ratio: Optional[float] = 0.2, data_path: Optional[str] = "data"
+    dataset: str, batch_size: Optional[int] = 32, val_ratio: Optional[float] = 0.2, data_path: Optional[str] = "data"
 ) -> Tuple[DataLoader, DataLoader]:
     """
     [summary]
 
     Args:
-        dataset (Dataset[T_co]): [description]
+        dataset (str): [description]
         batch_size (Optional[int], optional): [description]. Defaults to 32.
         val_ratio (Optional[float], optional): [description]. Defaults to 0.2.
         data_path (Optional[str], optional): [description]. Defaults to "data".
@@ -59,12 +59,12 @@ def get_train_val_data_loaders(
     return train_loader, valid_loader
 
 
-def get_test_data_loader(dataset: Dataset[T_co], batch_size: Optional[int] = 32, data_path: Optional[str] = "data") -> DataLoader:
+def get_test_data_loader(dataset: str, batch_size: Optional[int] = 32, data_path: Optional[str] = "data") -> DataLoader:
     """
     [summary]
 
     Args:
-        dataset (Dataset[T_co]): [description]
+        dataset (str): [description]
         batch_size (Optional[int], optional): [description]. Defaults to 32.
         data_path (Optional[str], optional): [description]. Defaults to "data".
 

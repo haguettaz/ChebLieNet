@@ -35,11 +35,7 @@ def build_sweep_config():
 
     parameters_dict = {
         "batch_size": {"distribution": "q_log_uniform", "min": math.log(16), "max": math.log(256)},
-        "eps": {
-            "distribution": "uniform",
-            "min": 0.1,
-            "max": 1.0,
-        },
+        "eps": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1)},
         "K": {"distribution": "int_uniform", "min": 5, "max": 20},
         "knn": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(64)},
         "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-5), "max": math.log(1e-2)},
@@ -48,7 +44,7 @@ def build_sweep_config():
         "weight_sigma": {"distribution": "log_uniform", "min": math.log(0.2), "max": math.log(5.0)},
         "weight_decay": {"distribution": "log_uniform", "min": math.log(1e-6), "max": math.log(1e-3)},
         "weight_kernel": {"values": ["cauchy", "gaussian", "laplacian"]},
-        "xi": {"distribution": "uniform", "min": 0.1, "max": 1.0},
+        "xi": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1)},
     }
     sweep_config["parameters"] = parameters_dict
 
@@ -102,9 +98,20 @@ def train(config=None):
         # If called by wandb.agent, as below, this config will be set by Sweep Controller
         config = wandb.config
 
-        train_loader, val_loader = get_train_val_data_loaders(DATASET, batch_size=config.batch_size, val_ratio=VAL_RATIO, data_path=DATA_PATH)
+        train_loader, val_loader = get_train_val_data_loaders(
+            DATASET, batch_size=config.batch_size, val_ratio=VAL_RATIO, data_path=DATA_PATH
+        )
 
-        model = get_model(config.nx3, config.knn, config.eps, config.xi, config.weight_sigma, config.weight_kernel, config.K, config.pooling)
+        model = get_model(
+            config.nx3,
+            config.knn,
+            config.eps,
+            config.xi,
+            config.weight_sigma,
+            config.weight_kernel,
+            config.K,
+            config.pooling,
+        )
 
         optimizer = get_optimizer(model, OPTIMIZER, config.learning_rate, config.weight_decay)
 
@@ -113,11 +120,18 @@ def train(config=None):
 
         # create ignite's engines
         trainer = create_supervised_trainer(
-            nx=(NX1, NX2, config.nx3), model=model, optimizer=optimizer, loss_fn=F.nll_loss, device=DEVICE, prepare_batch=prepare_batch
+            nx=(NX1, NX2, config.nx3),
+            model=model,
+            optimizer=optimizer,
+            loss_fn=F.nll_loss,
+            device=DEVICE,
+            prepare_batch=prepare_batch,
         )
         # ProgressBar(persist=False, desc="Training").attach(trainer)
 
-        evaluator = create_supervised_evaluator(nx=(NX1, NX2, config.nx3), model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch)
+        evaluator = create_supervised_evaluator(
+            nx=(NX1, NX2, config.nx3), model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch
+        )
         # ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
 
         # track training with wandb

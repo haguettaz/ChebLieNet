@@ -40,7 +40,7 @@ class Graph:
     def process_edges(self, edge_index, edge_sqdist, self_loop):
         if not self_loop:
             edge_index, edge_sqdist = remove_self_loops(edge_index, edge_sqdist)
-        edge_index, edge_sqdist = to_undirected(edge_index, edge_sqdist)
+        # edge_index, edge_sqdist = to_undirected(edge_index, edge_sqdist)
         return edge_index, edge_sqdist
 
 
@@ -113,16 +113,14 @@ class HyperCubeGraph(Graph):
         self.node_pos = torch.stack([x1_.flatten(), x2_.flatten(), x3_.flatten()], axis=-1)
 
     def _initedges(self, sigmas, knn, weight_kernel, weight_sigma, self_loop, device):
-        node_pos = self.node_pos.to(device)
 
-        xi = Vi(node_pos)
-        xj = Vj(node_pos)
+        xi = Vi(self.node_pos.to(device))
+        xj = Vj(self.node_pos.to(device))
 
-        dx = delta_pos(xi, xj)
-        S = metric_tensor(dx[2].abs(), sigmas, device)
-        sqdist = square_distance(dx, S)
+        S = metric_tensor(sigmas, device)
 
-        edge_sqdist, neighbors = (sqdist).Kmin_argKmin(knn, dim=0)
+        edge_sqdist, neighbors = square_distance(xi, xj, S).Kmin_argKmin(knn, dim=0)
+
         edge_index = torch.stack((self.node_index.repeat_interleave(knn), neighbors.flatten().cpu()), dim=0)
         edge_sqdist = edge_sqdist.cpu().flatten()
         edge_index, edge_sqdist = self.process_edges(edge_index, edge_sqdist, self_loop)

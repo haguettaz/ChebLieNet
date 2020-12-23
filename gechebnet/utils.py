@@ -8,6 +8,18 @@ def rect(x, a, b):
     return (-x + b - eps).step() * (x - a).step()
 
 
+def lower(x, b, inclusive=True):
+    if not inclusive:
+        return (-x - 1e-4 + b).step()
+    return (-x + b).step()
+
+
+def upper(x, a, inclusive=True):
+    if not inclusive:
+        return (x - 1e-5 - a).step()
+    return (x - a).step()
+
+
 def mod(x, divider, offset):
     return (
         rect(x, offset - divider, offset) * (x + 1.5 * divider + offset)

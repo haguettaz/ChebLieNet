@@ -5,39 +5,118 @@ import torch
 from pykeops.torch import LazyTensor, Pm
 from torch_sparse import coalesce, transpose
 
-from ..utils import mod
+from ..utils import lower, upper
 
 
-def metric_tensor(abs_dx3: LazyTensor, sigmas: Tuple[float, float, float], device: Optional[torch.device] = None) -> LazyTensor:
-    r"""Return the anisotropic metric tensor, based on the angles' differences given by :attr:`abs_dx3`. The main
-    directions are:
-        1. aligned with theta and orthogonal to the orientation axis.
-        2. orthogonal to theta and to the orientation axis.
-        3. aligned with the orientation axis.
+def group_inverse(x):
+    return LazyTensor.cat(
+        (-x[0] * x[2].cos() - x[1] * x[2].sin(), -x[1] * x[2].cos() + x[0] * x[2].sin(), -x[2]), dim=-1
+    )
 
-    The metric tensor is computed via its eigen decomposition :math:`S = U \Lambda U^\top`.
+
+def group_product(x1, x2):
+    return LazyTensor.cat(
+        (
+            x1[0] + x2[0] * (x1[2]).cos() - x2[1] * (x1[2]).sin(),
+            x1[1] + x2[1] * (x1[2]).cos() + x2[0] * (x1[2]).sin(),
+            x1[2] + x2[2],
+        ),
+        dim=-1,
+    )
+
+
+def group_log(x):
+    # if theta == 0, cot(theta) return 0, we use this implementation detail for the log expression by part
+    eps = 1e-5
+    return LazyTensor.cat(
+        (
+            lower(x[2].mod(math.pi, 0.0).abs(), eps) * x[0]
+            + upper(x[2].mod(math.pi, 0.0).abs(), eps)
+            * 0.5
+            * x[2].mod(math.pi, -math.pi / 2)
+            * (x[1] + x[0] * ((x[2].mod(math.pi, -math.pi / 2) / 2).cot())),
+            lower(x[2].mod(math.pi, 0.0).abs(), eps) * x[1]
+            + upper(x[2].mod(math.pi, 0.0).abs(), eps)
+            * 0.5
+            * x[2].mod(math.pi, -math.pi / 2)
+            * (-x[0] + x[1] * ((x[2].mod(math.pi, -math.pi / 2) / 2).cot())),
+            x[2].mod(math.pi, -math.pi / 2),
+        ),
+        dim=-1,
+    )
+
+
+def metric_tensor(sigmas, device):
+    return Pm(torch.tensor([*sigmas], device=device))
+
+
+def square_distance(xi: LazyTensor, xj: LazyTensor, S: LazyTensor) -> LazyTensor:
+    r"""Returns the square distance based on the delta position in :attr:`dx` and the metric tensor
+    in :attr:`S`:
+
+    :math:`d(x,y) = (x-y)^\top \Sigma (x-y)`
 
     Args:
-        abs_dx3 (LazyTensor): angle's differences' with shape (N, M).
-        sigmas (Tuple[float, float, float]): intensities of the three main anisotropic directions.
-        device (Optional[torch.device]): device to use. Defaults to None.
+        dx (LazyTensor): delta position between source's and target's points with shape (N, M, 3)
+        S (LazyTensor): metric tensor with shape (N, M, 3, 3).
 
     Returns:
-        LazyTensor: metric tensor with shape (N, M, 3, 3).
+        LazyTensor: square distances
     """
-    device = device or torch.device("cpu")
 
-    s1, s2, s3 = sigmas
+    v = group_log(group_product(group_inverse(xi), xj))
 
-    L = Pm(torch.tensor([s1, 0.0, 0.0, 0.0, s2, 0.0, 0.0, 0.0, s3], device=device))
+    return v.weightedsqnorm(S)
 
-    U = LazyTensor.cat((abs_dx3.cos(), -(abs_dx3.sin()), Pm(0.0), abs_dx3.sin(), abs_dx3.cos(), Pm(0.0), Pm(0.0), Pm(0.0), Pm(1.0)), dim=-1)
 
-    U_t = LazyTensor.cat((abs_dx3.cos(), abs_dx3.sin(), Pm(0.0), -(abs_dx3.sin()), abs_dx3.cos(), Pm(0.0), Pm(0.0), Pm(0.0), Pm(1.0)), dim=-1)
+# def square_distance(xi, xj, S):
+#     xi_inv = group_inverse(xi)
+#     v = group_product(xi_inv, xj)
+#     # v = pl_log(xi_inv_xj)
+#     return v.keops_tensordot(v, (1, 3), (3, 1), (1,), (0,))
 
-    S = U.keops_tensordot(L, (3, 3), (3, 3), (1,), (0,)).keops_tensordot(U_t, (3, 3), (3, 3), (1,), (0,))
+#     # v = pl_log(group_product(group_inverse(xi), xj))
+#     # return v.keops_tensordot(S, (1, 3), (3, 3), (1,), (0,)).keops_tensordot(v, (3, 3), (3, 1), (1,), (0,))
 
-    return S
+
+# def metric_tensor(
+#     abs_dx3: LazyTensor, sigmas: Tuple[float, float, float], device: Optional[torch.device] = None
+# ) -> LazyTensor:
+#     r"""Return the anisotropic metric tensor, based on the angles' differences given by :attr:`abs_dx3`. The main
+#     directions are:
+#         1. aligned with theta and orthogonal to the orientation axis.
+#         2. orthogonal to theta and to the orientation axis.
+#         3. aligned with the orientation axis.
+
+#     The metric tensor is computed via its eigen decomposition :math:`S = U \Lambda U^\top`.
+
+#     Args:
+#         abs_dx3 (LazyTensor): angle's differences' with shape (N, M).
+#         sigmas (Tuple[float, float, float]): intensities of the three main anisotropic directions.
+#         device (Optional[torch.device]): device to use. Defaults to None.
+
+#     Returns:
+#         LazyTensor: metric tensor with shape (N, M, 3, 3).
+#     """
+#     device = device or torch.device("cpu")
+
+#     s1, s2, s3 = sigmas
+
+#     L = Pm(torch.tensor([s1, 0.0, 0.0, 0.0, s2, 0.0, 0.0, 0.0, s3], device=device))
+
+#     U = LazyTensor.cat(
+#         (abs_dx3.cos(), -(abs_dx3.sin()), Pm(0.0), abs_dx3.sin(), abs_dx3.cos(), Pm(0.0), Pm(0.0), Pm(0.0), Pm(1.0)),
+#         dim=-1,
+#     )
+
+#     U_t = LazyTensor.cat(
+#         (abs_dx3.cos(), abs_dx3.sin(), Pm(0.0), -(abs_dx3.sin()), abs_dx3.cos(), Pm(0.0), Pm(0.0), Pm(0.0), Pm(1.0)),
+#         dim=-1,
+#     )
+
+#     S = U.keops_tensordot(L, (3, 3), (3, 3), (1,), (0,)).keops_tensordot(U_t, (3, 3), (3, 3), (1,), (0,))
+
+#     return S
 
 
 def delta_pos(xi: LazyTensor, xj: LazyTensor) -> LazyTensor:
@@ -60,35 +139,6 @@ def delta_pos(xi: LazyTensor, xj: LazyTensor) -> LazyTensor:
     dx = LazyTensor.cat((dx1, dx2, dx3), dim=-1)
 
     return dx
-
-
-def mod_pi_pi_2(x):
-
-    eps = 1e-3
-
-    range1 = LazyTensor.step(x - math.pi / 2 - eps)
-    range2 = LazyTensor.step(-(x).abs() + math.pi / 2)
-    range3 = LazyTensor.step(x - math.pi / 2 - eps)
-
-    x = range1 * (x + math.pi) + range2 * x + range3 * (x - math.pi)
-
-    return x
-
-
-def square_distance(dx: LazyTensor, S: LazyTensor) -> LazyTensor:
-    r"""Returns the square distance based on the delta position in :attr:`dx` and the metric tensor
-    in :attr:`S`:
-
-    :math:`d(x,y) = (x-y)^\top \Sigma (x-y)`
-
-    Args:
-        dx (LazyTensor): delta position between source's and target's points with shape (N, M, 3)
-        S (LazyTensor): metric tensor with shape (N, M, 3, 3).
-
-    Returns:
-        LazyTensor: square distances
-    """
-    return dx.keops_tensordot(S, (1, 3), (3, 3), (1,), (0,)).keops_tensordot(dx, (1, 3), (3, 1), (1,), (0,))
 
 
 def remove_self_loops(edge_index: torch.LongTensor, edge_weight: torch.Tensor):
