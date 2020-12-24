@@ -34,17 +34,17 @@ def build_sweep_config():
     sweep_config = {"method": "bayes", "metric": {"name": "val_mnist_acc", "goal": "maximize"}}
 
     parameters_dict = {
-        "batch_size": {"distribution": "q_log_uniform", "min": math.log(16), "max": math.log(256)},
-        "eps": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1)},
-        "K": {"distribution": "int_uniform", "min": 5, "max": 20},
+        "batch_size": {"distribution": "q_log_uniform", "min": math.log(16), "max": math.log(128)},
+        "eps": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
+        "K": {"distribution": "int_uniform", "min": 2, "max": 25},
         "knn": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(64)},
-        "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-5), "max": math.log(1e-2)},
+        "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-5), "max": math.log(1e-1)},
         "nx3": {"distribution": "int_uniform", "min": 2, "max": 12},
         "pooling": {"values": ["max", "avg"]},
-        "weight_sigma": {"distribution": "log_uniform", "min": math.log(0.2), "max": math.log(5.0)},
+        "weight_sigma": {"distribution": "log_uniform", "min": math.log(0.5), "max": math.log(5.0)},
         "weight_decay": {"distribution": "log_uniform", "min": math.log(1e-6), "max": math.log(1e-3)},
         "weight_kernel": {"values": ["cauchy", "gaussian", "laplacian"]},
-        "xi": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1)},
+        "xi": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
     }
     sweep_config["parameters"] = parameters_dict
 
@@ -52,6 +52,7 @@ def build_sweep_config():
 
 
 def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
+    # Different graphs are for successive pooling layers
     graphs = [
         HyperCubeGraph(
             grid_size=(NX1, NX2),

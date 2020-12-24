@@ -62,25 +62,29 @@ class ChebNet(torch.nn.Module):
 
         B, _, _ = x.shape
 
-        # 2 convolutions + 1 spatial max pooling
+        # Chebyschev Convolutions
         x = self.bn1(x)  # (B, C, V)
         x = self.conv1(x)  # (B, C, V)
         x = F.relu(x)
         x = self.bn2(x)  # (B, C, V)
         x = self.conv2(x)  # (B, C, V)
         x = F.relu(x)
+
+        # Spatial pooling
         x = x.view(B, -1, self.nx3[0], self.nx2[0], self.nx1[0])  # (B, C, L, H, W)
         x = self.pooling(x, kernel_size=(1, 2, 2), stride=(1, 2, 2))  # (B, C, L, H', W')
         x = x.view(B, -1, self.nx3[1] * self.nx2[1] * self.nx1[1])  # (B, C, V)
 
-        # 2 convolutions + 1 spatial max pooling
+        # Chebyschev convolutions
         x = self.bn3(x)  # (B, C, V)
         x = self.conv3(x)  # (B, C, V)
         x = F.relu(x)
         x = self.bn4(x)  # (B, C, V)
         x = self.conv4(x)  # (B, C, V)
         x = F.relu(x)
-        x = x.permute(0, 2, 1).contiguous().view(B, -1, self.nx3[1], self.nx2[1], self.nx1[1])  # (B, C, L, H, W)
+
+        # Spatial pooling
+        x = x.view(B, -1, self.nx3[1], self.nx2[1], self.nx1[1])  # (B, C, L, H, W)
         x = self.pooling(x, kernel_size=(1, 2, 2), stride=(1, 2, 2))  # (B, C, L, H', W')
         x = x.view(B, -1, self.nx3[2] * self.nx2[2] * self.nx1[2])  # (B, C, V)
 
@@ -91,7 +95,8 @@ class ChebNet(torch.nn.Module):
         x = self.bn6(x)  # (B, C, V)
         x = self.conv6(x)  # (B, C, V)
         x = F.relu(x)
-        x = x.permute(0, 2, 1).contiguous().view(B, -1, self.nx3[2], self.nx2[2], self.nx1[2])  # (B, C, L, H, W)
+
+        x = x.view(B, -1, self.nx3[2], self.nx2[2], self.nx1[2])  # (B, C, L, H, W)
         x = self.pooling(x, kernel_size=(self.nx3[2], self.nx2[2], self.nx1[2])).squeeze()  # (B, C)
 
         x = F.log_softmax(x, dim=1)  # (B, C)
