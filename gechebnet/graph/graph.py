@@ -2,7 +2,7 @@ import math
 
 import torch
 from pykeops.torch import LazyTensor, Pm, Vi, Vj
-from scipy.sparse.linalg import eigsh
+from scipy.sparse.linalg import ArpackError, eigsh
 
 from ..utils import sparse_tensor_to_sparse_array
 from .compression import edge_compression, node_compression
@@ -13,8 +13,12 @@ from .utils import delta_pos, metric_tensor, remove_self_loops, square_distance,
 class Graph:
     def _initlaplacian(self):
         self.laplacian = get_laplacian(self.edge_index, self.edge_weight, norm="sym", num_nodes=self.num_nodes)
-        lmax = eigsh(sparse_tensor_to_sparse_array(self.laplacian), k=1, which="LM", return_eigenvectors=False)
-        self.lmax = float(lmax.real)
+        try:
+            lmax = eigsh(sparse_tensor_to_sparse_array(self.laplacian), k=1, which="LM", return_eigenvectors=False)
+            self.lmax = float(lmax.real)
+        except ArpackError:
+            # in case the eigen decomposition's algorithm does not converge, set lmax to theoretic upper bound.
+            self.lmax = 2.0
 
     def _graphcompression(self, compression):
         if compression is not None:
@@ -126,11 +130,11 @@ class HyperCubeGraph(Graph):
         edge_index, edge_sqdist = self.process_edges(edge_index, edge_sqdist, self_loop)
 
         if weight_kernel == "gaussian":
-            kernel = lambda sqdistc: (-sqdistc / (weight_sigma ** 2)).exp()
+            kernel = lambda sqdistc: torch.exp(-sqdistc / weight_sigma ** 2)
         elif weight_kernel == "laplacian":
-            kernel = lambda sqdistc: (-(sqdistc.sqrt() / (weight_sigma))).exp()
+            kernel = lambda sqdistc: torch.exp(-torch.sqrt(sqdistc) / weight_sigma)
         elif weight_kernel == "cauchy":
-            kernel = lambda sqdistc: (1 + sqdistc / (weight_sigma ** 2)).power(-1)
+            kernel = lambda sqdistc: 1 / (1 + sqdistc / weight_sigma ** 2)
 
         edge_weight = kernel(edge_sqdist)
 
