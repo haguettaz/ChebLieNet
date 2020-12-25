@@ -6,10 +6,10 @@ from ignite.metrics import Metric
 
 
 def create_supervised_trainer(
-    nx: tuple,
+    L: int,
     model: torch.nn.Module,
     optimizer: torch.optim.Optimizer,
-    loss_fn: Union[Callable, torch.nn.Module],
+    criterion: torch.nn.Module,
     device: Optional[torch.device] = None,
     prepare_batch: Callable = None,
     output_transform: Callable = lambda x, y, y_pred, loss: loss.item(),
@@ -55,9 +55,9 @@ def create_supervised_trainer(
     def _update(engine: Engine, batch: Sequence[torch.Tensor]) -> Union[Any, Tuple[torch.Tensor]]:
         model.train()
         optimizer.zero_grad()
-        x, y = prepare_batch(batch, nx, device)
+        x, y = prepare_batch(batch, L, device)
         y_pred = model(x)
-        loss = loss_fn(y_pred, y)
+        loss = criterion(y_pred, y)
         loss.backward()
         optimizer.step()
 
@@ -69,7 +69,7 @@ def create_supervised_trainer(
 
 
 def create_supervised_evaluator(
-    nx: tuple,
+    L: int,
     model: torch.nn.Module,
     metrics: Optional[Dict[str, Metric]] = None,
     device: Optional[torch.device] = None,
@@ -122,7 +122,7 @@ def create_supervised_evaluator(
     def _inference(engine: Engine, batch: Sequence[torch.Tensor]) -> Union[Any, Tuple[torch.Tensor]]:
         model.eval()
         with torch.no_grad():
-            x, y = prepare_batch(batch, nx, device)
+            x, y = prepare_batch(batch, L, device)
             y_pred = model(x)
             return output_transform(x, y, y_pred)
 

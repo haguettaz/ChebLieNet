@@ -5,7 +5,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.sampler import SubsetRandomSampler
 from torchvision.datasets import MNIST, STL10
-from torchvision.transforms import Compose, ToTensor
+from torchvision.transforms import Compose, Normalize, ToTensor
 
 from ..utils import shuffle_tensor
 
@@ -35,7 +35,9 @@ def get_train_val_data_loaders(
         raise ValueError(f"{dataset} is not a valid value for dataset: must be in 'MNIST', 'ROT-MNIST', 'STL10'")
 
     if dataset == "MNIST":
-        dataset = MNIST(data_path, train=True, download=True, transform=Compose([ToTensor()]))
+        dataset = MNIST(
+            data_path, train=True, download=True, transform=Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
+        )
 
     # elif dataset == "ROT-MNIST":
     #     dataset = ROTMNIST(data_path, train=True, download=True, transform=Compose([ToTensor()]))
@@ -79,8 +81,9 @@ def get_test_data_loader(dataset: str, batch_size: Optional[int] = 32, data_path
         raise ValueError(f"{dataset} is not a valid value for dataset: must be in 'MNIST', 'ROT-MNIST', 'STL10'")
 
     if dataset == "MNIST":
-        dataset = MNIST(data_path, train=False, download=True, transform=Compose([ToTensor()]))
-
+        dataset = MNIST(
+            data_path, train=False, download=True, transform=Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
+        )
     # elif dataset == "ROT-MNIST":
     #     dataset = ROTMNIST(data_path, train=True, download=True, transform=Compose([ToTensor()]))
 

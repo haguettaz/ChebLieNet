@@ -3,7 +3,6 @@ import os
 
 import pykeops
 import torch
-import torch.nn.functional as F
 import wandb
 from gechebnet.data.dataloader import get_train_val_data_loaders
 from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
@@ -15,6 +14,8 @@ from gechebnet.utils import random_choice
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
 from ignite.metrics import Accuracy, Loss
+from torch.nn import NLLLoss
+from torch.nn.functional import nll_loss
 
 DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -118,22 +119,22 @@ def train(config=None):
 
         optimizer = get_optimizer(model, OPTIMIZER, config.learning_rate, config.weight_decay)
 
-        loss_fn = F.nll_loss
-        metrics = {"val_mnist_acc": Accuracy(), "val_mnist_loss": Loss(loss_fn)}
+        criterion = NLLLoss()
+        metrics = {"val_mnist_acc": Accuracy(), "val_mnist_loss": Loss(nll_loss)}
 
         # create ignite's engines
         trainer = create_supervised_trainer(
-            nx=(NX1, NX2, config.nx3),
+            L=config.nx3,
             model=model,
             optimizer=optimizer,
-            loss_fn=F.nll_loss,
+            criterion=criterion,
             device=DEVICE,
             prepare_batch=prepare_batch,
         )
         # ProgressBar(persist=False, desc="Training").attach(trainer)
 
         evaluator = create_supervised_evaluator(
-            nx=(NX1, NX2, config.nx3), model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch
+            L=config.nx3, model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch
         )
         # ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
 

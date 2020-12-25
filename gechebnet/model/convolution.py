@@ -31,12 +31,11 @@ def cheb_conv(laplacian, x, weight):
     x0 = x.permute(2, 0, 1).contiguous().view(V, B * Cin)  # (B, Cin, V) -> (V, B*Cin)
 
     x = x0.unsqueeze(0)  # (V, B*Cin) -> (1, V, B*Cin)
-
     if K > 1:
         x1 = torch.mm(laplacian, x0)  # (V, B*Cin)
         x = torch.cat((x, x1.unsqueeze(0)), 0)  # (1, V, B*Cin) -> (2, V, B*Cin)
         for _ in range(1, K - 1):
-            x2 = torch.addmm(x0, laplacian, x1, beta=-1, alpha=2)  # -> (V, B*Cin)
+            x2 = 2 * torch.mm(laplacian, x1) - x0  # -> (V, B*Cin)
             x = torch.cat((x, x2.unsqueeze(0)), 0)  # (k-1, V, B*Cin) -> (k, V, B*Cin)
             x0, x1 = x1, x2  # (V, B*Cin), (V, B*Cin)
 
@@ -49,7 +48,7 @@ def cheb_conv(laplacian, x, weight):
 class ChebConv(torch.nn.Module):
     """Graph convolutional layer."""
 
-    def __init__(self, graph, in_channels, out_channels, kernel_size, bias=True, conv=cheb_conv, laplacian_device=None):
+    def __init__(self, graph, in_channels, out_channels, kernel_size, bias=True, laplacian_device=None):
         """Initialize the Chebyshev layer.
         Args:
             in_channels (int): Number of channels/features in the input graph.
@@ -68,7 +67,6 @@ class ChebConv(torch.nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
-        self._conv = conv
 
         shape = (kernel_size, in_channels, out_channels)
         self.weight = torch.nn.Parameter(torch.Tensor(*shape))
@@ -101,10 +99,10 @@ class ChebConv(torch.nn.Module):
         Returns:
             :obj:`torch.Tensor`: The convoluted inputs.
         """
-        x = self._conv(self.laplacian, x, self.weight)
+        x = cheb_conv(self.laplacian, x, self.weight)  # (B, V, Cin) -> (V, B, Cout)
 
         if self.bias is not None:
-            x += self.bias  # (V, B, Cout)
+            x += self.bias  # (V, B, Cout) -> (V, B, Cout)
 
         x = x.permute(1, 2, 0).contiguous()  # (B, Cout, V)
         return x

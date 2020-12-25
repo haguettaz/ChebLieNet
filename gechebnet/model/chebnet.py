@@ -33,7 +33,6 @@ class ChebNet(torch.nn.Module):
         self.conv5 = ChebConv(graphs[2], hidden_channels, hidden_channels, K, laplacian_device=laplacian_device)
         self.conv6 = ChebConv(graphs[2], hidden_channels, out_channels, K, laplacian_device=laplacian_device)
 
-        self.bn1 = BatchNorm1d(in_channels)
         self.bn2 = BatchNorm1d(hidden_channels)
         self.bn3 = BatchNorm1d(hidden_channels)
         self.bn4 = BatchNorm1d(hidden_channels)
@@ -63,7 +62,6 @@ class ChebNet(torch.nn.Module):
         B, _, _ = x.shape
 
         # Chebyschev Convolutions
-        x = self.bn1(x)  # (B, C, V)
         x = self.conv1(x)  # (B, C, V)
         x = F.relu(x)
         x = self.bn2(x)  # (B, C, V)
@@ -88,7 +86,7 @@ class ChebNet(torch.nn.Module):
         x = self.pooling(x, kernel_size=(1, 2, 2), stride=(1, 2, 2))  # (B, C, L, H', W')
         x = x.view(B, -1, self.nx3[2] * self.nx2[2] * self.nx1[2])  # (B, C, V)
 
-        # 2 convolutions + 1 global max pooling
+        # 2 convolutions
         x = self.bn5(x)  # (B, C, V)
         x = self.conv5(x)  # (B, C, V)
         x = F.relu(x)
@@ -96,8 +94,10 @@ class ChebNet(torch.nn.Module):
         x = self.conv6(x)  # (B, C, V)
         x = F.relu(x)
 
+        # Global pooling
         x = x.view(B, -1, self.nx3[2], self.nx2[2], self.nx1[2])  # (B, C, L, H, W)
-        x = self.pooling(x, kernel_size=(self.nx3[2], self.nx2[2], self.nx1[2])).squeeze()  # (B, C)
+        x = self.pooling(x, kernel_size=(self.nx3[2], self.nx2[2], self.nx1[2]))  # (B, C, 1, 1, 1)
+        x = x.view(B, -1)  # (B, C)
 
         x = F.log_softmax(x, dim=1)  # (B, C)
 

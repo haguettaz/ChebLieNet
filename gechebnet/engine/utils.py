@@ -1,7 +1,7 @@
 import wandb
 
 
-def prepare_batch(batch, nx, device):
+def prepare_batch(batch, L, device):
     """
     Prepare the batch and return freshly baked inputs and targets to feed the model with.
 
@@ -15,12 +15,8 @@ def prepare_batch(batch, nx, device):
     """
     x, y = batch
     B, C, H, W = x.shape  # (B, C, H, W)
-    nx1, nx2, nx3 = nx
 
-    if H != nx2 or W != nx1:
-        raise ValueError("Dimension incompatibility between graph and data")
-
-    x = x.unsqueeze(2).expand(B, C, nx3, nx2, nx1).reshape(B, C, -1)  # (B, C, L*H*W)
+    x = x.unsqueeze(2).expand(B, C, L, H, W).reshape(B, C, -1)  # (B, C, L*H*W)
 
     return x.to(device), y.to(device)
 
