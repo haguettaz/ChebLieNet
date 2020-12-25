@@ -1,6 +1,5 @@
 matplotlib==3.2.2 
 
-pykeops<1.5
 pytorch-ignite<0.5
 
 wandb<0.11

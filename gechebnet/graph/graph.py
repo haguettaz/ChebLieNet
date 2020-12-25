@@ -44,7 +44,7 @@ class Graph:
     def process_edges(self, edge_index, edge_sqdist, self_loop):
         if not self_loop:
             edge_index, edge_sqdist = remove_self_loops(edge_index, edge_sqdist)
-        # edge_index, edge_sqdist = to_undirected(edge_index, edge_sqdist)
+        edge_index, edge_sqdist = to_undirected(edge_index, edge_sqdist)
         return edge_index, edge_sqdist
 
 

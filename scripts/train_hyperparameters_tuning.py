@@ -1,6 +1,7 @@
 import math
 import os
 
+import pykeops
 import torch
 import torch.nn.functional as F
 import wandb
@@ -94,6 +95,7 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
 
 
 def train(config=None):
+
     # Initialize a new wandb run
     with wandb.init(config=config):
         # If called by wandb.agent, as below, this config will be set by Sweep Controller
@@ -143,6 +145,9 @@ def train(config=None):
 
 
 if __name__ == "__main__":
+
+    pykeops.clean_pykeops()
+
     sweep_config = build_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project="gechebnet")
     wandb.agent(sweep_id, train, count=100)
