@@ -8,7 +8,7 @@ THIS_DIRECTORY = path.abspath(path.dirname(__file__))
 
 
 def read(*parts):
-    """ Read the content of a file and return a string of its content
+    """Read the content of a file and return a string of its content
 
     Args:
         parts (list(str)): The parts of the path of the file
@@ -21,7 +21,7 @@ def read(*parts):
 
 
 def find_version(*file_paths):
-    """ Read the version stored in __version__ attribute of a given path of a file
+    """Read the version stored in __version__ attribute of a given path of a file
 
     ..note:
         taken from https://packaging.python.org/guides/single-sourcing-package-version/)

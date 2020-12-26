@@ -2,7 +2,6 @@ import math
 import os
 
 import torch
-import torch.nn.functional as F
 import wandb
 from gechebnet.data.dataloader import get_data_list_mnist, get_data_loader
 from gechebnet.data.dataset import download_mnist, download_rotated_mnist
@@ -14,6 +13,8 @@ from gechebnet.utils import prepare_batch, wandb_log
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events, create_supervised_evaluator, create_supervised_trainer
 from ignite.metrics import Accuracy, Loss
+from torch.nn import NLLLoss
+from torch.nn.functional import nll_loss
 from torch.optim import SGD, Adam
 
 DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
@@ -79,7 +80,9 @@ def build_data_loaders(nx1, nx2, nx3, sigma1, sigma2, sigma3, weight_thresh, wei
     mnist_processed_path = download_mnist(DATA_PATH)
     rot_mnist_processed_path = download_rotated_mnist(DATA_PATH)
 
-    train_mnist_data_list, _ = split_data_list(get_data_list_mnist(graph_data, mnist_processed_path, train=True), ratio=val_ratio)
+    train_mnist_data_list, _ = split_data_list(
+        get_data_list_mnist(graph_data, mnist_processed_path, train=True), ratio=val_ratio
+    )
     train_mnist_loader = get_data_loader(train_data_list, batch_size=batch_size, shuffle=True)
 
     test_mnist_data_list = get_data_list_mnist(graph_data, mnist_processed_path, train=False)
@@ -130,18 +133,22 @@ def train(config=None):
 
         optimizer = build_optimizer(network, config.optimizer, config.learning_rate)
 
-        loss_fn = F.nll_loss
-        mnist_metrics = {"test_mnist_acc": Accuracy(), "test_mnist_loss": Loss(loss_fn)}
-        rot_mnist_metrics = {"test_rot_mnist_acc": Accuracy(), "test_rot_mnist_loss": Loss(loss_fn)}
+        criterion = NLLLoss()
+        mnist_metrics = {"test_mnist_acc": Accuracy(), "test_mnist_loss": Loss(nll_loss)}
+        rot_mnist_metrics = {"test_rot_mnist_acc": Accuracy(), "test_rot_mnist_loss": Loss(nll_loss)}
 
         # create ignite's engines
-        mnist_trainer = create_supervised_trainer(network, optimizer, loss_fn, DEVICE, prepare_batch=prepare_batch)
+        mnist_trainer = create_supervised_trainer(network, optimizer, criterion, DEVICE, prepare_batch=prepare_batch)
         mnist_evaluator = create_supervised_evaluator(network, mnist_metrics, DEVICE, prepare_batch=prepare_batch)
-        rot_mnist_evaluator = create_supervised_evaluator(network, rot_mnist_metrics, DEVICE, prepare_batch=prepare_batch)
+        rot_mnist_evaluator = create_supervised_evaluator(
+            network, rot_mnist_metrics, DEVICE, prepare_batch=prepare_batch
+        )
 
         # track training with wandb
         _ = mnist_trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, mnist_evaluator, test_mnist_loader)
-        _ = mnist_trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, rot_mnist_evaluator, test_rot_mnist_loader)
+        _ = mnist_trainer.add_event_handler(
+            Events.EPOCH_COMPLETED, wandb_log, rot_mnist_evaluator, test_rot_mnist_loader
+        )
 
         # save best model
         mnist_trainer.run(train_mnist_loader, max_epochs=config.epochs)

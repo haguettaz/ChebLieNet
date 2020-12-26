@@ -1,105 +1,95 @@
-import os
+import math
+from typing import Optional, Tuple, TypeVar
 
-import numpy as np
 import torch
-from torch_geometric.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
+from torch.utils.data.sampler import SubsetRandomSampler
+from torchvision.datasets import MNIST, STL10
+from torchvision.transforms import Compose, Normalize, ToTensor
 
-from .dataset import preprocess_mnist, preprocess_rotated_mnist, preprocess_stl10
+from ..utils import shuffle_tensor
+
+T_co = TypeVar("T_co", covariant=True)
 
 
-def get_data_list_mnist(graph_data, processed_path, train=True):
+def get_train_val_data_loaders(
+    dataset: str, batch_size: Optional[int] = 32, val_ratio: Optional[float] = 0.2, data_path: Optional[str] = "data"
+) -> Tuple[DataLoader, DataLoader]:
     """
-    Get the list of Data object with MNIST images and targets embedded on the given graph.
+    [summary]
 
     Args:
-        graph_data (GraphData): the graph data object.
-        processed_path ([type]): the path to the folder containing the processed dataset.
-        train (bool, optional): the indicator wether to use training dataset or not. Defaults to True.
+        dataset (str): [description]
+        batch_size (Optional[int], optional): [description]. Defaults to 32.
+        val_ratio (Optional[float], optional): [description]. Defaults to 0.2.
+        data_path (Optional[str], optional): [description]. Defaults to "data".
+
+    Raises:
+        ValueError: [description]
 
     Returns:
-        (list): the list of Data object.
+        Tuple[DataLoader, DataLoader]: [description]
     """
-    if train:
-        images, targets = torch.load(os.path.join(processed_path, "training.pt"))
-    else:
-        images, targets = torch.load(os.path.join(processed_path, "test.pt"))
 
-    images, targets = preprocess_mnist(images, targets)
+    if dataset not in {"MNIST", "ROT-MNIST", "STL10"}:
+        raise ValueError(f"{dataset} is not a valid value for dataset: must be in 'MNIST', 'ROT-MNIST', 'STL10'")
 
-    return graph_data.embed_on_graph(images, targets)
+    if dataset == "MNIST":
+        dataset = MNIST(
+            data_path, train=True, download=True, transform=Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
+        )
+
+    # elif dataset == "ROT-MNIST":
+    #     dataset = ROTMNIST(data_path, train=True, download=True, transform=Compose([ToTensor()]))
+
+    elif dataset == "STL10":
+        dataset = STL10(data_path, split="train", download=True, transform=Compose([ToTensor()]))
+
+    N = len(dataset)
+    split = math.floor(val_ratio * N)
+    indices = shuffle_tensor(torch.arange(N))
+
+    train_indices, val_indices = indices[split:], indices[:split]
+
+    train_sampler = SubsetRandomSampler(train_indices)
+    valid_sampler = SubsetRandomSampler(val_indices)
+
+    train_loader = DataLoader(dataset, batch_size=batch_size, sampler=train_sampler)
+
+    valid_loader = DataLoader(dataset, batch_size=batch_size, sampler=valid_sampler)
+
+    return train_loader, valid_loader
 
 
-def get_data_list_rotated_mnist(graph_data, processed_path, train=True):
+def get_test_data_loader(dataset: str, batch_size: Optional[int] = 32, data_path: Optional[str] = "data") -> DataLoader:
     """
-    Get the list of Data object with rotated MNIST images and targets embedded on the given graph.
+    [summary]
 
     Args:
-        graph_data (GraphData): the graph data object.
-        processed_path ([type]): the path to the folder containing the processed dataset.
-        train (bool, optional): the indicator wether to use training dataset or not. Defaults to True.
+        dataset (str): [description]
+        batch_size (Optional[int], optional): [description]. Defaults to 32.
+        data_path (Optional[str], optional): [description]. Defaults to "data".
+
+    Raises:
+        ValueError: [description]
 
     Returns:
-        (list): the list of Data object.
-    """
-    if train:
-        dataset = np.load(os.path.join(processed_path, "train_all.npz"))
-    else:
-        dataset = np.load(os.path.join(processed_path, "test.npz"))
-
-    images, targets = preprocess_rotated_mnist(dataset["data"], dataset["labels"])
-
-    return graph_data.embed_on_graph(images, targets)
-
-
-def get_data_list_stl10(graph_data, processed_path, train=True):
-    """
-    Get the list of Data object with rotated MNIST images and targets embedded on the given graph.
-
-    Args:
-        graph_data (GraphData): the graph data object.
-        processed_path ([type]): the path to the folder containing the processed dataset.
-        train (bool, optional): the indicator wether to use training dataset or not. Defaults to True.
-
-    Returns:
-        (list): the list of Data object.
+        DataLoader: [description]
     """
 
-    def load_file(images_file, targets_file):
-        with open(targets_file, "rb") as f:
-            targets = np.fromfile(f, dtype=np.uint8) - 1  # 0-based
+    if dataset not in {"MNIST", "ROT-MNIST", "STL10"}:
+        raise ValueError(f"{dataset} is not a valid value for dataset: must be in 'MNIST', 'ROT-MNIST', 'STL10'")
 
-        with open(images_file, "rb") as f:
-            # read whole file in uint8 chunks
-            images = np.fromfile(f, dtype=np.uint8)
+    if dataset == "MNIST":
+        dataset = MNIST(
+            data_path, train=False, download=True, transform=Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
+        )
+    # elif dataset == "ROT-MNIST":
+    #     dataset = ROTMNIST(data_path, train=True, download=True, transform=Compose([ToTensor()]))
 
-        return images, targets
+    elif dataset == "STL10":
+        dataset = STL10(data_path, split="test", download=True, transform=Compose([ToTensor()]))
 
-    if train:
-        images_file = os.path.join(processed_path, "stl10_binary", "train_X.bin")
-        targets_file = os.path.join(processed_path, "stl10_binary", "train_y.bin")
-        images, targets = load_file(images_file, targets_file)
+    test_loader = DataLoader(dataset, batch_size=batch_size)
 
-    else:
-        images_file = os.path.join(processed_path, "stl10_binary", "test_X.bin")
-        targets_file = os.path.join(processed_path, "stl10_binary", "test_y.bin")
-        images, targets = load_file(images_file, targets_file)
-
-    images, targets = preprocess_stl10(images, targets)
-
-    return graph_data.embed_on_graph(images, targets)
-
-
-def get_data_loader(data_list, batch_size=16, shuffle=True):
-    """
-    Get the Dataloader object generated by the given list of Data objects, documentation at:
-    https://pytorch-geometric.readthedocs.io/en/latest/modules/data.html#torch_geometric.data
-
-    Args:
-        data_list (list): the list of Data object
-        batch_size (int, optional): the size of a batch. Defaults to 16.
-        shuffle (bool, optional): the indicator if data are shuffled. Defaults to True.
-
-    Returns:
-        DataLoader: the DataLoader object from PyTorch Geometric.
-    """
-    return DataLoader(data_list, batch_size=batch_size, shuffle=shuffle)
+    return test_loader

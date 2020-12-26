@@ -1,90 +1,107 @@
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import ChebConv, global_max_pool
+from torch.nn import BatchNorm1d
 
-from .pooling import max_pool, orientation_subsampling, spatial_subsampling
+from .convolution import ChebConv
 
 
 class ChebNet(torch.nn.Module):
-    def __init__(self, K, num_layers, input_dim=1, output_dim=10, hidden_dim=10, edge_red="add"):
+    def __init__(self, graphs, K, in_channels, out_channels, hidden_channels, laplacian_device=None, pooling="max"):
         """
         Initialize a ChebNet with 6 convolutional layers and batch normalization.
 
         Args:
-            K (int): the degree of the Chebyschev polynomials.
+            K (int): the degree of the Chebyschev polynomials, the sum goes from indices 0 to K-1.
             num_layers (int): the number of layers on the orientation axis.
             input_dim (int, optional): the number of dimensions of the input layer. Defaults to 1.
             output_dim (int, optional): the number of dimensions of the output layer. Defaults to 10.
             hidden_dim (int, optional): the number of dimensions of the hidden layers. Defaults to 10.
         """
         super(ChebNet, self).__init__()
-        self.conv1 = ChebConv(input_dim, hidden_dim, K)  # input_dim*hidden_dim*K weights + hidden_dim bias
-        self.conv2 = ChebConv(hidden_dim, hidden_dim, K)  # hidden_dim*hidden_dim*K weights + hidden_dim bias
 
-        self.conv3 = ChebConv(hidden_dim, hidden_dim, K)  # hidden_dim*hidden_dim*K weights + hidden_dim bias
-        self.conv4 = ChebConv(hidden_dim, hidden_dim, K)  # hidden_dim*hidden_dim*K weights + hidden_dim bias
+        laplacian_device = laplacian_device or torch.device("cpu")
 
-        self.conv5 = ChebConv(hidden_dim, hidden_dim, K)  # hidden_dim*hidden_dim*K weights + hidden_dim bias
-        self.conv6 = ChebConv(hidden_dim, output_dim, K)  # hidden_dim*output_dim*K weights + output_dim bias
+        if pooling not in {"max", "avg"}:
+            raise ValueError(f"{pooling} is not a valid value for pooling: must be 'max' or 'avg'")
 
-        self.bn1 = torch.nn.BatchNorm1d(hidden_dim)
-        self.bn2 = torch.nn.BatchNorm1d(hidden_dim)
-        self.bn3 = torch.nn.BatchNorm1d(hidden_dim)
-        self.bn4 = torch.nn.BatchNorm1d(hidden_dim)
-        self.bn5 = torch.nn.BatchNorm1d(hidden_dim)
+        self.conv1 = ChebConv(graphs[0], in_channels, hidden_channels, K, laplacian_device=laplacian_device)
+        self.conv2 = ChebConv(graphs[0], hidden_channels, hidden_channels, K, laplacian_device=laplacian_device)
 
-        self.num_layers = num_layers
-        self.edge_red = edge_red
+        self.conv3 = ChebConv(graphs[1], hidden_channels, hidden_channels, K, laplacian_device=laplacian_device)
+        self.conv4 = ChebConv(graphs[1], hidden_channels, hidden_channels, K, laplacian_device=laplacian_device)
 
-    def forward(self, data):
+        self.conv5 = ChebConv(graphs[2], hidden_channels, hidden_channels, K, laplacian_device=laplacian_device)
+        self.conv6 = ChebConv(graphs[2], hidden_channels, out_channels, K, laplacian_device=laplacian_device)
+
+        self.bn2 = BatchNorm1d(hidden_channels)
+        self.bn3 = BatchNorm1d(hidden_channels)
+        self.bn4 = BatchNorm1d(hidden_channels)
+        self.bn5 = BatchNorm1d(hidden_channels)
+        self.bn6 = BatchNorm1d(hidden_channels)
+
+        self.nx1 = [graph.nx1 for graph in graphs]
+        self.nx2 = [graph.nx2 for graph in graphs]
+        self.nx3 = [graph.nx3 for graph in graphs]
+
+        if pooling == "max":
+            self.pooling = F.max_pool3d
+        else:
+            self.pooling = F.avg_pool3d
+
+    def forward(self, x):
         """
         Forward function receiving as input a batch and outputing a prediction on this batch
 
         Args:
-            data (Batch): the batch to feed the network with.
+            x (torch.tensor): the batch to feed the network with.
 
         Returns:
             (torch.tensor): the predictions on the batch.
         """
-        data.x = self.conv1(data.x, data.edge_index, data.edge_attr, data.batch)
-        data.x = self.bn1(data.x)
-        data.x = data.x.relu()
 
-        data.x = self.conv2(data.x, data.edge_index, data.edge_attr, data.batch)
-        data.x = self.bn2(data.x)
-        data.x = data.x.relu()
+        B, _, _ = x.shape
 
-        cluster = spatial_subsampling(data.pos, data.batch, 2.0)
-        data = max_pool(cluster, data, self.edge_red)
+        # Chebyschev Convolutions
+        x = self.conv1(x)  # (B, C, V)
+        x = F.relu(x)
+        x = self.bn2(x)  # (B, C, V)
+        x = self.conv2(x)  # (B, C, V)
+        x = F.relu(x)
 
-        data.x = self.conv3(data.x, data.edge_index, data.edge_attr, data.batch)
-        data.x = self.bn3(data.x)
-        data.x = data.x.relu()
+        # Spatial pooling
+        x = x.view(B, -1, self.nx3[0], self.nx2[0], self.nx1[0])  # (B, C, L, H, W)
+        x = self.pooling(x, kernel_size=(1, 2, 2), stride=(1, 2, 2))  # (B, C, L, H', W')
+        x = x.view(B, -1, self.nx3[1] * self.nx2[1] * self.nx1[1])  # (B, C, V)
 
-        data.x = self.conv4(data.x, data.edge_index, data.edge_attr, data.batch)
-        data.x = self.bn4(data.x)
-        data.x = data.x.relu()
+        # Chebyschev convolutions
+        x = self.bn3(x)  # (B, C, V)
+        x = self.conv3(x)  # (B, C, V)
+        x = F.relu(x)
+        x = self.bn4(x)  # (B, C, V)
+        x = self.conv4(x)  # (B, C, V)
+        x = F.relu(x)
 
-        cluster = spatial_subsampling(data.pos, data.batch, 2.0)
-        data = max_pool(cluster, data, self.edge_red)
+        # Spatial pooling
+        x = x.view(B, -1, self.nx3[1], self.nx2[1], self.nx1[1])  # (B, C, L, H, W)
+        x = self.pooling(x, kernel_size=(1, 2, 2), stride=(1, 2, 2))  # (B, C, L, H', W')
+        x = x.view(B, -1, self.nx3[2] * self.nx2[2] * self.nx1[2])  # (B, C, V)
 
-        data.x = self.conv5(data.x, data.edge_index, data.edge_attr, data.batch)
-        data.x = self.bn5(data.x)
-        data.x = data.x.relu()
+        # 2 convolutions
+        x = self.bn5(x)  # (B, C, V)
+        x = self.conv5(x)  # (B, C, V)
+        x = F.relu(x)
+        x = self.bn6(x)  # (B, C, V)
+        x = self.conv6(x)  # (B, C, V)
+        x = F.relu(x)
 
-        data.x = self.conv6(data.x, data.edge_index, data.edge_attr, data.batch)
-        data.x = data.x.relu()
+        # Global pooling
+        x = x.view(B, -1, self.nx3[2], self.nx2[2], self.nx1[2])  # (B, C, L, H, W)
+        x = self.pooling(x, kernel_size=(self.nx3[2], self.nx2[2], self.nx1[2]))  # (B, C, 1, 1, 1)
+        x = x.view(B, -1)  # (B, C)
 
-        cluster = spatial_subsampling(data.pos, data.batch, 2.0)
-        data = max_pool(cluster, data, self.edge_red)
+        x = F.log_softmax(x, dim=1)  # (B, C)
 
-        cluster = orientation_subsampling(data.pos, data.batch, float(self.num_layers))
-        data = max_pool(cluster, data)
-
-        data.x = global_max_pool(data.x, data.batch)
-
-        return F.log_softmax(data.x, dim=1)
+        return x
 
     @property
     def capacity(self):

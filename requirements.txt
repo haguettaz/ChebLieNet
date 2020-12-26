@@ -1,7 +1,5 @@
 matplotlib==3.2.2 
-pygsp<0.6
 
-torchvision<0.9
 pytorch-ignite<0.5
 
 wandb<0.11

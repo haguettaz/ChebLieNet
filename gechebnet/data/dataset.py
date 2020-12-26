@@ -6,6 +6,27 @@ import torch
 from torchvision.datasets.mnist import read_image_file, read_label_file
 from torchvision.datasets.utils import download_and_extract_archive
 
+def get_data_list_rotated_mnist(graph_data, processed_path, train=True):
+    """
+    Get the list of Data object with rotated MNIST images and targets embedded on the given graph.
+
+    Args:
+        graph_data (GraphData): the graph data object.
+        processed_path ([type]): the path to the folder containing the processed dataset.
+        train (bool, optional): the indicator wether to use training dataset or not. Defaults to True.
+
+    Returns:
+        (list): the list of Data object.
+    """
+    if train:
+        dataset = np.load(os.path.join(processed_path, "train_all.npz"))
+    else:
+        dataset = np.load(os.path.join(processed_path, "test.npz"))
+
+    images, targets = preprocess_rotated_mnist(dataset["data"], dataset["labels"])
+
+    return graph_data.embed_on_graph(images, targets)
+
 
 def download_mnist(data_path):
     """
