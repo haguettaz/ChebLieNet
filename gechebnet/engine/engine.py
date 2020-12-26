@@ -57,7 +57,9 @@ def create_supervised_trainer(
         optimizer.zero_grad()
         x, y = prepare_batch(batch, L, device)
         y_pred = model(x)
+        print(y_pred, y)
         loss = loss_fn(y_pred, y)
+        print(loss.item())
         loss.backward()
         optimizer.step()
 
