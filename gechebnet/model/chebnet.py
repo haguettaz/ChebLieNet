@@ -61,45 +61,67 @@ class ChebNet(torch.nn.Module):
 
         B, _, _ = x.shape
 
+        print(x)
+
         # Chebyschev Convolutions
         x = self.conv1(x)  # (B, C, V)
+        print(x)
         x = F.relu(x)
+        print(x)
         x = self.bn2(x)  # (B, C, V)
+        print(x)
         x = self.conv2(x)  # (B, C, V)
+        print(x)
         x = F.relu(x)
+        print(x)
 
         # Spatial pooling
         x = x.view(B, -1, self.nx3[0], self.nx2[0], self.nx1[0])  # (B, C, L, H, W)
         x = self.pooling(x, kernel_size=(1, 2, 2), stride=(1, 2, 2))  # (B, C, L, H', W')
+        print(x)
         x = x.view(B, -1, self.nx3[1] * self.nx2[1] * self.nx1[1])  # (B, C, V)
 
         # Chebyschev convolutions
         x = self.bn3(x)  # (B, C, V)
+        print(x)
         x = self.conv3(x)  # (B, C, V)
+        print(x)
         x = F.relu(x)
         x = self.bn4(x)  # (B, C, V)
+        print(x)
         x = self.conv4(x)  # (B, C, V)
+        print(x)
         x = F.relu(x)
+        print(x)
 
         # Spatial pooling
         x = x.view(B, -1, self.nx3[1], self.nx2[1], self.nx1[1])  # (B, C, L, H, W)
         x = self.pooling(x, kernel_size=(1, 2, 2), stride=(1, 2, 2))  # (B, C, L, H', W')
+        print(x)
         x = x.view(B, -1, self.nx3[2] * self.nx2[2] * self.nx1[2])  # (B, C, V)
 
         # 2 convolutions
         x = self.bn5(x)  # (B, C, V)
+        print(x)
         x = self.conv5(x)  # (B, C, V)
+        print(x)
         x = F.relu(x)
+        print(x)
         x = self.bn6(x)  # (B, C, V)
+        print(x)
         x = self.conv6(x)  # (B, C, V)
+        print(x)
         x = F.relu(x)
+        print(x)
 
         # Global pooling
         x = x.view(B, -1, self.nx3[2], self.nx2[2], self.nx1[2])  # (B, C, L, H, W)
         x = self.pooling(x, kernel_size=(self.nx3[2], self.nx2[2], self.nx1[2]))  # (B, C, 1, 1, 1)
+        print(x)
         x = x.view(B, -1)  # (B, C)
 
         x = F.log_softmax(x, dim=1)  # (B, C)
+        print(x)
 
         return x
 
