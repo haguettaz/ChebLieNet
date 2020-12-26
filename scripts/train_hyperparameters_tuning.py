@@ -38,7 +38,7 @@ def build_sweep_config():
     parameters_dict = {
         "batch_size": {"distribution": "q_log_uniform", "min": math.log(16), "max": math.log(128)},
         "eps": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
-        "K": {"distribution": "int_uniform", "min": 2, "max": 25},
+        "K": {"distribution": "int_uniform", "min": 2, "max": 20},
         "knn": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(64)},
         "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-5), "max": math.log(1e-1)},
         "nx3": {"distribution": "int_uniform", "min": 2, "max": 12},
@@ -99,7 +99,6 @@ def train(config=None):
 
     # Initialize a new wandb run
     with wandb.init(config=config):
-        # If called by wandb.agent, as below, this config will be set by Sweep Controller
         config = wandb.config
 
         train_loader, val_loader = get_train_val_data_loaders(
@@ -119,24 +118,24 @@ def train(config=None):
 
         optimizer = get_optimizer(model, OPTIMIZER, config.learning_rate, config.weight_decay)
 
-        criterion = NLLLoss()
-        metrics = {"val_mnist_acc": Accuracy(), "val_mnist_loss": Loss(nll_loss)}
+        loss_fn = nll_loss
+        metrics = {"val_mnist_acc": Accuracy(), "val_mnist_loss": Loss(loss_fn)}
 
         # create ignite's engines
         trainer = create_supervised_trainer(
             L=config.nx3,
             model=model,
             optimizer=optimizer,
-            criterion=criterion,
+            loss_fn=loss_fn,
             device=DEVICE,
             prepare_batch=prepare_batch,
         )
-        # ProgressBar(persist=False, desc="Training").attach(trainer)
+        ProgressBar(persist=False, desc="Training").attach(trainer)
 
         evaluator = create_supervised_evaluator(
             L=config.nx3, model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch
         )
-        # ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
+        ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
 
         # track training with wandb
         _ = trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, evaluator, val_loader)
@@ -146,8 +145,6 @@ def train(config=None):
 
 
 if __name__ == "__main__":
-
-    pykeops.clean_pykeops()
 
     sweep_config = build_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project="gechebnet")

@@ -9,7 +9,7 @@ def create_supervised_trainer(
     L: int,
     model: torch.nn.Module,
     optimizer: torch.optim.Optimizer,
-    criterion: torch.nn.Module,
+    loss_fn: Union[Callable, torch.nn.Module],
     device: Optional[torch.device] = None,
     prepare_batch: Callable = None,
     output_transform: Callable = lambda x, y, y_pred, loss: loss.item(),
@@ -57,7 +57,7 @@ def create_supervised_trainer(
         optimizer.zero_grad()
         x, y = prepare_batch(batch, L, device)
         y_pred = model(x)
-        loss = criterion(y_pred, y)
+        loss = loss_fn(y_pred, y)
         loss.backward()
         optimizer.step()
 
