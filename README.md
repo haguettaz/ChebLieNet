@@ -2,27 +2,25 @@
 
 To use this package, we recommend using a conda environment:
 
-1. Create a new environment with python 3.8 and activate it
+1. Create a new environment with python 3.6 and activate it
 ```
-$ conda create -n chebnets python=3.8
+$ conda create -n chebnets python=3.6
 $ conda activate chebnets
 ```
 
-2. Install pytorch and pytorch-geometric on the new environment:
-
-``` 
-$ pip3 install torch==1.7.1+${CUDA} -f https://download.pytorch.org/whl/torch_stable.html
-
-$ pip3 install torch-scatter -f https://pytorch-geometric.com/whl/torch-1.7.1+${CUDA}.html
-$ pip3 install torch-sparse -f https://pytorch-geometric.com/whl/torch-1.7.1+${CUDA}.html
-$ pip3 install torch-cluster -f https://pytorch-geometric.com/whl/torch-1.7.1+${CUDA}.html
-$ pip3 install torch-spline-conv -f https://pytorch-geometric.com/whl/torch-1.7.1+${CUDA}.html
-$ pip3 install torch-geometric
+2. Install PyTorch and torch-scatter and torch-sparse from PyTorch Geometric:
+```
+pip3 install --user torch==1.7.1+cu101 -f https://download.pytorch.org/whl/torch_stable.html
+pip3 install --user torch-scatter -f https://pytorch-geometric.com/whl/torch-1.7.1+cu101.html
+pip3 install --user torch-sparse -f https://https://pytorch-geometric.com/whl/torch-1.7.1+cu101.html
 ```
 
-where `${CUDA}` should be replaced by either `cpu`, `cu92`, `cu101`, `cu102`, or `cu110` depending on your PyTorch installation.
+3. Install PyKeops modified version with more operations:
+```
+$ pip3 install -e PyKeops
+```
 
-3. Install the package GroupEquivariantChebNets
+3. Install GroupEquivariantChebNets:
 ```
 $ pip3 install -e GroupEquivariantChebNets
 ```
