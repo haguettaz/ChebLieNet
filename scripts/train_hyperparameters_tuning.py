@@ -144,11 +144,11 @@ def train(config=None):
         _ = trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, evaluator, val_loader)
 
         # save best model
-        trainer.run(train_loader, max_epochs=EPOCHS)
+        # trainer.run(train_loader, max_epochs=EPOCHS)
 
 
 if __name__ == "__main__":
 
     sweep_config = build_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project="gechebnet")
-    wandb.agent(sweep_id, train, count=100)
+    wandb.agent(sweep_id, train, count=50)
