@@ -5,7 +5,8 @@ import pykeops
 import torch
 import wandb
 from gechebnet.data.dataloader import get_train_val_data_loaders
-from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
+from gechebnet.engine.engine import (create_supervised_evaluator,
+                                     create_supervised_trainer)
 from gechebnet.engine.utils import prepare_batch, wandb_log
 from gechebnet.graph.graph import HyperCubeGraph
 from gechebnet.model.chebnet import ChebNet
@@ -21,7 +22,7 @@ DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 DATASET_NAME = "MNIST"  # STL10
-VAL_RATIO = 0.2
+
 NX1, NX2 = (28, 28)
 
 IN_CHANNELS = 1
@@ -32,26 +33,21 @@ POOLING_SIZE = 2
 EPOCHS = 20
 OPTIMIZER = "adam"
 
-
-def build_sweep_config():
-    sweep_config = {"method": "bayes", "metric": {"name": "validation_accuracy", "goal": "maximize"}}
-
-    parameters_dict = {
-        "batch_size": {"distribution": "q_log_uniform", "min": math.log(16), "max": math.log(128)},
-        "eps": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
-        "K": {"distribution": "int_uniform", "min": 2, "max": 20},
-        "knn": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(64)},
-        "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-5), "max": math.log(1e-2)},
-        "nx3": {"distribution": "int_uniform", "min": 2, "max": 12},
-        "pooling": {"values": ["max", "avg"]},
-        "weight_sigma": {"distribution": "log_uniform", "min": math.log(0.5), "max": math.log(5.0)},
-        "weight_decay": {"distribution": "log_uniform", "min": math.log(1e-6), "max": math.log(1e-3)},
-        "weight_kernel": {"values": ["cauchy", "gaussian", "laplacian"]},
-        "xi": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
+def build_config():
+    return {
+        "batch_size": {"value": },
+        "eps": {"value": },
+        "K": {"value": },
+        "knn": {"value": },
+        "learning_rate": {"value": },
+        "nx3": {"value": },
+        "pooling": {"value": },
+        "weight_sigma": {"value": },
+        "weight_decay": {"value": },
+        "weight_kernel": {"value": },
+        "xi": {"value": },
     }
-    sweep_config["parameters"] = parameters_dict
 
-    return sweep_config
 
 
 def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
@@ -102,9 +98,12 @@ def train(config=None):
     with wandb.init(config=config):
         config = wandb.config
 
-        train_loader, val_loader = get_train_val_data_loaders(
-            DATASET_NAME, batch_size=config.batch_size, val_ratio=VAL_RATIO, data_path=DATA_PATH
+        train_loader, _ = get_train_val_data_loaders(
+            DATASET_NAME, batch_size=config.batch_size, val_ratio=0., data_path=DATA_PATH
         )
+
+        classic_test_loader, rotated_test_loader, flipped_test_loader = get_test_equivariance_data_loader(
+            DATASET_NAME, batch_size=config.batch_size, data_path=DATA_PATH)
 
         model = get_model(
             config.nx3,
@@ -120,7 +119,9 @@ def train(config=None):
         optimizer = get_optimizer(model, OPTIMIZER, config.learning_rate, config.weight_decay)
 
         loss_fn = nll_loss
-        metrics = {"validation_accuracy": Accuracy(), "validation_loss": Loss(loss_fn)}
+        classic_metrics = {"classic_test_accuracy": Accuracy(), "classic_test_loss": Loss(loss_fn)}
+        rotated_metrics = {"rotated_test_accuracy": Accuracy(), "rotated_test_loss": Loss(loss_fn)}
+        flipped_metrics = {"flipped_test_accuracy": Accuracy(), "flipped_test_loss": Loss(loss_fn)}
 
         # create ignite's engines
         trainer = create_supervised_trainer(
@@ -133,20 +134,30 @@ def train(config=None):
         )
         ProgressBar(persist=False, desc="Training").attach(trainer)
 
-        evaluator = create_supervised_evaluator(
-            L=config.nx3, model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch
+        classic_evaluator = create_supervised_evaluator(
+            L=config.nx3, model=model, metrics=classic_metrics, device=DEVICE, prepare_batch=prepare_batch
         )
-        ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
+        ProgressBar(persist=False, desc="Evaluation").attach(classic_evaluator)
+
+        rotated_evaluator = create_supervised_evaluator(
+            L=config.nx3, model=model, metrics=rotated_metrics, device=DEVICE, prepare_batch=prepare_batch
+        )
+        ProgressBar(persist=False, desc="Evaluation").attach(rotated_evaluator)
+
+        flipped_evaluator = create_supervised_evaluator(
+            L=config.nx3, model=model, metrics=flipped_metrics, device=DEVICE, prepare_batch=prepare_batch
+        )
+        ProgressBar(persist=False, desc="Evaluation").attach(flipped_evaluator)
 
         # track training with wandb
-        _ = trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, evaluator, val_loader)
+        _ = trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, classic_evaluator, classic_test_loader)
+        _ = trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, rotated_evaluator, rotated_test_loader)
+        _ = trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, flipped_evaluator, flipped_test_loader)
 
-        # save best model
         trainer.run(train_loader, max_epochs=EPOCHS)
 
 
 if __name__ == "__main__":
-
-    sweep_config = build_sweep_config()
-    sweep_id = wandb.sweep(sweep_config, project="gechebnet")
-    wandb.agent(sweep_id, train, count=100)
+    config = build_config()
+    for _ in range(NUM_RUNS):
+        train(config)
