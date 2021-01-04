@@ -9,6 +9,9 @@ from torch_scatter import scatter_mean
 from torch_sparse import coalesce
 
 
+
+
+
 def max_pool(cluster, data, edge_red="add", transform=None):
     """
     Pools and coarsens a graph given by the Data object according to the clustering
@@ -32,7 +35,6 @@ def max_pool(cluster, data, edge_red="add", transform=None):
     """
     cluster, perm = consecutive_cluster(cluster)
 
-    x = None if data.x is None else _max_pool_x(cluster, data.x)
     index, attr = pool_edge(cluster, data.edge_index, data.edge_attr, edge_red)
     batch = None if data.batch is None else pool_batch(perm, data.batch)
     pos = None if data.pos is None else pool_pos(cluster, data.pos)

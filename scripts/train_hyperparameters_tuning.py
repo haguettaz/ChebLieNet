@@ -27,6 +27,7 @@ NX1, NX2 = (28, 28)
 IN_CHANNELS = 1
 OUT_CHANNELS = 10
 HIDDEN_CHANNELS = 20
+POOLING_SIZE = 2
 
 EPOCHS = 20
 OPTIMIZER = "adam"
@@ -40,7 +41,7 @@ def build_sweep_config():
         "eps": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
         "K": {"distribution": "int_uniform", "min": 2, "max": 20},
         "knn": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(64)},
-        "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-5), "max": math.log(1e-1)},
+        "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-5), "max": math.log(1e-2)},
         "nx3": {"distribution": "int_uniform", "min": 2, "max": 12},
         "pooling": {"values": ["max", "avg"]},
         "weight_sigma": {"distribution": "log_uniform", "min": math.log(0.5), "max": math.log(5.0)},
@@ -66,20 +67,20 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
             weight_comp_device=DEVICE,
         ),
         HyperCubeGraph(
-            grid_size=(NX1 // 2, NX2 // 2),
+            grid_size=(NX1 // POOLING_SIZE, NX2 // POOLING_SIZE),
             nx3=nx3,
             weight_kernel=weight_kernel,
             weight_sigma=weight_sigma,
-            knn=knn // 2,  # adapt the number of neighbors to the size of the graph
+            knn=knn,  # adapt the number of neighbors to the size of the graph
             sigmas=(xi / eps, xi, 1.0),  # adapt the metric kernel to the size of the graph
             weight_comp_device=DEVICE,
         ),
         HyperCubeGraph(
-            grid_size=(NX1 // 2 // 2, NX2 // 2 // 2),
+            grid_size=(NX1 // POOLING_SIZE // POOLING_SIZE, NX2 // POOLING_SIZE // POOLING_SIZE),
             nx3=nx3,
             weight_kernel=weight_kernel,
             weight_sigma=weight_sigma,
-            knn=knn // 2 // 2,  # adapt the number of neighbors to the size of the graph
+            knn=knn,  # adapt the number of neighbors to the size of the graph
             sigmas=(xi / eps, xi, 1.0),  # adapt the metric kernel to the size of the graph
             weight_comp_device=DEVICE,
         ),
