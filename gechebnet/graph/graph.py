@@ -13,16 +13,12 @@ from .utils import delta_pos, metric_tensor, remove_self_loops, square_distance,
 class Graph:
     def _initlaplacian(self):
         self.laplacian = get_laplacian(self.edge_index, self.edge_weight, norm="sym", num_nodes=self.num_nodes)
-        print("laplacian computation is ok")
         try:
             lmax = eigsh(sparse_tensor_to_sparse_array(self.laplacian), k=1, which="LM", return_eigenvectors=False)
             self.lmax = float(lmax.real)
-            print("lmax computation is ok")
         except ArpackError:
             # in case the eigen decomposition's algorithm does not converge, set lmax to theoretic upper bound.
             self.lmax = 2.0
-            print("lmas computation is not ok")
-        print("lmax is set")
 
     def _graphcompression(self, compression):
         if compression is not None:

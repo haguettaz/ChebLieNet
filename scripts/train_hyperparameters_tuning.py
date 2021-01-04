@@ -102,6 +102,8 @@ def train(config=None):
     with wandb.init(config=config):
         config = wandb.config
 
+        print(type(config.eps), type(config.xi), type(config.learning_rate), type(config.weight_sigma))
+
         train_loader, val_loader = get_train_val_data_loaders(
             DATASET_NAME, batch_size=config.batch_size, val_ratio=VAL_RATIO, data_path=DATA_PATH
         )
