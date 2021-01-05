@@ -47,16 +47,17 @@ class HyperCubeGraph:
 
         self.nx1, self.nx2 = grid_size
         self.nx3 = nx3
+
         self._initnodes(self.nx1 * self.nx2 * self.nx3)
         print("Nodes: Done!")
 
         self._initedges(sigmas, knn, weight_kernel, weight_sigma, self_loop, weight_comp_device)
         print("Edges: Done!")
 
-        super()._graphcompression(compression)
+        self._graphcompression(compression)
         print("Compression: Done!")
 
-        super()._initlaplacian()
+        self._initlaplacian()
         print("Laplacian: Done!")
 
     def _initnodes(self, num_nodes):
