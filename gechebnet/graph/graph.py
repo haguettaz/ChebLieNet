@@ -40,6 +40,8 @@ class HyperCubeGraph:
             batch_size (int, optional): the batch size when computing edges' weights. Defaults to 1000.
         """
 
+        print(grid_size, nx3, compression, self_loop, weight_kernel, weight_kernel, weight_sigma, knn, sigmas)
+
         weight_comp_device = weight_comp_device or torch.device("cpu")
 
         if not self_loop:
@@ -54,8 +56,8 @@ class HyperCubeGraph:
         self._initedges(sigmas, knn, weight_kernel, weight_sigma, self_loop, weight_comp_device)
         print("Edges: Done!")
 
-        self._graphcompression(compression)
-        print("Compression: Done!")
+        # self._graphcompression(compression)
+        # print("Compression: Done!")
 
         self._initlaplacian()
         print("Laplacian: Done!")
@@ -68,6 +70,7 @@ class HyperCubeGraph:
         If the compression algorithm is the static node compression, remove a proportion kappa of nodes.
         """
         self.node_index = torch.arange(num_nodes)
+        print(self.node_index)
 
         # we define the grid points and reshape them to get 1-d arrays
         self.x1_axis = torch.arange(0.0, self.nx1)
