@@ -125,9 +125,16 @@ class HyperCubeGraph(Graph):
 
         edge_sqdist, neighbors = square_distance(xi, xj, S).Kmin_argKmin(knn, dim=0)
 
+        print("pykeops ok")
+
         edge_index = torch.stack((self.node_index.repeat_interleave(knn), neighbors.flatten().cpu()), dim=0)
         edge_sqdist = edge_sqdist.cpu().flatten()
+
+        print("create edges ok")
+
         edge_index, edge_sqdist = self.process_edges(edge_index, edge_sqdist, self_loop)
+
+        print("process edges ok")
 
         if weight_kernel == "gaussian":
             kernel = lambda sqdistc: torch.exp(-sqdistc / weight_sigma ** 2)

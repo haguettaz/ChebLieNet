@@ -19,19 +19,20 @@ class ChebNet(torch.nn.Module):
         """
         super(ChebNet, self).__init__()
 
-        laplacian_device = laplacian_device or torch.device("cpu")
-
         if pooling not in {"max", "avg"}:
             raise ValueError(f"{pooling} is not a valid value for pooling: must be 'max' or 'avg'")
 
-        self.conv1 = ChebConv(graphs[0], in_channels, hidden_channels, K, laplacian_device=laplacian_device)
-        self.conv2 = ChebConv(graphs[0], hidden_channels, hidden_channels, K, laplacian_device=laplacian_device)
+        laplacian_device = laplacian_device or torch.device("cpu")
+        graph_1, graph_2, graph_3 = graphs
 
-        self.conv3 = ChebConv(graphs[1], hidden_channels, hidden_channels, K, laplacian_device=laplacian_device)
-        self.conv4 = ChebConv(graphs[1], hidden_channels, hidden_channels, K, laplacian_device=laplacian_device)
+        self.conv1 = ChebConv(graph_1, in_channels, hidden_channels, K, laplacian_device=laplacian_device)
+        self.conv2 = ChebConv(graph_1, hidden_channels, hidden_channels, K, laplacian_device=laplacian_device)
 
-        self.conv5 = ChebConv(graphs[2], hidden_channels, hidden_channels, K, laplacian_device=laplacian_device)
-        self.conv6 = ChebConv(graphs[2], hidden_channels, out_channels, K, laplacian_device=laplacian_device)
+        self.conv3 = ChebConv(graph_2, hidden_channels, hidden_channels, K, laplacian_device=laplacian_device)
+        self.conv4 = ChebConv(graph_2, hidden_channels, hidden_channels, K, laplacian_device=laplacian_device)
+
+        self.conv5 = ChebConv(graph_3, hidden_channels, hidden_channels, K, laplacian_device=laplacian_device)
+        self.conv6 = ChebConv(graph_3, hidden_channels, out_channels, K, laplacian_device=laplacian_device)
 
         self.bn2 = BatchNorm1d(hidden_channels)
         self.bn3 = BatchNorm1d(hidden_channels)
@@ -39,9 +40,9 @@ class ChebNet(torch.nn.Module):
         self.bn5 = BatchNorm1d(hidden_channels)
         self.bn6 = BatchNorm1d(hidden_channels)
 
-        self.nx1 = [graph.nx1 for graph in graphs]
-        self.nx2 = [graph.nx2 for graph in graphs]
-        self.nx3 = [graph.nx3 for graph in graphs]
+        self.nx1 = [graph_1.nx1, graph_2.nx1, graph_3.nx1]
+        self.nx2 = [graph_1.nx2, graph_2.nx2, graph_3.nx2]
+        self.nx3 = [graph_1.nx3, graph_2.nx3, graph_3.nx3]
 
         if pooling == "max":
             self.pooling = F.max_pool3d
