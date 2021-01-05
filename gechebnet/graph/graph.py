@@ -40,7 +40,7 @@ class HyperCubeGraph:
             batch_size (int, optional): the batch size when computing edges' weights. Defaults to 1000.
         """
 
-        print(grid_size, nx3, compression, self_loop, weight_kernel, weight_kernel, weight_sigma, knn, sigmas)
+        print(grid_size, nx3, compression, self_loop, weight_kernel, weight_sigma, knn, sigmas)
 
         weight_comp_device = weight_comp_device or torch.device("cpu")
 
@@ -91,11 +91,15 @@ class HyperCubeGraph:
 
         S = metric_tensor(sigmas, device)
 
+        print(knn)
+
         edge_sqdist, neighbors = square_distance(xi, xj, S).Kmin_argKmin(knn, dim=0)
+
+        print(neighbors.dtype(), neighbors.max(), neighbors.min())
 
         print("pykeops ok")
 
-        edge_index = torch.stack((self.node_index.repeat_interleave(knn), neighbors.flatten().cpu()), dim=0)
+        edge_index = torch.stack((self.node_index.repeat_interleave(knn), neighbors.cpu().flatten()), dim=0)
         edge_sqdist = edge_sqdist.cpu().flatten()
 
         print("create edges ok")
