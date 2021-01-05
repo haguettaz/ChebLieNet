@@ -7,48 +7,13 @@ from scipy.sparse.linalg import ArpackError, eigsh
 from ..utils import sparse_tensor_to_sparse_array
 from .compression import edge_compression, node_compression
 from .signal_processing import get_laplacian
-from .utils import delta_pos, metric_tensor, remove_self_loops, square_distance, to_undirected
+from .utils import (delta_pos, metric_tensor, remove_self_loops,
+                    square_distance, to_undirected)
 
 
 class Graph:
-    def _initlaplacian(self):
-        self.laplacian = get_laplacian(self.edge_index, self.edge_weight, norm="sym", num_nodes=self.num_nodes)
-        try:
-            lmax = eigsh(sparse_tensor_to_sparse_array(self.laplacian), k=1, which="LM", return_eigenvectors=False)
-            self.lmax = float(lmax.real)
-        except ArpackError:
-            # in case the eigen decomposition's algorithm does not converge, set lmax to theoretic upper bound.
-            self.lmax = 2.0
-
-    def _graphcompression(self, compression):
-        if compression is not None:
-            if compression["type"] == "node":
-                self = node_compression(self, compression["kappa"])
-            elif compression["type"] == "edge":
-                self = edge_compression(self, compression["kappa"])
-
-    @property
-    def num_edges(self):
-        return self.edge_index.shape[1]
-
-    def neighborhood(self, node_idx, return_weights=True):
-        mask = self.edge_index[0] == node_idx
-        neighbors = self.edge_index[1, mask]
-
-        if not return_weights:
-            return neighbors
-
-        weights = self.edge_weight[mask]
-        return neighbors, weights
-
-    def process_edges(self, edge_index, edge_sqdist, self_loop):
-        if not self_loop:
-            edge_index, edge_sqdist = remove_self_loops(edge_index, edge_sqdist)
-        edge_index, edge_sqdist = to_undirected(edge_index, edge_sqdist)
-        return edge_index, edge_sqdist
-
-
-class HyperCubeGraph(Graph):
+    
+class HyperCubeGraph:
     def __init__(
         self,
         grid_size,
@@ -116,6 +81,8 @@ class HyperCubeGraph(Graph):
         x3_, x2_, x1_ = torch.meshgrid(self.x3_axis, self.x2_axis, self.x1_axis)
         self.node_pos = torch.stack([x1_.flatten(), x2_.flatten(), x3_.flatten()], axis=-1)
 
+        self.num_nodes = num_nodes
+
     def _initedges(self, sigmas, knn, weight_kernel, weight_sigma, self_loop, device):
 
         xi = Vi(self.node_pos.to(device))
@@ -147,10 +114,44 @@ class HyperCubeGraph(Graph):
 
         self.edge_index, self.edge_weight = edge_index, edge_weight
 
+    def _initlaplacian(self):
+        print(self.edge_index.max(), self.edge_index.shape, self.edge_weight.shape, self.num_nodes)
+
+        self.laplacian = get_laplacian(self.edge_index, self.edge_weight, norm="sym", num_nodes=self.num_nodes)
+        try:
+            lmax = eigsh(sparse_tensor_to_sparse_array(self.laplacian), k=1, which="LM", return_eigenvectors=False)
+            self.lmax = float(lmax.real)
+        except ArpackError:
+            # in case the eigen decomposition's algorithm does not converge, set lmax to theoretic upper bound.
+            self.lmax = 2.0
+
+    def _graphcompression(self, compression):
+        if compression is not None:
+            if compression["type"] == "node":
+                self = node_compression(self, compression["kappa"])
+            elif compression["type"] == "edge":
+                self = edge_compression(self, compression["kappa"])
+
+    def neighborhood(self, node_idx, return_weights=True):
+        mask = self.edge_index[0] == node_idx
+        neighbors = self.edge_index[1, mask]
+
+        if not return_weights:
+            return neighbors
+
+        weights = self.edge_weight[mask]
+        return neighbors, weights
+
+    def process_edges(self, edge_index, edge_sqdist, self_loop):
+        if not self_loop:
+            edge_index, edge_sqdist = remove_self_loops(edge_index, edge_sqdist)
+        edge_index, edge_sqdist = to_undirected(edge_index, edge_sqdist)
+        return edge_index, edge_sqdist
+
+    @property
+    def num_edges(self):
+        return self.edge_index.shape[1]
+
     @property
     def centroid_index(self):
         return int(self.nx1 / 2) + int(self.nx2 / 2) * self.nx1 + int(self.nx3 / 2) * self.nx1 * self.nx2
-
-    @property
-    def num_nodes(self):
-        return self.nx1 * self.nx2 * self.nx3
