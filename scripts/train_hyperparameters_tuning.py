@@ -115,7 +115,7 @@ def train(config=None):
         config = wandb.config
 
         train_loader, val_loader = get_train_val_data_loaders(
-            DATASET_NAME, batch_size=2 ** config.batch_size_log, val_ratio=VAL_RATIO, data_path=DATA_PATH
+            DATASET_NAME, batch_size=config.batch_size, val_ratio=VAL_RATIO, data_path=DATA_PATH
         )
 
         model = get_model(
