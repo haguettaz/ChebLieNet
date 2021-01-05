@@ -40,9 +40,9 @@ def build_sweep_config():
         "batch_size_log": {"distribution": "int_uniform", "min": 3, "max": 8},
         "eps": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
         "K": {"distribution": "int_uniform", "min": 2, "max": 20},
-        "knn_log": {"distribution": "int_uniform", "min": 3, "max": 8},
+        "connectivity": {"distribution": "uniform", "min": 1e-2, "max": 1e-1},
         "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-5), "max": math.log(1e-2)},
-        "nx3": {"distribution": "int_uniform", "min": 2, "max": 12},
+        "nx3": {"distribution": "int_uniform", "min": 4, "max": 12},
         "pooling": {"values": ["max", "avg"]},
         "weight_sigma": {"distribution": "log_uniform", "min": math.log(0.5), "max": math.log(5.0)},
         "weight_decay": {"distribution": "log_uniform", "min": math.log(1e-6), "max": math.log(1e-3)},
@@ -54,7 +54,7 @@ def build_sweep_config():
     return sweep_config
 
 
-def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
+def get_model(nx3, connectivity, eps, xi, weight_sigma, weight_kernel, K, pooling):
     # Different graphs are for successive pooling layers
 
     print(NX1, NX2, nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling)
@@ -64,7 +64,7 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
         nx3=nx3,
         weight_kernel=weight_kernel,
         weight_sigma=weight_sigma,
-        knn=knn,
+        connectivity=connectivity,
         sigmas=(xi / eps, xi, 1.0),
         weight_comp_device=DEVICE,
     )
@@ -76,7 +76,7 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
         nx3=nx3,
         weight_kernel=weight_kernel,
         weight_sigma=weight_sigma,
-        knn=knn,
+        connectivity=connectivity,
         sigmas=(xi / eps, xi, 1.0),
         weight_comp_device=DEVICE,
     )
@@ -88,7 +88,7 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
         nx3=nx3,
         weight_kernel=weight_kernel,
         weight_sigma=weight_sigma,
-        knn=knn,
+        connectivity=connectivity,
         sigmas=(xi / eps, xi, 1.0),
         weight_comp_device=DEVICE,
     )
@@ -122,7 +122,7 @@ def train(config=None):
 
         model = get_model(
             config.nx3,
-            2 ** config.knn_log,
+            config.connectivity,
             config.eps,
             config.xi,
             config.weight_sigma,
@@ -160,7 +160,7 @@ def train(config=None):
 
 
 if __name__ == "__main__":
-
+    pykeops.clean_pykeops()
     sweep_config = build_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project="gechebnet")
     wandb.agent(sweep_id, train, count=50)

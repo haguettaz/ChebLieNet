@@ -16,10 +16,9 @@ class HyperCubeGraph:
         grid_size,
         nx3=6,
         compression=None,
-        self_loop=False,
         weight_kernel="gaussian",
         weight_sigma=1.0,
-        knn=26,
+        connectivity=5e-2,
         sigmas=(1.0, 1.0, 1.0),
         weight_comp_device=None,
     ):
@@ -40,12 +39,9 @@ class HyperCubeGraph:
             batch_size (int, optional): the batch size when computing edges' weights. Defaults to 1000.
         """
 
-        print(grid_size, nx3, compression, self_loop, weight_kernel, weight_sigma, knn, sigmas)
+        print(grid_size, nx3, compression, self_loop, weight_kernel, weight_sigma, connectivity, sigmas)
 
         weight_comp_device = weight_comp_device or torch.device("cpu")
-
-        if not self_loop:
-            knn += 1
 
         self.nx1, self.nx2 = grid_size
         self.nx3 = nx3
@@ -53,7 +49,7 @@ class HyperCubeGraph:
         self._initnodes(self.nx1 * self.nx2 * self.nx3)
         print("Nodes: Done!")
 
-        self._initedges(sigmas, knn, weight_kernel, weight_sigma, self_loop, weight_comp_device)
+        self._initedges(sigmas, connectivity, weight_kernel, weight_sigma, self_loop, weight_comp_device)
         print("Edges: Done!")
 
         # self._graphcompression(compression)
@@ -70,7 +66,6 @@ class HyperCubeGraph:
         If the compression algorithm is the static node compression, remove a proportion kappa of nodes.
         """
         self.node_index = torch.arange(num_nodes)
-        print(self.node_index)
 
         # we define the grid points and reshape them to get 1-d arrays
         self.x1_axis = torch.arange(0.0, self.nx1)
@@ -84,13 +79,14 @@ class HyperCubeGraph:
 
         self.num_nodes = num_nodes
 
-    def _initedges(self, sigmas, knn, weight_kernel, weight_sigma, self_loop, device):
+    def _initedges(self, sigmas, connectivity, weight_kernel, weight_sigma, self_loop, device):
 
         xi = Vi(self.node_pos.to(device))
         xj = Vj(self.node_pos.to(device))
 
         S = metric_tensor(sigmas, device)
 
+        knn = int(connectivity * self.num_nodes)
         print(knn)
 
         edge_sqdist, neighbors = square_distance(xi, xj, S).Kmin_argKmin(knn, dim=0)
@@ -104,7 +100,7 @@ class HyperCubeGraph:
 
         print("create edges ok")
 
-        edge_index, edge_sqdist = self.process_edges(edge_index, edge_sqdist, self_loop)
+        edge_index, edge_sqdist = self.process_edges(edge_index, edge_sqdist)
 
         print("process edges ok")
 
@@ -148,9 +144,8 @@ class HyperCubeGraph:
         weights = self.edge_weight[mask]
         return neighbors, weights
 
-    def process_edges(self, edge_index, edge_sqdist, self_loop):
-        if not self_loop:
-            edge_index, edge_sqdist = remove_self_loops(edge_index, edge_sqdist)
+    def process_edges(self, edge_index, edge_sqdist):
+        edge_index, edge_sqdist = remove_self_loops(edge_index, edge_sqdist)
         edge_index, edge_sqdist = to_undirected(edge_index, edge_sqdist)
         return edge_index, edge_sqdist
 
