@@ -79,7 +79,7 @@ class HyperCubeGraph:
 
         self.num_nodes = num_nodes
 
-    def _initedges(self, sigmas, connectivity, weight_kernel, weight_sigma, self_loop, device):
+    def _initedges(self, sigmas, connectivity, weight_kernel, weight_sigma, device):
 
         xi = Vi(self.node_pos.to(device))
         xj = Vj(self.node_pos.to(device))
