@@ -39,8 +39,6 @@ class HyperCubeGraph:
             batch_size (int, optional): the batch size when computing edges' weights. Defaults to 1000.
         """
 
-        print(grid_size, nx3, compression, weight_kernel, weight_sigma, connectivity, sigmas)
-
         weight_comp_device = weight_comp_device or torch.device("cpu")
 
         self.nx1, self.nx2 = grid_size
@@ -51,9 +49,6 @@ class HyperCubeGraph:
 
         self._initedges(sigmas, connectivity, weight_kernel, weight_sigma, weight_comp_device)
         print("Edges: Done!")
-
-        # self._graphcompression(compression)
-        # print("Compression: Done!")
 
         self._initlaplacian()
         print("Laplacian: Done!")
@@ -87,22 +82,11 @@ class HyperCubeGraph:
         S = metric_tensor(sigmas, device)
 
         knn = int(connectivity * self.num_nodes)
-        print(knn)
-
         edge_sqdist, neighbors = square_distance(xi, xj, S).Kmin_argKmin(knn, dim=0)
-
-        print(neighbors.dtype, neighbors.max(), neighbors.min())
-
-        print("pykeops ok")
 
         edge_index = torch.stack((self.node_index.repeat_interleave(knn), neighbors.cpu().flatten()), dim=0)
         edge_sqdist = edge_sqdist.cpu().flatten()
-
-        print("create edges ok")
-
         edge_index, edge_sqdist = self.process_edges(edge_index, edge_sqdist)
-
-        print("process edges ok")
 
         if weight_kernel == "gaussian":
             kernel = lambda sqdistc: torch.exp(-sqdistc / weight_sigma ** 2)

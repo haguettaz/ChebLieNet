@@ -37,7 +37,7 @@ def build_sweep_config():
     sweep_config = {"method": "bayes", "metric": {"name": "validation_accuracy", "goal": "maximize"}}
 
     parameters_dict = {
-        "batch_size_log": {"distribution": "int_uniform", "min": 3, "max": 8},
+        "batch_size": {"distribution": "q_log_uniform", "min": math.log(16), "max": math.log(128)},
         "eps": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
         "K": {"distribution": "int_uniform", "min": 2, "max": 20},
         "connectivity": {"distribution": "uniform", "min": 1e-2, "max": 1e-1},
@@ -56,8 +56,6 @@ def build_sweep_config():
 
 def get_model(nx3, connectivity, eps, xi, weight_sigma, weight_kernel, K, pooling):
     # Different graphs are for successive pooling layers
-
-    print(NX1, NX2, nx3, connectivity, eps, xi, weight_sigma, weight_kernel, K, pooling)
 
     graph_1 = HyperCubeGraph(
         grid_size=(NX1, NX2),
@@ -155,8 +153,7 @@ def train(config=None):
         # track training with wandb
         _ = trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, evaluator, val_loader)
 
-        # save best model
-        # trainer.run(train_loader, max_epochs=EPOCHS)
+        trainer.run(train_loader, max_epochs=EPOCHS)
 
 
 if __name__ == "__main__":
