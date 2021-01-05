@@ -7,12 +7,9 @@ from scipy.sparse.linalg import ArpackError, eigsh
 from ..utils import sparse_tensor_to_sparse_array
 from .compression import edge_compression, node_compression
 from .signal_processing import get_laplacian
-from .utils import (delta_pos, metric_tensor, remove_self_loops,
-                    square_distance, to_undirected)
+from .utils import delta_pos, metric_tensor, remove_self_loops, square_distance, to_undirected
 
 
-class Graph:
-    
 class HyperCubeGraph:
     def __init__(
         self,
@@ -118,6 +115,7 @@ class HyperCubeGraph:
         print(self.edge_index.max(), self.edge_index.shape, self.edge_weight.shape, self.num_nodes)
 
         self.laplacian = get_laplacian(self.edge_index, self.edge_weight, norm="sym", num_nodes=self.num_nodes)
+        print("laplacian ok")
         try:
             lmax = eigsh(sparse_tensor_to_sparse_array(self.laplacian), k=1, which="LM", return_eigenvectors=False)
             self.lmax = float(lmax.real)
