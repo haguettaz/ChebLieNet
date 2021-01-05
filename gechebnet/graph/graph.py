@@ -95,7 +95,7 @@ class HyperCubeGraph:
 
         edge_sqdist, neighbors = square_distance(xi, xj, S).Kmin_argKmin(knn, dim=0)
 
-        print(neighbors.dtype(), neighbors.max(), neighbors.min())
+        print(neighbors.dtype, neighbors.max(), neighbors.min())
 
         print("pykeops ok")
 
