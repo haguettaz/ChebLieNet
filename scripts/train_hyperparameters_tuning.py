@@ -57,7 +57,7 @@ def build_sweep_config():
 def get_model(nx3, connectivity, eps, xi, weight_sigma, weight_kernel, K, pooling):
     # Different graphs are for successive pooling layers
 
-    print(NX1, NX2, nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling)
+    print(NX1, NX2, nx3, connectivity, eps, xi, weight_sigma, weight_kernel, K, pooling)
 
     graph_1 = HyperCubeGraph(
         grid_size=(NX1, NX2),

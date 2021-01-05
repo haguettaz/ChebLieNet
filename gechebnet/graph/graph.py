@@ -39,7 +39,7 @@ class HyperCubeGraph:
             batch_size (int, optional): the batch size when computing edges' weights. Defaults to 1000.
         """
 
-        print(grid_size, nx3, compression, self_loop, weight_kernel, weight_sigma, connectivity, sigmas)
+        print(grid_size, nx3, compression, weight_kernel, weight_sigma, connectivity, sigmas)
 
         weight_comp_device = weight_comp_device or torch.device("cpu")
 
@@ -49,7 +49,7 @@ class HyperCubeGraph:
         self._initnodes(self.nx1 * self.nx2 * self.nx3)
         print("Nodes: Done!")
 
-        self._initedges(sigmas, connectivity, weight_kernel, weight_sigma, self_loop, weight_comp_device)
+        self._initedges(sigmas, connectivity, weight_kernel, weight_sigma, weight_comp_device)
         print("Edges: Done!")
 
         # self._graphcompression(compression)
