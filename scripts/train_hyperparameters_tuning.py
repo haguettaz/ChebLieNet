@@ -32,6 +32,9 @@ POOLING_SIZE = 2
 EPOCHS = 10
 OPTIMIZER = "adam"
 
+MIN_KNN = 2
+MULT_KNN = 2
+
 
 def build_sweep_config():
     sweep_config = {"method": "bayes", "metric": {"name": "validation_accuracy", "goal": "maximize"}}
@@ -40,7 +43,7 @@ def build_sweep_config():
         "batch_size": {"distribution": "q_log_uniform", "min": math.log(16), "max": math.log(128)},
         "eps": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
         "K": {"distribution": "int_uniform", "min": 2, "max": 20},
-        "connectivity": {"distribution": "uniform", "min": 1e-2, "max": 1e-1},
+        "exp_knn": {"distribution": "int_uniform", "min": 0, "max": 4},
         "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-5), "max": math.log(1e-2)},
         "nx3": {"distribution": "int_uniform", "min": 4, "max": 12},
         "pooling": {"values": ["max", "avg"]},
@@ -54,7 +57,7 @@ def build_sweep_config():
     return sweep_config
 
 
-def get_model(nx3, connectivity, eps, xi, weight_sigma, weight_kernel, K, pooling):
+def get_model(nx3, exp_knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
     # Different graphs are for successive pooling layers
 
     graph_1 = HyperCubeGraph(
@@ -62,7 +65,7 @@ def get_model(nx3, connectivity, eps, xi, weight_sigma, weight_kernel, K, poolin
         nx3=nx3,
         weight_kernel=weight_kernel,
         weight_sigma=weight_sigma,
-        connectivity=connectivity,
+        knn=int(MIN_KNN * MULT_KNN ** exp_knn * POOLING_SIZE ** 4),
         sigmas=(xi / eps, xi, 1.0),
         weight_comp_device=DEVICE,
     )
@@ -74,7 +77,7 @@ def get_model(nx3, connectivity, eps, xi, weight_sigma, weight_kernel, K, poolin
         nx3=nx3,
         weight_kernel=weight_kernel,
         weight_sigma=weight_sigma,
-        connectivity=connectivity,
+        knn=int(MIN_KNN * MULT_KNN ** exp_knn * POOLING_SIZE ** 2),
         sigmas=(xi / eps, xi, 1.0),
         weight_comp_device=DEVICE,
     )
@@ -86,7 +89,7 @@ def get_model(nx3, connectivity, eps, xi, weight_sigma, weight_kernel, K, poolin
         nx3=nx3,
         weight_kernel=weight_kernel,
         weight_sigma=weight_sigma,
-        connectivity=connectivity,
+        knn=int(MIN_KNN * MULT_KNN ** exp_knn),
         sigmas=(xi / eps, xi, 1.0),
         weight_comp_device=DEVICE,
     )
@@ -120,7 +123,7 @@ def train(config=None):
 
         model = get_model(
             config.nx3,
-            config.connectivity,
+            config.exp_knn,
             config.eps,
             config.xi,
             config.weight_sigma,

@@ -18,7 +18,7 @@ class HyperCubeGraph:
         compression=None,
         weight_kernel="gaussian",
         weight_sigma=1.0,
-        connectivity=5e-2,
+        knn=16,
         sigmas=(1.0, 1.0, 1.0),
         weight_comp_device=None,
     ):
@@ -47,7 +47,7 @@ class HyperCubeGraph:
         self._initnodes(self.nx1 * self.nx2 * self.nx3)
         print("Nodes: Done!")
 
-        self._initedges(sigmas, connectivity, weight_kernel, weight_sigma, weight_comp_device)
+        self._initedges(sigmas, knn, weight_kernel, weight_sigma, weight_comp_device)
         print("Edges: Done!")
 
         self._initlaplacian()
@@ -74,21 +74,17 @@ class HyperCubeGraph:
 
         self.num_nodes = num_nodes
 
-    def _initedges(self, sigmas, connectivity, weight_kernel, weight_sigma, device):
+    def _initedges(self, sigmas, knn, weight_kernel, weight_sigma, device):
 
         xi = Vi(self.node_pos.to(device))
         xj = Vj(self.node_pos.to(device))
 
         S = metric_tensor(sigmas, device)
 
-        knn = int(connectivity * self.num_nodes)
+        edge_sqdist, neighbors = square_distance(xi, xj, S).Kmin_argKmin(knn + 1, dim=0)
 
-        edge_sqdist, neighbors = square_distance(xi, xj, S).Kmin_argKmin(knn, dim=0)
-
-        edge_index = torch.stack((self.node_index.repeat_interleave(knn), neighbors.cpu().flatten()), dim=0)
+        edge_index = torch.stack((self.node_index.repeat_interleave(knn + 1), neighbors.cpu().flatten()), dim=0)
         edge_sqdist = edge_sqdist.cpu().flatten()
-
-        print(edge_index.shape)
 
         edge_index, edge_sqdist = self.process_edges(edge_index, edge_sqdist)
 
@@ -104,10 +100,8 @@ class HyperCubeGraph:
         self.edge_index, self.edge_weight = edge_index, edge_weight
 
     def _initlaplacian(self):
-        print(self.edge_index.max(), self.edge_index.shape, self.edge_weight.shape, self.num_nodes)
-
         self.laplacian = get_laplacian(self.edge_index, self.edge_weight, norm="sym", num_nodes=self.num_nodes)
-        print("laplacian ok")
+
         try:
             lmax = eigsh(sparse_tensor_to_sparse_array(self.laplacian), k=1, which="LM", return_eigenvectors=False)
             self.lmax = float(lmax.real)
