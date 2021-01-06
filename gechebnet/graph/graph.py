@@ -82,10 +82,14 @@ class HyperCubeGraph:
         S = metric_tensor(sigmas, device)
 
         knn = int(connectivity * self.num_nodes)
+
         edge_sqdist, neighbors = square_distance(xi, xj, S).Kmin_argKmin(knn, dim=0)
 
         edge_index = torch.stack((self.node_index.repeat_interleave(knn), neighbors.cpu().flatten()), dim=0)
         edge_sqdist = edge_sqdist.cpu().flatten()
+
+        print(edge_index.shape)
+
         edge_index, edge_sqdist = self.process_edges(edge_index, edge_sqdist)
 
         if weight_kernel == "gaussian":
