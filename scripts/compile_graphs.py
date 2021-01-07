@@ -1,3 +1,4 @@
+import pykeops
 import torch
 from gechebnet.graph.graph import HyperCubeGraph
 
@@ -53,6 +54,5 @@ def compile_graphs(exp_knn):
 
 
 if __name__ == "__main__":
-    pykeops.clean_pykeops()
     for exp_knn in [0, 1, 2, 3, 4]:
         compile_graphs(exp_knn)

@@ -45,7 +45,7 @@ def build_sweep_config():
         "K": {"distribution": "int_uniform", "min": 2, "max": 20},
         "exp_knn": {"distribution": "int_uniform", "min": 0, "max": 4},
         "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-5), "max": math.log(1e-2)},
-        "nx3": {"distribution": "int_uniform", "min": 4, "max": 12},
+        "nx3": {"distribution": "int_uniform", "min": 4, "max": 9},
         "pooling": {"values": ["max", "avg"]},
         "weight_sigma": {"distribution": "log_uniform", "min": math.log(0.5), "max": math.log(5.0)},
         "weight_decay": {"distribution": "log_uniform", "min": math.log(1e-6), "max": math.log(1e-3)},
@@ -160,7 +160,6 @@ def train(config=None):
 
 
 if __name__ == "__main__":
-    pykeops.clean_pykeops()
     sweep_config = build_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project="gechebnet")
     wandb.agent(sweep_id, train, count=50)
