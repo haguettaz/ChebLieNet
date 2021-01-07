@@ -5,7 +5,8 @@ import pykeops
 import torch
 import wandb
 from gechebnet.data.dataloader import get_train_val_data_loaders
-from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
+from gechebnet.engine.engine import (create_supervised_evaluator,
+                                     create_supervised_trainer)
 from gechebnet.engine.utils import prepare_batch, wandb_log
 from gechebnet.graph.graph import HyperCubeGraph
 from gechebnet.model.chebnet import ChebNet
@@ -57,41 +58,62 @@ def build_sweep_config():
     return sweep_config
 
 
-def get_model(nx3, exp_knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
-    # Different graphs are for successive pooling layers
+def robust_graph_construction(grid_size, nx3, knn, eps, xi, weight_sigma, weight_kernel):
 
-    graph_1 = HyperCubeGraph(
+    graph = HyperCubeGraph(
         grid_size=(NX1, NX2),
         nx3=nx3,
         weight_kernel=weight_kernel,
         weight_sigma=weight_sigma,
-        knn=int(MIN_KNN * MULT_KNN ** exp_knn * POOLING_SIZE ** 4),
+        knn=knn,
         sigmas=(xi / eps, xi, 1.0),
         weight_comp_device=DEVICE,
+    )
+
+    while graph.num_edges < graph.num_nodes:
+        print("construction failed")
+        graph = HyperCubeGraph(
+            grid_size=(NX1, NX2),
+            nx3=nx3,
+            weight_kernel=weight_kernel,
+            weight_sigma=weight_sigma,
+            knn=knn,
+            sigmas=(xi / eps, xi, 1.0),
+            weight_comp_device=DEVICE,
+        )
+
+    return graph
+
+
+def get_model(nx3, exp_knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
+    # Different graphs are for successive pooling layers
+
+    graph_1 = robust_graph_construction(
+        (NX1, NX2), nx3, int(MIN_KNN * MULT_KNN ** exp_knn * POOLING_SIZE ** 4), eps, xi, weight_sigma, weight_kernel
     )
 
     wandb.log({f"graph_1_nodes": graph_1.num_nodes, f"graph_1_edges": graph_1.num_edges})
 
-    graph_2 = HyperCubeGraph(
-        grid_size=(NX1 // POOLING_SIZE, NX2 // POOLING_SIZE),
-        nx3=nx3,
-        weight_kernel=weight_kernel,
-        weight_sigma=weight_sigma,
-        knn=int(MIN_KNN * MULT_KNN ** exp_knn * POOLING_SIZE ** 2),
-        sigmas=(xi / eps, xi, 1.0),
-        weight_comp_device=DEVICE,
+    graph_2 = robust_graph_construction(
+        (NX1 // POOLING_SIZE, NX2 // POOLING_SIZE),
+        nx3,
+        int(MIN_KNN * MULT_KNN ** exp_knn * POOLING_SIZE ** 2),
+        eps,
+        xi,
+        weight_sigma,
+        weight_kernel,
     )
 
     wandb.log({f"graph_2_nodes": graph_2.num_nodes, f"graph_2_edges": graph_2.num_edges})
 
-    graph_3 = HyperCubeGraph(
-        grid_size=(NX1 // POOLING_SIZE // POOLING_SIZE, NX2 // POOLING_SIZE // POOLING_SIZE),
-        nx3=nx3,
-        weight_kernel=weight_kernel,
-        weight_sigma=weight_sigma,
-        knn=int(MIN_KNN * MULT_KNN ** exp_knn),
-        sigmas=(xi / eps, xi, 1.0),
-        weight_comp_device=DEVICE,
+    graph_3 = robust_graph_construction(
+        (NX1 // POOLING_SIZE // POOLING_SIZE, NX2 // POOLING_SIZE // POOLING_SIZE),
+        nx3,
+        int(MIN_KNN * MULT_KNN ** exp_knn),
+        eps,
+        xi,
+        weight_sigma,
+        weight_kernel,
     )
 
     wandb.log({f"graph_3_nodes": graph_3.num_nodes, f"graph_3_edges": graph_3.num_edges})

@@ -95,7 +95,7 @@ def visualize_neighborhood(graph, node_idx):
     return fig
 
 
-def visualize_heat_diffusion(graph_data, f0, times=(0.0, 0.1, 0.2, 0.4), normalization=None):
+def visualize_heat_diffusion(graph, f0, times=(0.0, 0.1, 0.2, 0.4)):
 
     num_cols = len(times)
     fig = plt.figure(figsize=(num_cols * 8.0, 8.0))

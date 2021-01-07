@@ -6,8 +6,9 @@ from scipy.sparse.linalg import ArpackError, eigsh
 
 from ..utils import sparse_tensor_to_sparse_array
 from .compression import edge_compression, node_compression
-from .signal_processing import get_laplacian
-from .utils import delta_pos, metric_tensor, remove_self_loops, square_distance, to_undirected
+from .signal_processing import get_fourier_basis, get_laplacian
+from .utils import (delta_pos, metric_tensor, remove_self_loops,
+                    square_distance, to_undirected)
 
 
 class HyperCubeGraph:
@@ -130,6 +131,10 @@ class HyperCubeGraph:
         edge_index, edge_sqdist = remove_self_loops(edge_index, edge_sqdist)
         edge_index, edge_sqdist = to_undirected(edge_index, edge_sqdist)
         return edge_index, edge_sqdist
+
+    @property
+    def fourier_basis(self):
+        return get_fourier_basis(self.laplacian)
 
     @property
     def num_edges(self):
