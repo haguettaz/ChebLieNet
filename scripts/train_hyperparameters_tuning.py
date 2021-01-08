@@ -147,7 +147,7 @@ def train(config=None):
         # Model and optimizer
         model = get_model(
             config.nx3,
-            config.exp_knn,
+            config.knn,
             config.eps,
             config.xi,
             config.weight_sigma,
