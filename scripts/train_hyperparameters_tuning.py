@@ -36,52 +36,42 @@ OPTIMIZER = "adam"
 def build_sweep_config():
     sweep_config = {"method": "bayes", "metric": {"name": "validation_accuracy", "goal": "maximize"}}
 
-    parameters_dict = {
-        "batch_size": {"values": [8, 16, 32, 64, 128, 256]},
-        "eps": {"values": [0.1, 0.2, 0.4, 0.6, 0.8, 1.0]},
-        "K": {"values": [1, 2, 4, 8, 16, 32]},
-        "knn": {"values": [2, 4, 8, 16, 32]},
-        "learning_rate": {"values": [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]},
-        "nx3": {"values": [3, 4, 6, 8, 9]},
-        "pooling": {"values": ["max", "avg"]},
-        "weight_sigma": {"values": [0.25, 0.5, 1.0, 2.0, 4.0, 8]},
-        "weight_decay": {"values": [1e-6, 1e-4, 1e-3]},
-        "weight_kernel": {"values": ["cauchy", "gaussian", "laplacian"]},
-        "xi": {"values": [0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0]},
+    sweep_config["parameters"] = {
+        "batch_size": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(256)},
+        "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
+        "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(64)},
+        "knn": {"distribution": "categorical", "values": [2, 4, 8, 16, 32]},
+        "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-5), "max": math.log(0.1)},
+        "nx3": {"distribution": "int_uniform", "min": 3, "max": 9},
+        "pooling": {"distribution": "categorical", "values": ["max", "avg"]},
+        "weight_sigma": {"distribution": "uniform", "min": 0.25, "max": 8.0},
+        "weight_decay": {"distribution": "log_uniform", "min": math.log(1e-6), "max": math.log(1e-3)},
+        "weight_kernel": {"distribution": "categorical", "values": ["cauchy", "gaussian", "laplacian"]},
+        "xi": {"distribution": "log_uniform", "min": 1e-2, "max": 1.0},
     }
-    sweep_config["parameters"] = parameters_dict
 
     return sweep_config
 
 
-def robust_graph_construction(grid_size, nx3, knn, eps, xi, weight_sigma, weight_kernel):
+def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
 
-    graph = HyperCubeGraph(
-        grid_size=(NX1, NX2),
-        nx3=nx3,
-        weight_kernel=weight_kernel,
-        weight_sigma=weight_sigma,
-        knn=knn,
-        sigmas=(xi / eps, xi, 1.0),
-        weight_comp_device=DEVICE,
+    print("nx3", nx3, type(nx3))
+    print("knn", knn, type(knn))
+    print("eps", eps, type(eps))
+    print("xi", xi, type(xi))
+    print("weight_sigma", weight_sigma, type(weight_sigma))
+    print("weight_kernel", weight_kernel, type(weight_kernel))
+    print("K", K, type(K))
+    print("pooling", pooling, type(pooling))
+
+    print("NX1, NX2", NX1, NX2)
+    print("NX1 // POOLING_SIZE, NX2 // POOLING_SIZE", NX1 // POOLING_SIZE, NX2 // POOLING_SIZE)
+    print(
+        "NX1 // POOLING_SIZE // POOLING_SIZE, NX2 // POOLING_SIZE// POOLING_SIZE",
+        NX1 // POOLING_SIZE // POOLING_SIZE,
+        NX2 // POOLING_SIZE // POOLING_SIZE,
     )
 
-    while graph.num_edges < graph.num_nodes:
-        print("construction failed")
-        graph = HyperCubeGraph(
-            grid_size=(NX1, NX2),
-            nx3=nx3,
-            weight_kernel=weight_kernel,
-            weight_sigma=weight_sigma,
-            knn=knn,
-            sigmas=(xi / eps, xi, 1.0),
-            weight_comp_device=DEVICE,
-        )
-
-    return graph
-
-
-def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
     # Different graphs are for successive pooling layers
 
     graph_1 = HyperCubeGraph(
