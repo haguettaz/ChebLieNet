@@ -29,11 +29,8 @@ OUT_CHANNELS = 10
 HIDDEN_CHANNELS = 20
 POOLING_SIZE = 2
 
-EPOCHS = 10
+EPOCHS = 20
 OPTIMIZER = "adam"
-
-MIN_KNN = 2
-MULT_KNN = 2
 
 
 def build_sweep_config():
@@ -84,37 +81,46 @@ def robust_graph_construction(grid_size, nx3, knn, eps, xi, weight_sigma, weight
     return graph
 
 
-def get_model(nx3, exp_knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
+def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
     # Different graphs are for successive pooling layers
 
-    graph_1 = robust_graph_construction(
-        (NX1, NX2), nx3, int(MIN_KNN * MULT_KNN ** exp_knn * POOLING_SIZE ** 4), eps, xi, weight_sigma, weight_kernel
+    graph_1 = HyperCubeGraph(
+        grid_size=(NX1, NX2),
+        nx3=nx3,
+        weight_kernel=weight_kernel,
+        weight_sigma=weight_sigma,
+        knn=int(knn * POOLING_SIZE ** 4),
+        sigmas=(xi / eps, xi, 1.0),
+        weight_comp_device=DEVICE,
     )
-
+    if graph_1.num_nodes > graph_1.num_edges:
+        raise ValueError(f"An error occured during the computation of the graph")
     wandb.log({f"graph_1_nodes": graph_1.num_nodes, f"graph_1_edges": graph_1.num_edges})
 
-    graph_2 = robust_graph_construction(
-        (NX1 // POOLING_SIZE, NX2 // POOLING_SIZE),
-        nx3,
-        int(MIN_KNN * MULT_KNN ** exp_knn * POOLING_SIZE ** 2),
-        eps,
-        xi,
-        weight_sigma,
-        weight_kernel,
+    graph_2 = HyperCubeGraph(
+        grid_size=(NX1 // POOLING_SIZE, NX2 // POOLING_SIZE),
+        nx3=nx3,
+        weight_kernel=weight_kernel,
+        weight_sigma=weight_sigma,
+        knn=int(knn * POOLING_SIZE ** 2),
+        sigmas=(xi / eps, xi, 1.0),
+        weight_comp_device=DEVICE,
     )
-
+    if graph_2.num_nodes > graph_2.num_edges:
+        raise ValueError(f"An error occured during the computation of the graph")
     wandb.log({f"graph_2_nodes": graph_2.num_nodes, f"graph_2_edges": graph_2.num_edges})
 
-    graph_3 = robust_graph_construction(
-        (NX1 // POOLING_SIZE // POOLING_SIZE, NX2 // POOLING_SIZE // POOLING_SIZE),
-        nx3,
-        int(MIN_KNN * MULT_KNN ** exp_knn),
-        eps,
-        xi,
-        weight_sigma,
-        weight_kernel,
+    graph_3 = HyperCubeGraph(
+        grid_size=(NX1 // POOLING_SIZE // POOLING_SIZE, NX2 // POOLING_SIZE // POOLING_SIZE),
+        nx3=nx3,
+        weight_kernel=weight_kernel,
+        weight_sigma=weight_sigma,
+        knn=int(knn * POOLING_SIZE ** 4),
+        sigmas=(xi / eps, xi, 1.0),
+        weight_comp_device=DEVICE,
     )
-
+    if graph_3.num_nodes > graph_3.num_edges:
+        raise ValueError(f"An error occured during the computation of the graph")
     wandb.log({f"graph_3_nodes": graph_3.num_nodes, f"graph_3_edges": graph_3.num_edges})
 
     model = ChebNet(
@@ -139,7 +145,6 @@ def train(config=None):
         config = wandb.config
 
         # Model and optimizer
-
         model = get_model(
             config.nx3,
             config.exp_knn,
