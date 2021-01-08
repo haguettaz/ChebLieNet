@@ -139,7 +139,6 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
 
 
 def train(config=None):
-
     # Initialize a new wandb run
     with wandb.init(config=config):
         config = wandb.config
@@ -148,8 +147,8 @@ def train(config=None):
         model = get_model(
             config.nx3,
             config.knn,
-            config.eps,
-            config.xi,
+            0.1,
+            0.1,
             config.weight_sigma,
             config.weight_kernel,
             config.K,
