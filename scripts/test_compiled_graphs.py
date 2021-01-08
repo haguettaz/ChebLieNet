@@ -10,49 +10,28 @@ POOLING_SIZE = 2
 
 DEVICE = torch.device("cuda")
 
+from timeit import timeit
+
 
 def compile_graphs(knn):
 
-    for eps in [0.1, 0.2, 0.4, 0.6, 0.8, 1.0]:
-        for xi in [0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0]:
-            graph_1 = HyperCubeGraph(
-                grid_size=(NX1, NX2),
-                nx3=NX3,
-                knn=int(knn * POOLING_SIZE ** 4),
-                sigmas=(xi / eps, xi, 1.0),
-                weight_comp_device=DEVICE,
-            )
+    print(f"KNN = {int(knn * POOLING_SIZE ** 4)}")
+    print(f"V = {NX1*NX2*NX3}")
+    print(
+        f"time = {timeit('HyperCubeGraph(grid_size=(NX1, NX2), nx3=NX3, knn=int(knn * POOLING_SIZE ** 4), weight_comp_device=DEVICE)', number=100)}"
+    )
 
-            if graph_1.num_edges < graph_1.num_nodes:
-                print(
-                    f"compilation of graph_1 with size {(NX1, NX2, NX3)} failed : {graph_1.num_edges} edges for {graph_1.num_nodes} nodes"
-                )
+    print(f"KNN = {int(knn * POOLING_SIZE ** 2)}")
+    print(f"V = {(NX1//POOLING_SIZE)*(NX2//POOLING_SIZE)*NX3}")
+    print(
+        f"time = {timeit('HyperCubeGraph(grid_size=(NX1//POOLING_SIZE, NX2//POOLING_SIZE), nx3=NX3, knn=int(knn * POOLING_SIZE ** 2), weight_comp_device=DEVICE)', number=100)}"
+    )
 
-            graph_2 = HyperCubeGraph(
-                grid_size=(NX1 // POOLING_SIZE, NX2 // POOLING_SIZE),
-                nx3=NX3,
-                knn=int(knn * POOLING_SIZE ** 2),
-                sigmas=(xi / eps, xi, 1.0),
-                weight_comp_device=DEVICE,
-            )
-
-            if graph_2.num_edges < graph_2.num_nodes:
-                print(
-                    f"compilation of graph_2 with size {(NX1 // POOLING_SIZE, NX2 // POOLING_SIZE, NX3)} failed : {graph_2.num_edges} edges for {graph_2.num_nodes} nodes"
-                )
-
-            graph_3 = HyperCubeGraph(
-                grid_size=(NX1 // POOLING_SIZE // POOLING_SIZE, NX2 // POOLING_SIZE // POOLING_SIZE),
-                nx3=NX3,
-                knn=int(knn),
-                sigmas=(xi / eps, xi, 1.0),
-                weight_comp_device=DEVICE,
-            )
-
-            if graph_3.num_edges < graph_3.num_nodes:
-                print(
-                    f"compilation of graph_3 with size {(NX1 // POOLING_SIZE// POOLING_SIZE, NX2 // POOLING_SIZE// POOLING_SIZE, NX3)} failed : {graph_3.num_edges} edges for {graph_3.num_nodes} nodes"
-                )
+    print(f"KNN = {int(knn)}")
+    print(f"V = {(NX1//POOLING_SIZE//POOLING_SIZE)*(NX2//POOLING_SIZE//POOLING_SIZE)*NX3}")
+    print(
+        f"time = {timeit('HyperCubeGraph(grid_size=(NX1//POOLING_SIZE//POOLING_SIZE, NX2//POOLING_SIZE//POOLING_SIZE), nx3=NX3, knn=int(knn), weight_comp_device=DEVICE)', number=100)}"
+    )
 
 
 if __name__ == "__main__":
