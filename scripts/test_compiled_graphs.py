@@ -23,7 +23,7 @@ def compile_graphs(knn):
                 weight_comp_device=DEVICE,
             )
 
-            if graph_1.num_edges < graph_1.num_nodes * int(MIN_KNN * MULT_KNN ** exp_knn * POOLING_SIZE ** 4) / 2:
+            if graph_1.num_edges < graph_1.num_nodes:
                 print(
                     f"compilation of graph_1 with size {(NX1, NX2, NX3)} failed : {graph_1.num_edges} edges for {graph_1.num_nodes} nodes"
                 )
@@ -36,7 +36,7 @@ def compile_graphs(knn):
                 weight_comp_device=DEVICE,
             )
 
-            if graph_2.num_edges < graph_2.num_nodes * int(MIN_KNN * MULT_KNN ** exp_knn * POOLING_SIZE ** 2) / 2:
+            if graph_2.num_edges < graph_2.num_nodes:
                 print(
                     f"compilation of graph_2 with size {(NX1 // POOLING_SIZE, NX2 // POOLING_SIZE, NX3)} failed : {graph_2.num_edges} edges for {graph_2.num_nodes} nodes"
                 )
@@ -49,7 +49,7 @@ def compile_graphs(knn):
                 weight_comp_device=DEVICE,
             )
 
-            if graph_3.num_edges < graph_3.num_nodes * int(MIN_KNN * MULT_KNN ** exp_knn) / 2:
+            if graph_3.num_edges < graph_3.num_nodes:
                 print(
                     f"compilation of graph_3 with size {(NX1 // POOLING_SIZE// POOLING_SIZE, NX2 // POOLING_SIZE// POOLING_SIZE, NX3)} failed : {graph_3.num_edges} edges for {graph_3.num_nodes} nodes"
                 )
