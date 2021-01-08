@@ -139,7 +139,7 @@ def train(config=None):
             config.knn,
             config.eps,
             config.xi,
-            1.0,
+            config.weight_sigma,
             config.weight_kernel,
             config.K,
             config.pooling,
