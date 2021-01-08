@@ -100,27 +100,27 @@ def visualize_heat_diffusion(graph, f0, times=(0.0, 0.1, 0.2, 0.4)):
     num_cols = len(times)
     fig = plt.figure(figsize=(num_cols * 8.0, 8.0))
 
-    lambdas, Phi = compute_fourier_basis(graph_data, normalization)
-    eps = 1e-9
+    lambdas, Phi = graph.fourier_basis
+    eps = 1e-6
 
     for c in range(num_cols):
         ft = Phi @ np.diag(np.exp(times[c] * lambdas)) @ Phi.T @ f0
-        mask_nonzeros = [np.abs(ft) > eps]
+        mask_nonzeros = np.abs(ft) > eps
 
         ax = fig.add_subplot(
             1,
             num_cols,
             c + 1,
             projection="3d",
-            xlim=(graph_data.x1_axis.min(), graph_data.x1_axis.max()),
-            ylim=(graph_data.x2_axis.min(), graph_data.x2_axis.max()),
-            zlim=(graph_data.x3_axis.min(), graph_data.x3_axis.max()),
+            xlim=(graph.x1_axis.min(), graph.x1_axis.max()),
+            ylim=(graph.x2_axis.min(), graph.x2_axis.max()),
+            zlim=(graph.x3_axis.min(), graph.x3_axis.max()),
         )
 
         ax.scatter(
-            graph_data.node_pos[graph_data.node_index, 0][mask_nonzeros],
-            graph_data.node_pos[graph_data.node_index, 1][mask_nonzeros],
-            graph_data.node_pos[graph_data.node_index, 2][mask_nonzeros],
+            graph.node_pos[graph.node_index, 0][mask_nonzeros],
+            graph.node_pos[graph.node_index, 1][mask_nonzeros],
+            graph.node_pos[graph.node_index, 2][mask_nonzeros],
             c=ft[mask_nonzeros],
             s=50,
             alpha=0.5,

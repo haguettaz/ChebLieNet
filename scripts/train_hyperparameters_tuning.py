@@ -5,8 +5,7 @@ import pykeops
 import torch
 import wandb
 from gechebnet.data.dataloader import get_train_val_data_loaders
-from gechebnet.engine.engine import (create_supervised_evaluator,
-                                     create_supervised_trainer)
+from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engine.utils import prepare_batch, wandb_log
 from gechebnet.graph.graph import HyperCubeGraph
 from gechebnet.model.chebnet import ChebNet
@@ -41,17 +40,17 @@ def build_sweep_config():
     sweep_config = {"method": "bayes", "metric": {"name": "validation_accuracy", "goal": "maximize"}}
 
     parameters_dict = {
-        "batch_size": {"distribution": "q_log_uniform", "min": math.log(16), "max": math.log(128)},
-        "eps": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
-        "K": {"distribution": "int_uniform", "min": 2, "max": 20},
-        "exp_knn": {"distribution": "int_uniform", "min": 0, "max": 4},
-        "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-5), "max": math.log(1e-2)},
-        "nx3": {"distribution": "int_uniform", "min": 4, "max": 9},
+        "batch_size": {"values": [8, 16, 32, 64, 128, 256]},
+        "eps": {"values": [0.1, 0.2, 0.4, 0.6, 0.8, 1.0]},
+        "K": {"values": [1, 2, 4, 8, 16, 32]},
+        "knn": {"values": [2, 4, 8, 16, 32]},
+        "learning_rate": {"values": [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]},
+        "nx3": {"values": [3, 4, 6, 8, 9]},
         "pooling": {"values": ["max", "avg"]},
-        "weight_sigma": {"distribution": "log_uniform", "min": math.log(0.5), "max": math.log(5.0)},
-        "weight_decay": {"distribution": "log_uniform", "min": math.log(1e-6), "max": math.log(1e-3)},
+        "weight_sigma": {"values": [0.25, 0.5, 1.0, 2.0, 4.0, 8]},
+        "weight_decay": {"values": [1e-6, 1e-4, 1e-3]},
         "weight_kernel": {"values": ["cauchy", "gaussian", "laplacian"]},
-        "xi": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
+        "xi": {"values": [0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0]},
     }
     sweep_config["parameters"] = parameters_dict
 
@@ -139,9 +138,7 @@ def train(config=None):
     with wandb.init(config=config):
         config = wandb.config
 
-        train_loader, val_loader = get_train_val_data_loaders(
-            DATASET_NAME, batch_size=config.batch_size, val_ratio=VAL_RATIO, data_path=DATA_PATH
-        )
+        # Model and optimizer
 
         model = get_model(
             config.nx3,
@@ -155,11 +152,9 @@ def train(config=None):
         )
 
         optimizer = get_optimizer(model, OPTIMIZER, config.learning_rate, config.weight_decay)
-
         loss_fn = nll_loss
-        metrics = {"validation_accuracy": Accuracy(), "validation_loss": Loss(loss_fn)}
 
-        # create ignite's engines
+        # Trainer and evaluator(s) engines
         trainer = create_supervised_trainer(
             L=config.nx3,
             model=model,
@@ -170,13 +165,19 @@ def train(config=None):
         )
         ProgressBar(persist=False, desc="Training").attach(trainer)
 
+        metrics = {"validation_accuracy": Accuracy(), "validation_loss": Loss(loss_fn)}
+
         evaluator = create_supervised_evaluator(
             L=config.nx3, model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch
         )
         ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
 
-        # track training with wandb
-        _ = trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, evaluator, val_loader)
+        train_loader, val_loader = get_train_val_data_loaders(
+            DATASET_NAME, batch_size=config.batch_size, val_ratio=VAL_RATIO, data_path=DATA_PATH
+        )
+
+        # Performance tracking with wandb
+        trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, evaluator, val_loader)
 
         trainer.run(train_loader, max_epochs=EPOCHS)
 
