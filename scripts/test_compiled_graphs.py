@@ -1,4 +1,4 @@
-import pykeops
+import numpy as np
 import torch
 from gechebnet.graph.graph import HyperCubeGraph
 
@@ -10,30 +10,51 @@ POOLING_SIZE = 2
 
 DEVICE = torch.device("cuda")
 
-from timeit import timeit
+import time
+
+NUM_ITER = 100
 
 
-def compile_graphs(knn):
+def build_graphs(knn):
 
-    print(f"KNN = {int(knn * POOLING_SIZE ** 4)}")
-    print(f"V = {NX1*NX2*NX3}")
-    print(
-        f"time = {timeit('HyperCubeGraph(grid_size=(NX1, NX2), nx3=NX3, knn=int(knn * POOLING_SIZE ** 4), weight_comp_device=DEVICE)', number=100)}"
-    )
+    times = []
+    print(f"KNN = {int(knn * POOLING_SIZE ** 4)} and V = {NX1*NX2*NX3}")
+    for _ in range(NUM_ITER):
+        start = time.time()
+        HyperCubeGraph(grid_size=(NX1, NX2), nx3=NX3, knn=int(knn * POOLING_SIZE ** 4), weight_comp_device=DEVICE)
+        end = time.time()
+        times.append(end - start)
+    print(f"time: mean {np.mean(times)} std {np.std(times)}")
 
-    print(f"KNN = {int(knn * POOLING_SIZE ** 2)}")
-    print(f"V = {(NX1//POOLING_SIZE)*(NX2//POOLING_SIZE)*NX3}")
-    print(
-        f"time = {timeit('HyperCubeGraph(grid_size=(NX1//POOLING_SIZE, NX2//POOLING_SIZE), nx3=NX3, knn=int(knn * POOLING_SIZE ** 2), weight_comp_device=DEVICE)', number=100)}"
-    )
+    times = []
+    print(f"KNN = {int(knn * POOLING_SIZE ** 2)} and V = {(NX1//POOLING_SIZE)*(NX2//POOLING_SIZE)*NX3}")
+    for _ in range(NUM_ITER):
+        start = time.time()
+        HyperCubeGraph(
+            grid_size=(NX1 // POOLING_SIZE, NX2 // POOLING_SIZE),
+            nx3=NX3,
+            knn=int(knn * POOLING_SIZE ** 2),
+            weight_comp_device=DEVICE,
+        )
+        end = time.time()
+        times.append(end - start)
+    print(f"time: mean {np.mean(times)} std {np.std(times)}")
 
-    print(f"KNN = {int(knn)}")
-    print(f"V = {(NX1//POOLING_SIZE//POOLING_SIZE)*(NX2//POOLING_SIZE//POOLING_SIZE)*NX3}")
-    print(
-        f"time = {timeit('HyperCubeGraph(grid_size=(NX1//POOLING_SIZE//POOLING_SIZE, NX2//POOLING_SIZE//POOLING_SIZE), nx3=NX3, knn=int(knn), weight_comp_device=DEVICE)', number=100)}"
-    )
+    times = []
+    print(f"KNN = {int(knn)} and V = {(NX1//POOLING_SIZE//POOLING_SIZE)*(NX2//POOLING_SIZE//POOLING_SIZE)*NX3}")
+    for _ in range(NUM_ITER):
+        start = time.time()
+        HyperCubeGraph(
+            grid_size=(NX1 // POOLING_SIZE // POOLING_SIZE, NX2 // POOLING_SIZE // POOLING_SIZE),
+            nx3=NX3,
+            knn=int(knn),
+            weight_comp_device=DEVICE,
+        )
+        end = time.time()
+        times.append(end - start)
+    print(f"time: mean {np.mean(times)} std {np.std(times)}")
 
 
 if __name__ == "__main__":
     for knn in [2, 4, 8, 16, 32]:
-        compile_graphs(knn)
+        build_graphs(knn)
