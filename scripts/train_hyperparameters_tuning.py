@@ -147,9 +147,9 @@ def train(config=None):
         model = get_model(
             config.nx3,
             config.knn,
-            0.1,
-            0.1,
-            config.weight_sigma,
+            config.eps,
+            config.xi,
+            1.0,
             config.weight_kernel,
             config.K,
             config.pooling,

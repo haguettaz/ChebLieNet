@@ -21,8 +21,12 @@ def build_graphs(knn):
     print(f"KNN = {int(knn * POOLING_SIZE ** 4)} and V = {NX1*NX2*NX3}")
     for _ in range(NUM_ITER):
         start = time.time()
-        HyperCubeGraph(grid_size=(NX1, NX2), nx3=NX3, knn=int(knn * POOLING_SIZE ** 4), weight_comp_device=DEVICE)
+        graph = HyperCubeGraph(
+            grid_size=(NX1, NX2), nx3=NX3, knn=int(knn * POOLING_SIZE ** 4), weight_comp_device=DEVICE
+        )
         end = time.time()
+        if graph.num_nodes > graph.num_edges:
+            print("Value Error: an error occured during the construction of the graph")
         times.append(end - start)
     print(f"time: mean {np.mean(times)} std {np.std(times)}")
 
@@ -37,6 +41,8 @@ def build_graphs(knn):
             weight_comp_device=DEVICE,
         )
         end = time.time()
+        if graph.num_nodes > graph.num_edges:
+            print("Value Error: an error occured during the construction of the graph")
         times.append(end - start)
     print(f"time: mean {np.mean(times)} std {np.std(times)}")
 
@@ -51,6 +57,8 @@ def build_graphs(knn):
             weight_comp_device=DEVICE,
         )
         end = time.time()
+        if graph.num_nodes > graph.num_edges:
+            print("Value Error: an error occured during the construction of the graph")
         times.append(end - start)
     print(f"time: mean {np.mean(times)} std {np.std(times)}")
 
