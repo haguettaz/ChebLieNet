@@ -119,7 +119,9 @@ def create_supervised_evaluator(
     if prepare_batch is None:
         raise ValueError("prepare_batch function must be specified")
 
-    def _inference(engine: Engine, batch: Sequence[torch.Tensor]) -> Union[Any, Tuple[torch.Tensor]]:
+    def _inference(
+        engine: Engine, batch: Sequence[torch.Tensor]
+    ) -> Union[Any, Tuple[torch.Tensor]]:
         model.eval()
         with torch.no_grad():
             x, y = prepare_batch(batch, L, device)

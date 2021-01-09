@@ -1,5 +1,5 @@
 import math
-from typing import Optional, Tuple
+from typing import Tuple
 
 import torch
 from pykeops.torch import LazyTensor, Pm
@@ -18,7 +18,8 @@ def se2_group_inverse(x: LazyTensor) -> LazyTensor:
         LazyTensor: inverse group element(s).
     """
     return LazyTensor.cat(
-        (-x[0] * x[2].cos() - x[1] * x[2].sin(), -x[1] * x[2].cos() + x[0] * x[2].sin(), -x[2]), dim=-1
+        (-x[0] * x[2].cos() - x[1] * x[2].sin(), -x[1] * x[2].cos() + x[0] * x[2].sin(), -x[2]),
+        dim=-1,
     )
 
 

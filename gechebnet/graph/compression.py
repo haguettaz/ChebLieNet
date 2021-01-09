@@ -1,9 +1,13 @@
+from typing import Tuple
+
 from torch import BoolTensor, FloatTensor, LongTensor
 
 from ..utils import shuffle_tensor
 
 
-def edge_compression(edge_index, edge_attr, kappa):
+def edge_compression(
+    edge_index: LongTensor, edge_attr: FloatTensor, kappa: float
+) -> Tuple[LongTensor, FloatTensor]:
     """
     Randomly remove a given rate of edges from the original tensor of edge's indices.
 

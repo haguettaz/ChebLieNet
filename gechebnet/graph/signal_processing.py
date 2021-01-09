@@ -8,10 +8,11 @@ from torch.sparse import FloatTensor as SparseFloatTensor
 from torch_scatter import scatter_add
 
 from ..utils import sparse_tensor_diag, sparse_tensor_to_sparse_array
-from .utils import is_undirected
 
 
-def get_laplacian(edge_index: LongTensor, edge_weight: FloatTensor, num_nodes: int) -> SparseFloatTensor:
+def get_laplacian(
+    edge_index: LongTensor, edge_weight: FloatTensor, num_nodes: int
+) -> SparseFloatTensor:
     """
     Get symmetric normalized laplacian from edge indices and weights.
 

@@ -7,7 +7,7 @@ from gechebnet.graph import Graph
 from matplotlib.figure import Figure
 from torch import FloatTensor
 
-from ..utils import normalize, random_choice
+from ..utils import random_choice, rescale
 from .signal_processing import get_fourier_basis
 
 
@@ -45,7 +45,7 @@ def visualize_graph(graph: Graph, signal: Optional[FloatTensor] = None) -> Figur
         return fig
 
     if signal.max() > 1 or signal.min < 0:
-        signal = normalize(signal)
+        signal = rescale(signal)
 
     ax.scatter(
         graph.node_pos[graph.node_index, 0],

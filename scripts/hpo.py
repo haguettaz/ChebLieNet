@@ -33,19 +33,33 @@ NUM_ITER = 10
 
 
 def build_sweep_config():
-    sweep_config = {"method": "bayes", "metric": {"name": "validation_accuracy", "goal": "maximize"}}
+    sweep_config = {
+        "method": "bayes",
+        "metric": {"name": "validation_accuracy", "goal": "maximize"},
+    }
 
     sweep_config["parameters"] = {
         "batch_size": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(256)},
         "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
         "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(64)},
         "knn": {"distribution": "categorical", "values": [2, 4, 8, 16, 32]},
-        "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-5), "max": math.log(0.1)},
+        "learning_rate": {
+            "distribution": "log_uniform",
+            "min": math.log(1e-5),
+            "max": math.log(0.1),
+        },
         "nx3": {"distribution": "int_uniform", "min": 3, "max": 9},
         "pooling": {"distribution": "categorical", "values": ["max", "avg"]},
         "weight_sigma": {"distribution": "uniform", "min": 0.25, "max": 8.0},
-        "weight_decay": {"distribution": "log_uniform", "min": math.log(1e-6), "max": math.log(1e-3)},
-        "weight_kernel": {"distribution": "categorical", "values": ["cauchy", "gaussian", "laplacian"]},
+        "weight_decay": {
+            "distribution": "log_uniform",
+            "min": math.log(1e-6),
+            "max": math.log(1e-3),
+        },
+        "weight_kernel": {
+            "distribution": "categorical",
+            "values": ["cauchy", "gaussian", "laplacian"],
+        },
         "xi": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
     }
 

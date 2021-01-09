@@ -137,7 +137,9 @@ class HyperCubeGraph(Graph):
         x3_, x2_, x1_ = torch.meshgrid(self.x3_axis, self.x2_axis, self.x1_axis)
         self.node_pos = torch.stack([x1_.flatten(), x2_.flatten(), x3_.flatten()], axis=-1)
 
-    def _initedges(self, sigmas: Tuple[float, float, float], knn: int, weight_kernel: Callable, kappa: float):
+    def _initedges(
+        self, sigmas: Tuple[float, float, float], knn: int, weight_kernel: Callable, kappa: float
+    ):
         """
         Init edge indices and attributes (weights). The stored attributes are:
             - edge_index (LongTensor): indices of edges in format (2, num_edges).
@@ -154,7 +156,9 @@ class HyperCubeGraph(Graph):
             ValueError: kappa must be in [0, 1).
         """
         if knn > self.num_nodes - 1:
-            raise ValueError(f"{knn} is not a valid value for KNN graph with {self.num_nodes} nodes")
+            raise ValueError(
+                f"{knn} is not a valid value for KNN graph with {self.num_nodes} nodes"
+            )
 
         if not 0.0 <= kappa < 1.0:
             raise ValueError(f"{kappa} is not a valid value for kappa, must be in [0,1).")
@@ -168,7 +172,9 @@ class HyperCubeGraph(Graph):
 
         edge_sqdist, neighbors = sq_riemannian_distance(xi, xj, S).Kmin_argKmin(knn + 1, dim=0)
 
-        edge_index = torch.stack((self.node_index.repeat_interleave(knn + 1), neighbors.cpu().flatten()), dim=0)
+        edge_index = torch.stack(
+            (self.node_index.repeat_interleave(knn + 1), neighbors.cpu().flatten()), dim=0
+        )
         edge_sqdist = edge_sqdist.cpu().flatten()
 
         edge_index, edge_sqdist = process_edges(edge_index, edge_sqdist, kappa)
@@ -186,7 +192,12 @@ class HyperCubeGraph(Graph):
         self.laplacian = get_laplacian(self.edge_index, self.edge_weight, self.num_nodes)
 
         try:
-            lmax = eigsh(sparse_tensor_to_sparse_array(self.laplacian), k=1, which="LM", return_eigenvectors=False)
+            lmax = eigsh(
+                sparse_tensor_to_sparse_array(self.laplacian),
+                k=1,
+                which="LM",
+                return_eigenvectors=False,
+            )
             self.lmax = float(lmax.real)
         except ArpackError:
             # in case the eigen decomposition's algorithm does not converge, set lmax to theoretic upper bound.
@@ -200,4 +211,8 @@ class HyperCubeGraph(Graph):
         Returns:
             (int): centroid node index.
         """
-        return int(self.nx1 / 2) + int(self.nx2 / 2) * self.nx1 + int(self.nx3 / 2) * self.nx1 * self.nx2
+        return (
+            int(self.nx1 / 2)
+            + int(self.nx2 / 2) * self.nx1
+            + int(self.nx3 / 2) * self.nx1 * self.nx2
+        )

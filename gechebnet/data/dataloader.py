@@ -45,16 +45,24 @@ def get_train_val_data_loaders(
     """
 
     if dataset_name not in {"MNIST", "STL10"}:
-        raise ValueError(f"{dataset_name} is not a valid value for dataset_name: must be in 'MNIST', 'STL10'")
+        raise ValueError(
+            f"{dataset_name} is not a valid value for dataset_name: must be in 'MNIST', 'STL10'"
+        )
 
     if dataset_name == "MNIST":
         dataset = MNIST(
-            data_path, train=True, download=True, transform=Compose([ToTensor(), Normalize(MNIST_MEAN, MNIST_STD)])
+            data_path,
+            train=True,
+            download=True,
+            transform=Compose([ToTensor(), Normalize(MNIST_MEAN, MNIST_STD)]),
         )
 
     elif dataset_name == "STL10":
         dataset = STL10(
-            data_path, split="train", download=True, transform=Compose([ToTensor(), Normalize(STL10_MEAN, STL10_STD)])
+            data_path,
+            split="train",
+            download=True,
+            transform=Compose([ToTensor(), Normalize(STL10_MEAN, STL10_STD)]),
         )
 
     N = len(dataset)
@@ -93,19 +101,26 @@ def get_test_equivariance_data_loader(
     """
 
     if dataset_name not in {"MNIST", "STL10"}:
-        raise ValueError(f"{dataset_name} is not a valid value for dataset_name: must be in 'MNIST', 'STL10'")
+        raise ValueError(
+            f"{dataset_name} is not a valid value for dataset_name: must be in 'MNIST', 'STL10'"
+        )
 
     if dataset_name == "MNIST":
 
         classic_dataset = MNIST(
-            data_path, train=False, download=True, transform=Compose([ToTensor(), Normalize(MNIST_MEAN, MNIST_STD)])
+            data_path,
+            train=False,
+            download=True,
+            transform=Compose([ToTensor(), Normalize(MNIST_MEAN, MNIST_STD)]),
         )
 
         rotated_dataset = MNIST(
             data_path,
             train=False,
             download=True,
-            transform=Compose([RandomRotation(degrees=180), ToTensor(), Normalize(MNIST_MEAN, MNIST_STD)]),
+            transform=Compose(
+                [RandomRotation(degrees=180), ToTensor(), Normalize(MNIST_MEAN, MNIST_STD)]
+            ),
         )
 
         flipped_dataset = MNIST(
@@ -125,14 +140,19 @@ def get_test_equivariance_data_loader(
     elif dataset_name == "STL10":
 
         classic_dataset = STL10(
-            data_path, split="test", download=True, transform=Compose([ToTensor(), Normalize(STL10_MEAN, STL10_STD)])
+            data_path,
+            split="test",
+            download=True,
+            transform=Compose([ToTensor(), Normalize(STL10_MEAN, STL10_STD)]),
         )
 
         rotated_dataset = STL10(
             data_path,
             split="test",
             download=True,
-            transform=Compose([RandomRotation(degrees=180), ToTensor(), Normalize(STL10_MEAN, STL10_STD)]),
+            transform=Compose(
+                [RandomRotation(degrees=180), ToTensor(), Normalize(STL10_MEAN, STL10_STD)]
+            ),
         )
 
         flipped_dataset = STL10(
