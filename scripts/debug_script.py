@@ -6,6 +6,7 @@ import torch
 import wandb
 from gechebnet.graph.graph import HyperCubeGraph
 from gechebnet.model.chebnet import GEChebNet
+from gechebnet.model.optimizer import get_optimizer
 
 NX1, NX2 = (28, 28)
 
@@ -13,6 +14,8 @@ IN_CHANNELS = 1
 OUT_CHANNELS = 10
 HIDDEN_CHANNELS = 20
 POOLING_SIZE = 2
+
+OPTIMIZER = "adam"
 
 DEVICE = torch.device("cuda")
 
@@ -106,6 +109,8 @@ def train(config=None):
             config.K,
             config.pooling,
         )
+
+        optimizer = get_optimizer(model, OPTIMIZER, config.learning_rate, config.weight_decay)
 
 
 if __name__ == "__main__":
