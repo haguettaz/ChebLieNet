@@ -9,6 +9,7 @@ from gechebnet.engine.utils import prepare_batch
 from gechebnet.graph.graph import HyperCubeGraph
 from gechebnet.model.chebnet import GEChebNet
 from gechebnet.model.optimizer import get_optimizer
+from ignite.metrics import Accuracy, Loss
 from torch.nn.functional import nll_loss
 
 NX1, NX2 = (28, 28)
@@ -123,6 +124,12 @@ def train(config=None):
             loss_fn=nll_loss,
             device=DEVICE,
             prepare_batch=prepare_batch,
+        )
+
+        metrics = {"validation_accuracy": Accuracy(), "validation_loss": Loss(nll_loss)}
+
+        evaluator = create_supervised_evaluator(
+            L=config.nx3, model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch
         )
 
 
