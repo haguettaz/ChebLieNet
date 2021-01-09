@@ -5,7 +5,6 @@ import random
 import numpy as np
 import torch
 import wandb
-from gechebnet.dataset.dataset import get_train_val_data_loaders
 from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engine.utils import prepare_batch
 from gechebnet.graph.graph import HyperCubeGraph
@@ -15,7 +14,7 @@ from ignite.metrics import Accuracy, Loss
 from torch.nn.functional import nll_loss
 
 NX1, NX2 = (28, 28)
-DATASET_NAME = "MNIST"  # STL10
+DATASET = "MNIST"  # STL10
 VAL_RATIO = 0.2
 IN_CHANNELS = 1
 OUT_CHANNELS = 10
