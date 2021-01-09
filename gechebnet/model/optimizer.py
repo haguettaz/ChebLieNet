@@ -1,7 +1,24 @@
-from torch.optim import SGD, Adam
+from torch.optim import SGD, Adam, Optimizer
+
+from .chebnet import GEChebNet
 
 
-def get_optimizer(model, optimizer, learning_rate, weight_decay):
+def get_optimizer(model: GEChebNet, optimizer: str, learning_rate: float, weight_decay: float) -> Optimizer:
+    """
+    Get model's parameters' optimizer.
+
+    Args:
+        model (GEChebNet): model.
+        optimizer (str): name of optimizer.
+        learning_rate (float): learning rate.
+        weight_decay (float): weight decay.
+
+    Raises:
+        ValueError: optimizer must be 'sgd' or 'adam'.
+
+    Returns:
+        Optimizer: [description]
+    """
     if optimizer not in {"sgd", "adam"}:
         raise ValueError(f"{optimizer} is not a valid value for pooling: must be 'sgd' or 'adam'")
 

@@ -3,14 +3,10 @@ import random
 
 import numpy as np
 import torch
+import wandb
 from gechebnet.graph.graph import HyperCubeGraph
-from gechebnet.model.chebnet import ChebNet
+from gechebnet.model.chebnet import GEChebNet
 
-NX1 = 28
-NX2 = 28
-
-DATASET_NAME = "MNIST"  # STL10
-VAL_RATIO = 0.2
 NX1, NX2 = (28, 28)
 
 IN_CHANNELS = 1
@@ -18,15 +14,17 @@ OUT_CHANNELS = 10
 HIDDEN_CHANNELS = 20
 POOLING_SIZE = 2
 
-EPOCHS = 20
-OPTIMIZER = "adam"
-
 DEVICE = torch.device("cuda")
 
-NUM_ITER = 100
 
+def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, K, pooling):
 
-def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
+    if weight_kernel == "gaussian":
+        kernel = lambda sqdistc: torch.exp(-sqdistc / weight_sigma ** 2)
+    elif weight_kernel == "laplacian":
+        kernel = lambda sqdistc: torch.exp(-torch.sqrt(sqdistc) / weight_sigma)
+    elif weight_kernel == "cauchy":
+        kernel = lambda sqdistc: 1 / (1 + sqdistc / weight_sigma ** 2)
 
     # Different graphs are for successive pooling layers
     graph_1 = HyperCubeGraph(
@@ -34,7 +32,7 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
         nx3=nx3,
         knn=int(knn * POOLING_SIZE ** 4),
         sigmas=(xi / eps, xi, 1.0),
-        weight_kernel=(weight_kernel, weight_sigma),
+        weight_kernel=kernel,
     )
     if graph_1.num_nodes > graph_1.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
@@ -44,7 +42,7 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
         nx3=nx3,
         knn=int(knn * POOLING_SIZE ** 2),
         sigmas=(xi / eps, xi, 1.0),
-        weight_kernel=(weight_kernel, weight_sigma),
+        weight_kernel=kernel,
     )
     if graph_2.num_nodes > graph_2.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
@@ -54,12 +52,12 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
         nx3=nx3,
         knn=int(knn * POOLING_SIZE ** 4),
         sigmas=(xi / eps, xi, 1.0),
-        weight_kernel=(weight_kernel, weight_sigma),
+        weight_kernel=kernel,
     )
     if graph_3.num_nodes > graph_3.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
 
-    model = ChebNet(
+    model = GEChebNet(
         (graph_1, graph_2, graph_3),
         K,
         IN_CHANNELS,
@@ -72,16 +70,45 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
     return model.to(DEVICE)
 
 
+def build_sweep_config():
+    sweep_config = {"method": "bayes", "metric": {"name": "validation_accuracy", "goal": "maximize"}}
+
+    sweep_config["parameters"] = {
+        "batch_size": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(256)},
+        "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
+        "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(64)},
+        "knn": {"distribution": "categorical", "values": [2, 4, 8]},  # 16, 32
+        "learning_rate": {"distribution": "log_uniform", "min": math.log(1e-5), "max": math.log(0.1)},
+        "nx3": {"distribution": "int_uniform", "min": 3, "max": 12},
+        "pooling": {"distribution": "categorical", "values": ["max", "avg"]},
+        "weight_sigma": {"distribution": "uniform", "min": 0.1, "max": 10},
+        "weight_decay": {"distribution": "log_uniform", "min": math.log(1e-6), "max": math.log(1e-3)},
+        "weight_kernel": {"distribution": "categorical", "values": ["cauchy", "gaussian", "laplacian"]},
+        "xi": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
+    }
+
+    return sweep_config
+
+
+def train(config=None):
+    # Initialize a new wandb run
+    with wandb.init(config=config):
+        config = wandb.config
+
+        # Model and optimizer
+        model = get_model(
+            config.nx3,
+            config.knn,
+            config.eps,
+            config.xi,
+            config.weight_kernel,
+            config.weight_sigma,
+            config.K,
+            config.pooling,
+        )
+
+
 if __name__ == "__main__":
-
-    for _ in range(NUM_ITER):
-        nx3 = random.choice([3, 4, 6, 9, 12])
-        knn = random.choice([2, 4, 8, 16])
-        eps = math.exp(random.uniform(math.log(1e-1), math.log(1.0)))
-        xi = math.exp(random.uniform(math.log(1e-2), math.log(1.0)))
-        weight_sigma = math.exp(random.uniform(math.log(0.1), math.log(10.0)))
-        weight_kernel = random.choice(["gaussian", "cauchy", "laplacian"])
-        K = random.choice([2, 4, 8, 16, 32, 64])
-        pooling = random.choice(["max", "avg"])
-
-        get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling)
+    sweep_config = build_sweep_config()
+    sweep_id = wandb.sweep(sweep_config, project="gechebnet")
+    wandb.agent(sweep_id, train, count=50)

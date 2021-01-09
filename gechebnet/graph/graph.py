@@ -1,23 +1,82 @@
 import math
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 import torch
+from numpy import ndarray
 from pykeops.torch import LazyTensor, Pm, Vi, Vj
 from scipy.sparse.linalg import ArpackError, eigsh
+from torch import FloatTensor, LongTensor
+from torch.sparse import FloatTensor as SparseFloatTensor
 
 from ..utils import sparse_tensor_to_sparse_array
-from .compression import edge_compression, node_compression
+from .compression import edge_compression
+from .riemannian import metric_tensor, sq_riemannian_distance
 from .signal_processing import get_fourier_basis, get_laplacian
-from .utils import delta_pos, metric_tensor, process_edges, remove_self_loops, square_distance, to_undirected
+from .utils import process_edges, remove_self_loops, to_undirected
 
 
-class HyperCubeGraph:
+class Graph:
+    def __init__(self, *arg, **kwargs):
+        self.node_index = LongTensor()
+        self.edge_index = LongTensor()
+        self.laplacian = SparseFloatTensor()
+
+    def neighborhood(self, node_idx: int) -> Tuple[LongTensor, FloatTensor]:
+        """
+        Return neighborhood of a given node.
+
+        Args:
+            node_idx (int): node index.
+
+        Returns:
+            (LongTensor): neighbours index.
+            (FloatTensor): neighbours weight.
+        """
+        mask = self.edge_index[0] == node_idx
+        neighbors = self.edge_index[1, mask]
+
+        weights = self.edge_weight[mask]
+        return neighbors, weights
+
+    @property
+    def fourier_basis(self) -> Tuple[ndarray, ndarray]:
+        """
+        Return graph Fourier basis, i.e. Laplacian eigen decomposition.
+
+        Returns:
+            (ndarray): Laplacian eigen values.
+            (ndarray): Laplacian eigen vectors.
+        """
+        return get_fourier_basis(self.laplacian)
+
+    @property
+    def num_nodes(self) -> int:
+        """
+        Return the total number of nodes of the graph.
+
+        Returns:
+            (int): number of nodes.
+        """
+        return self.node_index.shape[0]
+
+    @property
+    def num_edges(self) -> int:
+        """
+        Return the total number of edges of the graph.
+
+        Returns:
+            (int): number of edges.
+        """
+        return self.edge_index.shape[1]
+
+
+class HyperCubeGraph(Graph):
     def __init__(
         self,
-        grid_size: Tuple[float, float],
+        grid_size: Tuple[int, int],
         nx3: Optional[int] = 6,
         kappa: Optional[float] = 0.0,
-        weight_kernel: Optional[Tuple[str, float]] = None,
+        weight_kernel: Optional[Callable] = None,
         knn: Optional[int] = 16,
         sigmas: Optional[Tuple[float, float, float]] = (1.0, 1.0, 1.0),
     ):
@@ -33,12 +92,15 @@ class HyperCubeGraph:
             grid_size (tuple): spatial dimension in format (nx1, nx2).
             nx3 (int, optional): number of equivariance's layers. Defaults to 6.
             kappa (float, optional): edges compression rate. Defaults to 0.0.
-            weight_kernel (dict, optional): weight kernel to use, in format {'name': value, 'sigma': value}. Defaults to None.
+            weight_kernel (callable, optional): weight kernel to use. Defaults to None.
             knn (int, optional): maximum number of connections of a vertex. Defaults to 16.
             sigmas (Optional, optional): anisotropy parameters. Defaults to (1.0, 1.0, 1.0).
         """
 
-        weight_kernel = weight_kernel or ("gaussian", 1.0)
+        super().__init__()
+
+        if weight_kernel is None:
+            weight_kernel = lambda x: torch.exp(-(x ** 2))
 
         self.nx1, self.nx2 = grid_size
         self.nx3 = nx3
@@ -55,34 +117,31 @@ class HyperCubeGraph:
     def _initnodes(self, num_nodes: int):
         """
         Init node indices and positions (hypercube pose). The stored attributes are:
-            - num_nodes (int): number of nodes.
-            - xi_axis (torch.tensor): discretization of the i-th axis.
-            - node_index (torch.tensor): indices of nodes in format (num_nodes).
-            - node_pos (torch.tensor): positions of nodes in format (num_nodes, 3).
+            - xi_axis (FloatTensor): discretization of the i-th axis.
+            - node_index (LongTensor): indices of nodes in format (num_nodes).
+            - node_pos (FloatTensor): positions of nodes in format (num_nodes, 3).
 
         Args:
             num_nodes (int): number of nodes to create.
         """
 
-        self.node_index = torch.arange(num_nodes)
+        self.node_index = torch.arange(num_nodes, out=LongTensor())
 
         # we define the grid points and reshape them to get 1-d arrays
-        self.x1_axis = torch.arange(0.0, self.nx1)
-        self.x2_axis = torch.arange(0.0, self.nx2)
-        self.x3_axis = torch.arange(0.0, math.pi, math.pi / self.nx3)
+        self.x1_axis = torch.arange(0.0, self.nx1, out=FloatTensor())
+        self.x2_axis = torch.arange(0.0, self.nx2, out=FloatTensor())
+        self.x3_axis = torch.arange(0.0, math.pi, math.pi / self.nx3, out=FloatTensor())
 
         # we keep in memory the position of all the nodes, before compression
         # easier to deal with indices from here
         x3_, x2_, x1_ = torch.meshgrid(self.x3_axis, self.x2_axis, self.x1_axis)
         self.node_pos = torch.stack([x1_.flatten(), x2_.flatten(), x3_.flatten()], axis=-1)
 
-        self.num_nodes = num_nodes
-
-    def _initedges(self, sigmas: Tuple[float, float, float], knn: int, weight_kernel: Tuple[str, float], kappa: float):
+    def _initedges(self, sigmas: Tuple[float, float, float], knn: int, weight_kernel: Callable, kappa: float):
         """
         Init edge indices and attributes (weights). The stored attributes are:
-            - edge_index (torch.tensor): indices of edges in format (2, num_edges).
-            - edge_weight (torch.tensor): weight of edges in format (num_edges).
+            - edge_index (LongTensor): indices of edges in format (2, num_edges).
+            - edge_weight (FloatTensor): weight of edges in format (num_edges).
 
         Args:
             sigmas (Tuple[float,float,float]): anisotropic parameters to compute Riemannian distance.
@@ -92,43 +151,29 @@ class HyperCubeGraph:
 
         Raises:
             ValueError: knn must be strictly lower than number of nodes - 1.
-            ValueError: weight kernel must be gaussian, laplacian or cauchy.
             ValueError: kappa must be in [0, 1).
         """
         if knn > self.num_nodes - 1:
             raise ValueError(f"{knn} is not a valid value for KNN graph with {self.num_nodes} nodes")
 
-        w_kernel, w_sigma = weight_kernel
-        if w_kernel not in ["gaussian", "laplacian", "cauchy"]:
-            raise ValueError(
-                f"{w_kernel} is not a valid value for w_kernel, it must be 'gaussian', 'laplacian' or 'cauchy'"
-            )
-
         if not 0.0 <= kappa < 1.0:
             raise ValueError(f"{kappa} is not a valid value for kappa, must be in [0,1).")
 
-        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        device = torch.device("cpu")
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # device = torch.device("cpu")
         xi = Vi(self.node_pos.to(device))  # sources
         xj = Vj(self.node_pos.to(device))  # targets
 
         S = metric_tensor(sigmas, device)
 
-        edge_sqdist, neighbors = square_distance(xi, xj, S).Kmin_argKmin(knn + 1, dim=0)
+        edge_sqdist, neighbors = sq_riemannian_distance(xi, xj, S).Kmin_argKmin(knn + 1, dim=0)
 
         edge_index = torch.stack((self.node_index.repeat_interleave(knn + 1), neighbors.cpu().flatten()), dim=0)
         edge_sqdist = edge_sqdist.cpu().flatten()
 
         edge_index, edge_sqdist = process_edges(edge_index, edge_sqdist, kappa)
 
-        if w_kernel == "gaussian":
-            kernel = lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac ** 2)
-        elif w_kernel == "laplacian":
-            kernel = lambda sqdistc, sigmac: torch.exp(-torch.sqrt(sqdistc) / sigmac)
-        elif w_kernel == "cauchy":
-            kernel = lambda sqdistc, sigmac: 1 / (1 + sqdistc / sigmac ** 2)
-
-        edge_weight = kernel(edge_sqdist, w_sigma)
+        edge_weight = weight_kernel(edge_sqdist)
 
         self.edge_index, self.edge_weight = edge_index, edge_weight
 
@@ -138,7 +183,7 @@ class HyperCubeGraph:
             - laplacian (torch.sparse.tensor): symmetric normalized laplacian.
             - lmax (float): maximum eigenvalue of the laplacian.
         """
-        self.laplacian = get_laplacian(self.edge_index, self.edge_weight, norm="sym", num_nodes=self.num_nodes)
+        self.laplacian = get_laplacian(self.edge_index, self.edge_weight, self.num_nodes)
 
         try:
             lmax = eigsh(sparse_tensor_to_sparse_array(self.laplacian), k=1, which="LM", return_eigenvectors=False)
@@ -146,44 +191,6 @@ class HyperCubeGraph:
         except ArpackError:
             # in case the eigen decomposition's algorithm does not converge, set lmax to theoretic upper bound.
             self.lmax = 2.0
-
-    def neighborhood(self, node_idx: int) -> Tuple[torch.tensor, torch.tensor]:
-        """
-        Return neighborhood of a given node.
-
-        Args:
-            node_idx (int): node index.
-            return_weights (bool, optional): indicator if edges weight are returned. Defaults to True.
-
-        Returns:
-            (torch.tensor): neighbours index of node.
-            (torch.tensor): neighbours weight of edges.
-        """
-        mask = self.edge_index[0] == node_idx
-        neighbors = self.edge_index[1, mask]
-
-        weights = self.edge_weight[mask]
-        return neighbors, weights
-
-    @property
-    def fourier_basis(self):
-        """
-        [summary]
-
-        Returns:
-            [type]: [description]
-        """
-        return get_fourier_basis(self.laplacian)
-
-    @property
-    def num_edges(self) -> int:
-        """
-        Return the total number of edges of the graph.
-
-        Returns:
-            (int): number of edges.
-        """
-        return self.edge_index.shape[1]
 
     @property
     def centroid_index(self) -> int:

@@ -4,26 +4,26 @@
 import math
 
 import torch
-from torch import nn
+from torch import FloatTensor
+from torch.nn import Module, Parameter
+from torch.sparse import FloatTensor as SparseFloatTensor
 
+from ..graph.graph import Graph
 from ..utils import sparse_tensor_diag
 
 
-def cheb_conv(laplacian, x, weight):
-    """Chebyshev convolution.
-    Args:
-        laplacian (:obj:`torch.sparse.Tensor`): The laplacian corresponding to the current sampling of the sphere.
-        x (:obj:`torch.Tensor`): The current input data being forwarded.
-        weight (:obj:`torch.Tensor`): The weights of the current layer.
-    Returns:
-        :obj:`torch.Tensor`: Inputs after applying Chebyshev convolution.
+def cheb_conv(laplacian: SparseFloatTensor, x: FloatTensor, weight: FloatTensor) -> FloatTensor:
     """
+    Chebyshev convolution.
 
-    # B = batch size
-    # V = nb vertices
-    # Cin = nb input channels
-    # Cout = nb output channels
-    # K = order of Chebyshev polynomials
+    Args:
+        laplacian (SparseFloatTensor): symmetric normalized laplacian.
+        x (FloatTensor): data input in format (B, Cin, V).
+        weight (FloatTensor): layer's weights in format (K, Cin, Cout).
+
+    Returns:
+        (FloatTensor): convolved data input in format (V, B, Cout).
+    """
 
     B, Cin, V = x.shape  # (B, Cin, V)
     K, _, _ = weight.shape  # (K, Cin, Cout)
@@ -45,18 +45,22 @@ def cheb_conv(laplacian, x, weight):
     return x
 
 
-class ChebConv(torch.nn.Module):
+class ChebConv(Module):
     """Graph convolutional layer."""
 
-    def __init__(self, graph, in_channels, out_channels, kernel_size, bias=True, laplacian_device=None):
-        """Initialize the Chebyshev layer.
+    def __init__(
+        self, graph: Graph, in_channels: int, out_channels: int, kernel_size: int, bias=True, laplacian_device=None
+    ):
+        """
+        Initialize the Chebyshev layer.
+
         Args:
-            in_channels (int): Number of channels/features in the input graph.
-            out_channels (int): Number of channels/features in the output graph.
-            kernel_size (int): Number of trainable parameters per filter, which is also the size of the convolutional kernel.
+            in_channels (int): number of channels in the input graph.
+            out_channels (int): number of channels in the output graph.
+            kernel_size (int): number of trainable parameters per filter, which is also the size of the convolutional kernel.
                                 The order of the Chebyshev polynomials is kernel_size - 1.
-            bias (bool): Whether to add a bias term.
-            conv (callable): Function which will perform the actual convolution.
+            bias (bool, optional): whether to add a bias term. Defaults to True.
+            laplacian_device (torch.device, optional): computation device. Defaults to None.
         """
         super().__init__()
         laplacian_device = laplacian_device or torch.device("cpu")
@@ -69,10 +73,10 @@ class ChebConv(torch.nn.Module):
         self.kernel_size = kernel_size
 
         shape = (kernel_size, in_channels, out_channels)
-        self.weight = torch.nn.Parameter(torch.Tensor(*shape))
+        self.weight = Parameter(torch.Tensor(*shape))
 
         if bias:
-            self.bias = torch.nn.Parameter(torch.Tensor(out_channels))
+            self.bias = Parameter(torch.Tensor(out_channels))
         else:
             self.register_parameter("bias", None)
 
@@ -80,7 +84,7 @@ class ChebConv(torch.nn.Module):
 
         self.laplacian = self._norm(graph.laplacian, graph.lmax, graph.num_nodes).to(laplacian_device)
 
-    def _norm(self, laplacian, lmax, num_nodes):
+    def _norm(self, laplacian: SparseFloatTensor, lmax: float, num_nodes: int) -> SparseFloatTensor:
         """Scale the eigenvalues from [0, lmax] to [-1, 1]."""
         return 2 * laplacian / lmax - sparse_tensor_diag(num_nodes)
 
@@ -91,13 +95,14 @@ class ChebConv(torch.nn.Module):
         if self.bias is not None:
             self.bias.data.fill_(0.01)
 
-    def forward(self, x):
+    def forward(self, x: FloatTensor):
         """Forward graph convolution.
+
         Args:
-            laplacian (:obj:`torch.sparse.Tensor`): The laplacian corresponding to the current sampling of the sphere.
-            x (:obj:`torch.Tensor`): The current input data being forwarded.
+            x (FloatTensor): input data.
+
         Returns:
-            :obj:`torch.Tensor`: The convoluted inputs.
+            (FloatTensor): convolved input data.
         """
         x = cheb_conv(self.laplacian, x, self.weight)  # (B, V, Cin) -> (V, B, Cout)
 

@@ -20,7 +20,6 @@ def compile_graphs(exp_knn):
         grid_size=(NX1, NX2),
         nx3=NX3,
         knn=int(MIN_KNN * MULT_KNN ** exp_knn * POOLING_SIZE ** 4),
-        weight_comp_device=DEVICE,
     )
 
     if graph_1.num_edges < graph_1.num_nodes * int(MIN_KNN * MULT_KNN ** exp_knn * POOLING_SIZE ** 4) / 2:
@@ -32,7 +31,6 @@ def compile_graphs(exp_knn):
         grid_size=(NX1 // POOLING_SIZE, NX2 // POOLING_SIZE),
         nx3=NX3,
         knn=int(MIN_KNN * MULT_KNN ** exp_knn * POOLING_SIZE ** 2),
-        weight_comp_device=DEVICE,
     )
 
     if graph_2.num_edges < graph_2.num_nodes * int(MIN_KNN * MULT_KNN ** exp_knn * POOLING_SIZE ** 2) / 2:
@@ -44,7 +42,6 @@ def compile_graphs(exp_knn):
         grid_size=(NX1 // POOLING_SIZE // POOLING_SIZE, NX2 // POOLING_SIZE // POOLING_SIZE),
         nx3=NX3,
         knn=int(MIN_KNN * MULT_KNN ** exp_knn),
-        weight_comp_device=DEVICE,
     )
 
     if graph_3.num_edges < graph_3.num_nodes * int(MIN_KNN * MULT_KNN ** exp_knn) / 2:

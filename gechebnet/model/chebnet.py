@@ -1,23 +1,41 @@
+from typing import Optional, Tuple
+
 import torch
 import torch.nn.functional as F
-from torch.nn import BatchNorm1d
+from torch import FloatTensor
+from torch.nn import BatchNorm1d, Module
 
+from ..graph.graph import Graph
 from .convolution import ChebConv
 
 
-class ChebNet(torch.nn.Module):
-    def __init__(self, graphs, K, in_channels, out_channels, hidden_channels, laplacian_device=None, pooling="max"):
+class GEChebNet(Module):
+    def __init__(
+        self,
+        graphs: Tuple[Graph, ...],
+        K: int,
+        in_channels: int,
+        out_channels: int,
+        hidden_channels: int,
+        laplacian_device: Optional[torch.device] = None,
+        pooling: Optional[str] = "max",
+    ):
         """
         Initialize a ChebNet with 6 convolutional layers and batch normalization.
 
         Args:
+            graphs (tuple): tuple of graphs object, one for each pooling results.
             K (int): the degree of the Chebyschev polynomials, the sum goes from indices 0 to K-1.
-            num_layers (int): the number of layers on the orientation axis.
-            input_dim (int, optional): the number of dimensions of the input layer. Defaults to 1.
-            output_dim (int, optional): the number of dimensions of the output layer. Defaults to 10.
-            hidden_dim (int, optional): the number of dimensions of the hidden layers. Defaults to 10.
+            in_channels (int): the number of dimensions of the input layer.
+            out_channels (int): the number of dimensions of the output layer.
+            hidden_channels (int): the number of dimensions of the hidden layers.
+            laplacian_device (torch.device, optional): computation device.
+            pooling (str, optional): pooling type.
+
+        Raises:
+            ValueError: pooling must be in {'max', 'avg'}.
         """
-        super(ChebNet, self).__init__()
+        super(GEChebNet, self).__init__()
 
         if pooling not in {"max", "avg"}:
             raise ValueError(f"{pooling} is not a valid value for pooling: must be 'max' or 'avg'")
@@ -49,15 +67,15 @@ class ChebNet(torch.nn.Module):
         else:
             self.pooling = F.avg_pool3d
 
-    def forward(self, x):
+    def forward(self, x: FloatTensor) -> FloatTensor:
         """
         Forward function receiving as input a batch and outputing a prediction on this batch
 
         Args:
-            x (torch.tensor): the batch to feed the network with.
+            x (FloatTensor): the batch to feed the network with.
 
         Returns:
-            (torch.tensor): the predictions on the batch.
+            (FloatTensor): the predictions on the batch.
         """
 
         B, _, _ = x.shape
@@ -105,11 +123,11 @@ class ChebNet(torch.nn.Module):
         return x
 
     @property
-    def capacity(self):
+    def capacity(self) -> int:
         """
         Return the capacity of the network, i.e. its number of trainable parameters.
 
         Returns:
-            (int): the number of parameters of the network.
+            (int): number of trainable parameters of the network.
         """
         return sum(p.numel() for p in self.parameters())

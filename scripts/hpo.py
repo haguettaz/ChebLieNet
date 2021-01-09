@@ -4,12 +4,13 @@ import random
 
 import pykeops
 import torch
-# import wandb
+import wandb
 from gechebnet.data.dataloader import get_train_val_data_loaders
-from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
+from gechebnet.engine.engine import (create_supervised_evaluator,
+                                     create_supervised_trainer)
 from gechebnet.engine.utils import prepare_batch, wandb_log
 from gechebnet.graph.graph import HyperCubeGraph
-from gechebnet.model.chebnet import ChebNet
+from gechebnet.model.chebnet import GEChebNet
 from gechebnet.model.optimizer import get_optimizer
 from gechebnet.utils import random_choice
 from ignite.contrib.handlers import ProgressBar
@@ -18,7 +19,7 @@ from ignite.metrics import Accuracy, Loss
 from torch.nn import NLLLoss
 from torch.nn.functional import nll_loss
 
-# DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
+DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
 DEVICE = torch.device("cuda")
 
 DATASET_NAME = "MNIST"  # STL10
@@ -56,7 +57,14 @@ def build_sweep_config():
     return sweep_config
 
 
-def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
+def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, K, pooling):
+
+    if weight_kernel == "gaussian":
+        kernel = lambda sqdistc: torch.exp(-sqdistc / weight_sigma ** 2)
+    elif weight_kernel == "laplacian":
+        kernel = lambda sqdistc: torch.exp(-torch.sqrt(sqdistc) / weight_sigma)
+    elif weight_kernel == "cauchy":
+        kernel = lambda sqdistc: 1 / (1 + sqdistc / weight_sigma ** 2)
 
     # Different graphs are for successive pooling layers
     graph_1 = HyperCubeGraph(
@@ -64,7 +72,7 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
         nx3=nx3,
         knn=int(knn * POOLING_SIZE ** 4),
         sigmas=(xi / eps, xi, 1.0),
-        weight_kernel=(weight_kernel, weight_sigma),
+        weight_kernel=kernel,
     )
     if graph_1.num_nodes > graph_1.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
@@ -75,7 +83,7 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
         nx3=nx3,
         knn=int(knn * POOLING_SIZE ** 2),
         sigmas=(xi / eps, xi, 1.0),
-        weight_kernel=(weight_kernel, weight_sigma),
+        weight_kernel=kernel,
     )
     if graph_2.num_nodes > graph_2.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
@@ -86,13 +94,13 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
         nx3=nx3,
         knn=int(knn * POOLING_SIZE ** 4),
         sigmas=(xi / eps, xi, 1.0),
-        weight_kernel=(weight_kernel, weight_sigma),
+        weight_kernel=kernel,
     )
     if graph_3.num_nodes > graph_3.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
     # wandb.log({f"graph_3_nodes": graph_3.num_nodes, f"graph_3_edges": graph_3.num_edges})
 
-    model = ChebNet(
+    model = GEChebNet(
         (graph_1, graph_2, graph_3),
         K,
         IN_CHANNELS,
@@ -118,8 +126,8 @@ def train(config=None):
             config.knn,
             config.eps,
             config.xi,
-            config.weight_sigma,
             config.weight_kernel,
+            config.weight_sigma,
             config.K,
             config.pooling,
         )

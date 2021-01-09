@@ -9,7 +9,7 @@ from gechebnet.engine.engine import (create_supervised_evaluator,
                                      create_supervised_trainer)
 from gechebnet.engine.utils import prepare_batch, wandb_log
 from gechebnet.graph.graph import HyperCubeGraph
-from gechebnet.model.chebnet import ChebNet
+from gechebnet.model.chebnet import GEChebNet
 from gechebnet.model.optimizer import get_optimizer
 from gechebnet.utils import random_choice
 from ignite.contrib.handlers import ProgressBar
@@ -85,7 +85,7 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
     for idx, graph in enumerate(graphs):
         wandb.log({f"graph_{idx}_nodes": graph.num_nodes, f"graph_{idx}_edges": graph.num_edges})
 
-    model = ChebNet(graphs, K, IN_CHANNELS, OUT_CHANNELS, HIDDEN_CHANNELS, laplacian_device=DEVICE, pooling=pooling)
+    model = GEChebNet(graphs, K, IN_CHANNELS, OUT_CHANNELS, HIDDEN_CHANNELS, laplacian_device=DEVICE, pooling=pooling)
 
     wandb.log({"capacity": model.capacity})
 

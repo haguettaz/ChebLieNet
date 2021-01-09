@@ -1,17 +1,26 @@
+from typing import Optional, Tuple
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from gechebnet.graph import Graph
+from matplotlib.figure import Figure
+from torch import FloatTensor
 
 from ..utils import normalize, random_choice
 from .signal_processing import get_fourier_basis
 
 
-def visualize_graph(graph, signal=None):
+def visualize_graph(graph: Graph, signal: Optional[FloatTensor] = None) -> Figure:
     """
-    3d visualization of the nodes of the graph in addition to the number of nodes and number of edges
+    Visualize graph with or without signal on it.
 
     Args:
-        graph_data (GraphData): the GraphData object containing the graph.
+        graph (Graph): graph.
+        signal (FloatTensor, optional): graph's signal. Defaults to None.
+
+    Returns:
+        Figure: figure with graph visualization.
     """
 
     fig = plt.figure(figsize=(8.0, 8.0))
@@ -35,7 +44,7 @@ def visualize_graph(graph, signal=None):
 
         return fig
 
-    if torch.max(signal) > 1 or torch.min(signal) < 0:
+    if signal.max() > 1 or signal.min < 0:
         signal = normalize(signal)
 
     ax.scatter(
@@ -50,12 +59,16 @@ def visualize_graph(graph, signal=None):
     return fig
 
 
-def visualize_neighborhood(graph, node_idx):
+def visualize_neighborhood(graph: Graph, node_idx: int) -> Figure:
     """
-    3d visualization of the nodes of the graph in addition to the number of nodes and number of edges
+    Visualize graph neighborhood of node index.
 
     Args:
-        graph_data (GraphData): the GraphData object containing the graph.
+        graph (Graph): graph.
+        signal (FloatTensor, optional): graph's signal. Defaults to None.
+
+    Returns:
+        Figure: figure with graph visualization.
     """
 
     fig = plt.figure(figsize=(8.0, 8.0))
@@ -95,7 +108,18 @@ def visualize_neighborhood(graph, node_idx):
     return fig
 
 
-def visualize_heat_diffusion(graph, f0, times=(0.0, 0.1, 0.2, 0.4)):
+def visualize_heat_diffusion(graph: Graph, f0: np.array, times: Tuple[float, ...] = (0.0, 0.1, 0.2, 0.4)) -> Figure:
+    """
+    Visualize heat diffusion on graph.
+
+    Args:
+        graph (Graph): graph
+        f0 (np.array): initial function.
+        times (Tuple[float, ...], optional): diffusion times. Defaults to (0.0, 0.1, 0.2, 0.4).
+
+    Returns:
+        Figure: [description]
+    """
 
     num_cols = len(times)
     fig = plt.figure(figsize=(num_cols * 8.0, 8.0))
