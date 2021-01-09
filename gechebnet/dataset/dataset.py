@@ -1,5 +1,5 @@
 import math
-from typing import Optional, Tuple, TypeVar
+from typing import Optional, Tuple
 
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -15,9 +15,6 @@ from torchvision.transforms import (
 )
 
 from ..utils import shuffle_tensor
-
-MNIST_MEAN, MNIST_STD = (0.1307,), (0.3081,)
-STL10_MEAN, STL10_STD = (0.4914, 0.4822, 0.4465), (0.2471, 0.2435, 0.2616)
 
 
 def get_train_val_data_loaders(
@@ -109,7 +106,7 @@ def get_test_equivariance_data_loader(
             data_path,
             train=False,
             download=True,
-            transform=Compose([ToTensor(), Normalize(MNIST_MEAN, MNIST_STD)]),
+            transform=Compose([ToTensor(), Normalize((0.1307,), (0.3081,))]),
         )
 
         rotated_dataset = MNIST(
@@ -117,7 +114,7 @@ def get_test_equivariance_data_loader(
             train=False,
             download=True,
             transform=Compose(
-                [RandomRotation(degrees=180), ToTensor(), Normalize(MNIST_MEAN, MNIST_STD)]
+                [RandomRotation(degrees=180), ToTensor(), Normalize((0.1307,), (0.3081,))]
             ),
         )
 
@@ -130,7 +127,7 @@ def get_test_equivariance_data_loader(
                     RandomHorizontalFlip(p=0.5),
                     RandomVerticalFlip(p=0.5),
                     ToTensor(),
-                    Normalize(MNIST_MEAN, MNIST_STD),
+                    Normalize((0.1307,), (0.3081,)),
                 ]
             ),
         )
@@ -141,7 +138,9 @@ def get_test_equivariance_data_loader(
             data_path,
             split="test",
             download=True,
-            transform=Compose([ToTensor(), Normalize(STL10_MEAN, STL10_STD)]),
+            transform=Compose(
+                [ToTensor(), Normalize((0.4914, 0.4822, 0.4465), (0.2471, 0.2435, 0.2616))]
+            ),
         )
 
         rotated_dataset = STL10(
@@ -149,7 +148,11 @@ def get_test_equivariance_data_loader(
             split="test",
             download=True,
             transform=Compose(
-                [RandomRotation(degrees=180), ToTensor(), Normalize(STL10_MEAN, STL10_STD)]
+                [
+                    RandomRotation(degrees=180),
+                    ToTensor(),
+                    Normalize((0.4914, 0.4822, 0.4465), (0.2471, 0.2435, 0.2616)),
+                ]
             ),
         )
 
@@ -162,7 +165,7 @@ def get_test_equivariance_data_loader(
                     RandomHorizontalFlip(p=0.5),
                     RandomVerticalFlip(p=0.5),
                     ToTensor(),
-                    Normalize(STL10_MEAN, STL10_STD),
+                    Normalize((0.4914, 0.4822, 0.4465), (0.2471, 0.2435, 0.2616)),
                 ]
             ),
         )
