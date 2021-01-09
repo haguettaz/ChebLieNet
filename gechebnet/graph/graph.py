@@ -7,8 +7,7 @@ from scipy.sparse.linalg import ArpackError, eigsh
 from ..utils import sparse_tensor_to_sparse_array
 from .compression import edge_compression, node_compression
 from .signal_processing import get_fourier_basis, get_laplacian
-from .utils import (delta_pos, metric_tensor, remove_self_loops,
-                    square_distance, to_undirected)
+from .utils import delta_pos, metric_tensor, remove_self_loops, square_distance, to_undirected
 
 
 class HyperCubeGraph:
@@ -61,6 +60,7 @@ class HyperCubeGraph:
             - `self.node_pos` is a tensor with shape (self.nx1 * self.nx2 * self.nx3, 3)
         If the compression algorithm is the static node compression, remove a proportion kappa of nodes.
         """
+
         self.node_index = torch.arange(num_nodes)
 
         # we define the grid points and reshape them to get 1-d arrays
@@ -76,9 +76,11 @@ class HyperCubeGraph:
         self.num_nodes = num_nodes
 
     def _initedges(self, sigmas, knn, weight_kernel, weight_sigma, device):
+        if knn > self.num_nodes - 1:
+            raise ValueError(f"{knn} is not a valid value for KNN graph with {self.num_nodes} nodes")
 
-        xi = Vi(self.node_pos.to(device))
-        xj = Vj(self.node_pos.to(device))
+        xi = Vi(self.node_pos.to(device))  # sources
+        xj = Vj(self.node_pos.to(device))  # targets
 
         S = metric_tensor(sigmas, device)
 

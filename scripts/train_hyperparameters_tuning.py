@@ -80,11 +80,7 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
     graph_1 = HyperCubeGraph(
         grid_size=(NX1, NX2),
         nx3=nx3,
-        weight_kernel=weight_kernel,
-        weight_sigma=weight_sigma,
         knn=int(knn * POOLING_SIZE ** 4),
-        sigmas=(xi / eps, xi, 1.0),
-        weight_comp_device=DEVICE,
     )
     if graph_1.num_nodes > graph_1.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
@@ -93,11 +89,7 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
     graph_2 = HyperCubeGraph(
         grid_size=(NX1 // POOLING_SIZE, NX2 // POOLING_SIZE),
         nx3=nx3,
-        weight_kernel=weight_kernel,
-        weight_sigma=weight_sigma,
         knn=int(knn * POOLING_SIZE ** 2),
-        sigmas=(xi / eps, xi, 1.0),
-        weight_comp_device=DEVICE,
     )
     if graph_2.num_nodes > graph_2.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
@@ -106,11 +98,7 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
     graph_3 = HyperCubeGraph(
         grid_size=(NX1 // POOLING_SIZE // POOLING_SIZE, NX2 // POOLING_SIZE // POOLING_SIZE),
         nx3=nx3,
-        weight_kernel=weight_kernel,
-        weight_sigma=weight_sigma,
         knn=int(knn * POOLING_SIZE ** 4),
-        sigmas=(xi / eps, xi, 1.0),
-        weight_comp_device=DEVICE,
     )
     if graph_3.num_nodes > graph_3.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
@@ -210,30 +198,30 @@ def train():
         pooling,
     )
 
-    optimizer = get_optimizer(model, OPTIMIZER, learning_rate, weight_decay)
-    loss_fn = nll_loss
+    # optimizer = get_optimizer(model, OPTIMIZER, learning_rate, weight_decay)
+    # loss_fn = nll_loss
 
-    # Trainer and evaluator(s) engines
-    trainer = create_supervised_trainer(
-        L=nx3,
-        model=model,
-        optimizer=optimizer,
-        loss_fn=loss_fn,
-        device=DEVICE,
-        prepare_batch=prepare_batch,
-    )
-    ProgressBar(persist=False, desc="Training").attach(trainer)
+    # # Trainer and evaluator(s) engines
+    # trainer = create_supervised_trainer(
+    #     L=nx3,
+    #     model=model,
+    #     optimizer=optimizer,
+    #     loss_fn=loss_fn,
+    #     device=DEVICE,
+    #     prepare_batch=prepare_batch,
+    # )
+    # ProgressBar(persist=False, desc="Training").attach(trainer)
 
-    metrics = {"validation_accuracy": Accuracy(), "validation_loss": Loss(loss_fn)}
+    # metrics = {"validation_accuracy": Accuracy(), "validation_loss": Loss(loss_fn)}
 
-    evaluator = create_supervised_evaluator(
-        L=nx3, model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch
-    )
-    ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
+    # evaluator = create_supervised_evaluator(
+    #     L=nx3, model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch
+    # )
+    # ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
 
-    train_loader, val_loader = get_train_val_data_loaders(
-        DATASET_NAME, batch_size=batch_size, val_ratio=VAL_RATIO, data_path=DATA_PATH
-    )
+    # train_loader, val_loader = get_train_val_data_loaders(
+    #     DATASET_NAME, batch_size=batch_size, val_ratio=VAL_RATIO, data_path=DATA_PATH
+    # )
 
     # Performance tracking with wandb
     # trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, evaluator, val_loader)

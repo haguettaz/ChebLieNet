@@ -23,7 +23,7 @@ def build_graphs(knn):
     eps = math.exp(random.uniform(math.log(0.1), math.log(1.0)))
     xi = math.exp(random.uniform(math.log(1e-2), math.log(1.0)))
 
-    print((xi / eps, xi, 1.0))
+    print((xi, xi*eps, 1.0))
 
     times = []
     print(f"KNN = {int(knn * POOLING_SIZE ** 4)} and V = {NX1*NX2*NX3}")
@@ -34,7 +34,7 @@ def build_graphs(knn):
             nx3=NX3,
             knn=int(knn * POOLING_SIZE ** 4),
             weight_comp_device=DEVICE,
-            sigmas=(xi / eps, xi, 1.0),
+            sigmas=(xi, xi*eps, 1.0),
         )
         end = time.time()
         if graph_1.num_nodes > graph_1.num_edges:
