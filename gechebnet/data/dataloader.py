@@ -16,8 +16,6 @@ from torchvision.transforms import (
 
 from ..utils import shuffle_tensor
 
-T_co = TypeVar("T_co", covariant=True)
-
 MNIST_MEAN, MNIST_STD = (0.1307,), (0.3081,)
 STL10_MEAN, STL10_STD = (0.4914, 0.4822, 0.4465), (0.2471, 0.2435, 0.2616)
 
