@@ -1,6 +1,7 @@
 import math
 import os
 import random
+import sys
 
 import numpy as np
 import torch
@@ -13,8 +14,6 @@ from gechebnet.model.chebnet import GEChebNet
 from gechebnet.model.optimizer import get_optimizer
 from ignite.metrics import Accuracy, Loss
 from torch.nn.functional import nll_loss
-
-DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
 
 NX1, NX2 = (28, 28)
 DATASET_NAME = "MNIST"  # STL10
@@ -151,9 +150,9 @@ def train(config=None):
             L=config.nx3, model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch
         )
 
-        # train_loader, val_loader = get_train_val_data_loaders(
-        #     DATASET_NAME, batch_size=config.batch_size, val_ratio=VAL_RATIO, data_path=DATA_PATH
-        # )
+        train_loader, val_loader = get_train_val_data_loaders(
+            DATASET_NAME, batch_size=config.batch_size, val_ratio=VAL_RATIO
+        )
 
 
 if __name__ == "__main__":
