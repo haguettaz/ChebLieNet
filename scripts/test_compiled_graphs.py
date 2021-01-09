@@ -21,11 +21,11 @@ def build_graphs(knn):
     print(f"KNN = {int(knn * POOLING_SIZE ** 4)} and V = {NX1*NX2*NX3}")
     for _ in range(NUM_ITER):
         start = time.time()
-        graph = HyperCubeGraph(
+        graph_1 = HyperCubeGraph(
             grid_size=(NX1, NX2), nx3=NX3, knn=int(knn * POOLING_SIZE ** 4), weight_comp_device=DEVICE
         )
         end = time.time()
-        if graph.num_nodes > graph.num_edges:
+        if graph_1.num_nodes > graph_1.num_edges:
             print("Value Error: an error occured during the construction of the graph")
         times.append(end - start)
     print(f"time: mean {np.mean(times)} std {np.std(times)}")
@@ -34,14 +34,14 @@ def build_graphs(knn):
     print(f"KNN = {int(knn * POOLING_SIZE ** 2)} and V = {(NX1//POOLING_SIZE)*(NX2//POOLING_SIZE)*NX3}")
     for _ in range(NUM_ITER):
         start = time.time()
-        HyperCubeGraph(
+        graph_2 = HyperCubeGraph(
             grid_size=(NX1 // POOLING_SIZE, NX2 // POOLING_SIZE),
             nx3=NX3,
             knn=int(knn * POOLING_SIZE ** 2),
             weight_comp_device=DEVICE,
         )
         end = time.time()
-        if graph.num_nodes > graph.num_edges:
+        if graph_2.num_nodes > graph_2.num_edges:
             print("Value Error: an error occured during the construction of the graph")
         times.append(end - start)
     print(f"time: mean {np.mean(times)} std {np.std(times)}")
@@ -50,14 +50,14 @@ def build_graphs(knn):
     print(f"KNN = {int(knn)} and V = {(NX1//POOLING_SIZE//POOLING_SIZE)*(NX2//POOLING_SIZE//POOLING_SIZE)*NX3}")
     for _ in range(NUM_ITER):
         start = time.time()
-        HyperCubeGraph(
+        graph_3 = HyperCubeGraph(
             grid_size=(NX1 // POOLING_SIZE // POOLING_SIZE, NX2 // POOLING_SIZE // POOLING_SIZE),
             nx3=NX3,
             knn=int(knn),
             weight_comp_device=DEVICE,
         )
         end = time.time()
-        if graph.num_nodes > graph.num_edges:
+        if graph_3.num_nodes > graph_3.num_edges:
             print("Value Error: an error occured during the construction of the graph")
         times.append(end - start)
     print(f"time: mean {np.mean(times)} std {np.std(times)}")
