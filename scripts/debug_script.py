@@ -149,9 +149,9 @@ def train(config=None):
             L=config.nx3, model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch
         )
 
-        train_loader, val_loader = get_train_val_data_loaders(
-            DATASET_NAME, batch_size=config.batch_size, val_ratio=VAL_RATIO
-        )
+        # train_loader, val_loader = get_train_val_data_loaders(
+        #     DATASET_NAME, batch_size=config.batch_size, val_ratio=VAL_RATIO
+        # )
 
 
 if __name__ == "__main__":
