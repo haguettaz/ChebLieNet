@@ -4,6 +4,7 @@ import random
 import numpy as np
 import torch
 import wandb
+from gechebnet.data.dataloader import get_train_val_data_loaders
 from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engine.utils import prepare_batch
 from gechebnet.graph.graph import HyperCubeGraph
@@ -12,8 +13,11 @@ from gechebnet.model.optimizer import get_optimizer
 from ignite.metrics import Accuracy, Loss
 from torch.nn.functional import nll_loss
 
-NX1, NX2 = (28, 28)
+DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
 
+NX1, NX2 = (28, 28)
+DATASET_NAME = "MNIST"  # STL10
+VAL_RATIO = 0.2
 IN_CHANNELS = 1
 OUT_CHANNELS = 10
 HIDDEN_CHANNELS = 20
@@ -130,6 +134,10 @@ def train(config=None):
 
         evaluator = create_supervised_evaluator(
             L=config.nx3, model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch
+        )
+
+        train_loader, val_loader = get_train_val_data_loaders(
+            DATASET_NAME, batch_size=config.batch_size, val_ratio=VAL_RATIO, data_path=DATA_PATH
         )
 
 
