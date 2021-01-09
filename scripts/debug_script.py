@@ -12,8 +12,7 @@ from gechebnet.model.chebnet import GEChebNet
 from gechebnet.model.optimizer import get_optimizer
 from ignite.metrics import Accuracy, Loss
 from torch.nn.functional import nll_loss
-from torch.utils.data import DataLoader, Dataset
-from torch.utils.data.sampler import SubsetRandomSampler
+from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST, STL10
 from torchvision.transforms import (
     Compose,
