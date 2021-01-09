@@ -1,22 +1,17 @@
 import math
 import os
-import random
 
-import pykeops
 import torch
 import wandb
 from gechebnet.data.dataloader import get_train_val_data_loaders
-from gechebnet.engine.engine import (create_supervised_evaluator,
-                                     create_supervised_trainer)
+from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engine.utils import prepare_batch, wandb_log
 from gechebnet.graph.graph import HyperCubeGraph
 from gechebnet.model.chebnet import GEChebNet
 from gechebnet.model.optimizer import get_optimizer
-from gechebnet.utils import random_choice
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
 from ignite.metrics import Accuracy, Loss
-from torch.nn import NLLLoss
 from torch.nn.functional import nll_loss
 
 DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
@@ -76,7 +71,7 @@ def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, K, pooling):
     )
     if graph_1.num_nodes > graph_1.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
-    # wandb.log({f"graph_1_nodes": graph_1.num_nodes, f"graph_1_edges": graph_1.num_edges})
+    wandb.log({f"graph_1_nodes": graph_1.num_nodes, f"graph_1_edges": graph_1.num_edges})
 
     graph_2 = HyperCubeGraph(
         grid_size=(NX1 // POOLING_SIZE, NX2 // POOLING_SIZE),
@@ -87,7 +82,7 @@ def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, K, pooling):
     )
     if graph_2.num_nodes > graph_2.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
-    # wandb.log({f"graph_2_nodes": graph_2.num_nodes, f"graph_2_edges": graph_2.num_edges})
+    wandb.log({f"graph_2_nodes": graph_2.num_nodes, f"graph_2_edges": graph_2.num_edges})
 
     graph_3 = HyperCubeGraph(
         grid_size=(NX1 // POOLING_SIZE // POOLING_SIZE, NX2 // POOLING_SIZE // POOLING_SIZE),
@@ -98,7 +93,7 @@ def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, K, pooling):
     )
     if graph_3.num_nodes > graph_3.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
-    # wandb.log({f"graph_3_nodes": graph_3.num_nodes, f"graph_3_edges": graph_3.num_edges})
+    wandb.log({f"graph_3_nodes": graph_3.num_nodes, f"graph_3_edges": graph_3.num_edges})
 
     model = GEChebNet(
         (graph_1, graph_2, graph_3),
@@ -110,7 +105,7 @@ def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, K, pooling):
         pooling=pooling,
     )
 
-    # wandb.log({"capacity": model.capacity})
+    wandb.log({"capacity": model.capacity})
 
     return model.to(DEVICE)
 
@@ -133,20 +128,19 @@ def train(config=None):
         )
 
         optimizer = get_optimizer(model, OPTIMIZER, config.learning_rate, config.weight_decay)
-        loss_fn = nll_loss
 
         # Trainer and evaluator(s) engines
         trainer = create_supervised_trainer(
             L=config.nx3,
             model=model,
             optimizer=optimizer,
-            loss_fn=loss_fn,
+            loss_fn=nll_loss,
             device=DEVICE,
             prepare_batch=prepare_batch,
         )
         ProgressBar(persist=False, desc="Training").attach(trainer)
 
-        metrics = {"validation_accuracy": Accuracy(), "validation_loss": Loss(loss_fn)}
+        metrics = {"validation_accuracy": Accuracy(), "validation_loss": Loss(nll_loss)}
 
         evaluator = create_supervised_evaluator(
             L=config.nx3, model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch
