@@ -21,6 +21,7 @@ def build_graphs(knn):
     nx3 = random.randint(3, 12)
     eps = math.exp(random.uniform(math.log(0.1), math.log(1.0)))
     xi = math.exp(random.uniform(math.log(1e-2), math.log(1.0)))
+    
 
     print((xi, xi * eps, 1.0))
 

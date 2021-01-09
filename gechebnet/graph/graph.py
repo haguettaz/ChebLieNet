@@ -122,13 +122,13 @@ class HyperCubeGraph:
         edge_index, edge_sqdist = process_edges(edge_index, edge_sqdist, kappa)
 
         if w_kernel == "gaussian":
-            kernel = lambda sqdistc: torch.exp(-sqdistc / w_sigma ** 2)
+            kernel = lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac ** 2)
         elif w_kernel == "laplacian":
-            kernel = lambda sqdistc: torch.exp(-torch.sqrt(sqdistc) / w_sigma)
+            kernel = lambda sqdistc, sigmac: torch.exp(-torch.sqrt(sqdistc) / sigmac)
         elif w_kernel == "cauchy":
-            kernel = lambda sqdistc: 1 / (1 + sqdistc / w_sigma ** 2)
+            kernel = lambda sqdistc, sigmac: 1 / (1 + sqdistc / sigmac ** 2)
 
-        edge_weight = kernel(edge_sqdist)
+        edge_weight = kernel(edge_sqdist, w_sigma)
 
         self.edge_index, self.edge_weight = edge_index, edge_weight
 
