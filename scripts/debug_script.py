@@ -5,7 +5,6 @@ import random
 import numpy as np
 import torch
 import wandb
-from gechebnet.dataset.dataset import get_train_val_dataloaders
 from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engine.utils import prepare_batch
 from gechebnet.graph.graph import HyperCubeGraph
@@ -13,6 +12,7 @@ from gechebnet.model.chebnet import GEChebNet
 from gechebnet.model.optimizer import get_optimizer
 from ignite.metrics import Accuracy, Loss
 from torch.nn.functional import nll_loss
+from torchvision.datasets import MNIST, STL10
 
 NX1, NX2 = (28, 28)
 DATASET = "mnist"
