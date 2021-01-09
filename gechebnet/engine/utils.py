@@ -1,17 +1,22 @@
+from typing import Optional, Tuple
+
+import torch.tensor
 import wandb
+from ignite.engine.engine import Engine
+from torch.utils.data import DataLoader
 
 
-def prepare_batch(batch, L, device):
+def prepare_batch(batch: tuple, L: int, device: torch.device) -> Tuple[torch.tensor]:
     """
-    Prepare the batch and return freshly baked inputs and targets to feed the model with.
+    Prepare a batch to directly feed a model with.
 
     Args:
-        batch (Batch): the batch.
-        device (torch.device): the device to put tensors on.
+        batch (tuple): batch containing input and target data.
+        L (int): number of equivariance layers to use.
+        device (torch.device): device on which to put the batch data.
 
     Returns:
-        (torch.tensor): the input.
-        (torch.tensor): the target.
+        Tuple[torch.tensor]: input and target to feed a model with.
     """
     x, y = batch
     B, C, H, W = x.shape  # (B, C, H, W)
@@ -21,24 +26,14 @@ def prepare_batch(batch, L, device):
     return x.to(device), y.to(device)
 
 
-def wandb_loss(trainer):
+def wandb_log(trainer: Engine, evaluator: Engine, data_loader: DataLoader):
     """
-    [summary]
+    Evaluate a model and add performance to wandb.
 
     Args:
-        trainer ([type]): [description]
-    """
-    wandb.log({"iteration": trainer.state.iteration, "loss": trainer.state.output})
-
-
-def wandb_log(trainer, evaluator, data_loader):
-    """
-    [summary]
-
-    Args:
-        trainer ([type]): [description]
-        evaluator ([type]): [description]
-        data_loader ([type]): [description]
+        trainer (Engine): training engine.
+        evaluator (Engine): evaluator engine.
+        data_loader (DataLoader): dataloader on which to evaluate the model.
     """
     evaluator.run(data_loader)
     metrics = evaluator.state.metrics

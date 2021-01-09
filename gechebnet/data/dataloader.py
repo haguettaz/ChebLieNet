@@ -29,19 +29,19 @@ def get_train_val_data_loaders(
     data_path: Optional[str] = "data",
 ) -> Tuple[DataLoader, DataLoader]:
     """
-    [summary]
+    Get train and validation dataloaders.
 
     Args:
-        dataset_name (str): [description]
-        batch_size (Optional[int], optional): [description]. Defaults to 32.
-        val_ratio (Optional[float], optional): [description]. Defaults to 0.2.
-        data_path (Optional[str], optional): [description]. Defaults to "data".
+        dataset_name (str): name of the dataset.
+        batch_size (int, optional): size of a batch. Defaults to 32.
+        val_ratio (float, optional): ratio of validation samples. Defaults to 0.2.
+        data_path (str, optional): path to data folder to download dataset into. Defaults to "data".
 
     Raises:
-        ValueError: [description]
+        ValueError: dataset_name has to be 'MNIST' or 'STL10',
 
     Returns:
-        Tuple[DataLoader, DataLoader]: [description]
+        Tuple[DataLoader, DataLoader]: train and validation dataloaders.
     """
 
     if dataset_name not in {"MNIST", "STL10"}:
@@ -75,20 +75,21 @@ def get_train_val_data_loaders(
 
 def get_test_equivariance_data_loader(
     dataset_name: str, batch_size: Optional[int] = 32, data_path: Optional[str] = "data"
-) -> DataLoader:
+) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
-    [summary]
+    Get test dataloaders to test equivariance under rotation and flip property of the network.
 
     Args:
-        dataset_name (str): [description]
-        batch_size (Optional[int], optional): [description]. Defaults to 32.
-        data_path (Optional[str], optional): [description]. Defaults to "data".
+        dataset_name (str): name of the dataset.
+        batch_size (Optional[int], optional): size of a batch. Defaults to 32.
+        data_path (Optional[str], optional): path to data folder to download dataset into. Defaults to "data".
+
 
     Raises:
-        ValueError: [description]
+        ValueError: dataset_name has to be 'MNIST' or 'STL10',
 
     Returns:
-        DataLoader: [description]
+        Tuple[DataLoader, DataLoader]: classic, rotated and flipped dataloaders.
     """
 
     if dataset_name not in {"MNIST", "STL10"}:

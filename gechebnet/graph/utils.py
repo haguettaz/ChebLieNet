@@ -6,6 +6,7 @@ from pykeops.torch import LazyTensor, Pm
 from torch_sparse import coalesce, transpose
 
 from ..utils import lower, upper
+from .compression import edge_compression
 
 
 def group_inverse(x):
@@ -203,3 +204,22 @@ def to_undirected(edge_index, edge_weight):
         mask |= inverse == idx
 
     return edge_index[:, ~mask], edge_weight[~mask]
+
+
+def process_edges(edge_index: torch.tensor, edge_sqdist: torch.tensor, kappa: float):
+    """
+    [summary]
+
+    Args:
+        edge_index (torch.tensor): [description]
+        edge_sqdist (torch.tensor): [description]
+        kappa (float): [description]
+
+    Returns:
+        [type]: [description]
+    """
+    edge_index, edge_sqdist = remove_self_loops(edge_index, edge_sqdist)
+    edge_index, edge_sqdist = to_undirected(edge_index, edge_sqdist)
+    if kappa > 0.0:
+        edge_index, edge_sqdist = edge_compression(edge_index, edge_sqdist, kappa)
+    return edge_index, edge_sqdist

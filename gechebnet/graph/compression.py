@@ -33,27 +33,23 @@ def node_compression(graph, kappa):
     return graph
 
 
-def edge_compression(graph, kappa):
+def edge_compression(edge_index, edge_attr, kappa):
     """
     Randomly remove a given rate of edges from the original tensor of edge's indices.
 
     Args:
         edge_index (torch.tensor): the original edge's indices.
-        edge_weight (torch.tensor): the original edge's weights.
+        edge_attr (torch.tensor): the original edge's weights.
         kappa (float): the rate of edges to remove.
 
     Returns:
         (torch.tensor): the compressed edge's indices.
         (torch.tensor): the compressed edge's weights.
     """
-
-    num_to_remove = int(kappa * graph.num_edges)
-    num_to_keep = graph.num_edges - num_to_remove
+    num_to_remove = int(kappa * edge_index.shape[1])
+    num_to_keep = edge_index.shape[1] - num_to_remove
 
     mask = torch.tensor([True] * num_to_remove + [False] * num_to_keep)
     mask = shuffle_tensor(mask)
 
-    graph.edge_index = graph.edge_index[:, ~mask]
-    graph.edge_weight = graph.edge_weight[~mask]
-
-    return graph
+    return edge_index[:, ~mask], edge_attr[~mask]
