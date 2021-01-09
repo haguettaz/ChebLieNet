@@ -49,7 +49,7 @@ def get_train_val_data_loaders(
             data_path,
             train=True,
             download=True,
-            transform=Compose([ToTensor(), Normalize(MNIST_MEAN, MNIST_STD)]),
+            transform=Compose([ToTensor(), Normalize((0.1307,), (0.3081,))]),
         )
 
     elif dataset_name == "STL10":
@@ -57,7 +57,9 @@ def get_train_val_data_loaders(
             data_path,
             split="train",
             download=True,
-            transform=Compose([ToTensor(), Normalize(STL10_MEAN, STL10_STD)]),
+            transform=Compose(
+                [ToTensor(), Normalize((0.4914, 0.4822, 0.4465), (0.2471, 0.2435, 0.2616))]
+            ),
         )
 
     N = len(dataset)
