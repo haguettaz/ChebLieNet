@@ -1,3 +1,6 @@
+import math
+import random
+
 import numpy as np
 import torch
 from gechebnet.graph.graph import HyperCubeGraph
@@ -17,12 +20,21 @@ NUM_ITER = 100
 
 def build_graphs(knn):
 
+    eps = math.exp(random.uniform(math.log(0.1), math.log(1.0)))
+    xi = math.exp(random.uniform(math.log(1e-2), math.log(1.0)))
+
+    print((xi / eps, xi, 1.0))
+
     times = []
     print(f"KNN = {int(knn * POOLING_SIZE ** 4)} and V = {NX1*NX2*NX3}")
     for _ in range(NUM_ITER):
         start = time.time()
         graph_1 = HyperCubeGraph(
-            grid_size=(NX1, NX2), nx3=NX3, knn=int(knn * POOLING_SIZE ** 4), weight_comp_device=DEVICE
+            grid_size=(NX1, NX2),
+            nx3=NX3,
+            knn=int(knn * POOLING_SIZE ** 4),
+            weight_comp_device=DEVICE,
+            sigmas=(xi / eps, xi, 1.0),
         )
         end = time.time()
         if graph_1.num_nodes > graph_1.num_edges:
@@ -39,6 +51,7 @@ def build_graphs(knn):
             nx3=NX3,
             knn=int(knn * POOLING_SIZE ** 2),
             weight_comp_device=DEVICE,
+            sigmas=(xi / eps, xi, 1.0),
         )
         end = time.time()
         if graph_2.num_nodes > graph_2.num_edges:
@@ -55,6 +68,7 @@ def build_graphs(knn):
             nx3=NX3,
             knn=int(knn),
             weight_comp_device=DEVICE,
+            sigmas=(xi / eps, xi, 1.0),
         )
         end = time.time()
         if graph_3.num_nodes > graph_3.num_edges:
