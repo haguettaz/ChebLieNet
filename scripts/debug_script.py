@@ -4,9 +4,12 @@ import random
 import numpy as np
 import torch
 import wandb
+from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
+from gechebnet.engine.utils import prepare_batch
 from gechebnet.graph.graph import HyperCubeGraph
 from gechebnet.model.chebnet import GEChebNet
 from gechebnet.model.optimizer import get_optimizer
+from torch.nn.functional import nll_loss
 
 NX1, NX2 = (28, 28)
 
@@ -111,6 +114,16 @@ def train(config=None):
         )
 
         optimizer = get_optimizer(model, OPTIMIZER, config.learning_rate, config.weight_decay)
+
+        # Trainer and evaluator(s) engines
+        trainer = create_supervised_trainer(
+            L=config.nx3,
+            model=model,
+            optimizer=optimizer,
+            loss_fn=nll_loss,
+            device=DEVICE,
+            prepare_batch=prepare_batch,
+        )
 
 
 if __name__ == "__main__":
