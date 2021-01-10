@@ -68,7 +68,6 @@ def build_sweep_config():
 
 
 def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, kappa, K, pooling):
-
     if weight_kernel == "gaussian":
         kernel = lambda sqdistc: torch.exp(-sqdistc / weight_sigma ** 2)
     elif weight_kernel == "laplacian":
