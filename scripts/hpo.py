@@ -17,7 +17,7 @@ from torch.nn.functional import nll_loss
 DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
 DEVICE = torch.device("cuda")
 
-DATASET_NAME = "MNIST"  # STL10
+DATASET_NAME = "mnist"  # "stl10"
 VAL_RATIO = 0.2
 NX1, NX2 = (28, 28)
 
