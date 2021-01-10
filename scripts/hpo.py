@@ -103,7 +103,7 @@ def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, kappa, K, pooling)
     graph_3 = HyperCubeGraph(
         grid_size=(NX1 // POOLING_SIZE // POOLING_SIZE, NX2 // POOLING_SIZE // POOLING_SIZE),
         nx3=nx3,
-        knn=int(knn * POOLING_SIZE ** 4),
+        knn=int(knn),
         sigmas=(xi / eps, xi, 1.0),
         weight_kernel=kernel,
         kappa=kappa,
