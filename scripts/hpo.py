@@ -166,14 +166,14 @@ def train(config=None):
         )
         ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
 
-        train_loader, val_loader = get_train_val_data_loaders(
+        train_loader, val_loader = get_train_val_dataloaders(
             DATASET_NAME, batch_size=config.batch_size, val_ratio=VAL_RATIO, data_path=DATA_PATH
         )
 
         # Performance tracking with wandb
         trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, evaluator, val_loader)
 
-        # trainer.run(train_loader, max_epochs=EPOCHS)
+        trainer.run(train_loader, max_epochs=EPOCHS)
 
 
 if __name__ == "__main__":

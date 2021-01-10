@@ -3,7 +3,7 @@ from time import time
 import numpy as np
 from gechebnet.graph.graph import HyperCubeGraph
 
-NX1, NX2, NX3 = 20, 20, 20
+NX1, NX2, NX3 = 100, 100, 20
 
 
 def compile_graphs(knn):
@@ -34,7 +34,7 @@ def test_speed(knn, iter=50):
             raise ValueError(f"An error occured during the computation of the {knn}-NN graph")
 
     print(
-        f"{knn}-NN HyperCubeGraph with {graph.num_nodes} and {graph.num_edges} took",
+        f"{knn}-NN HyperCubeGraph with {graph.num_nodes} nodes and {graph.num_edges} edges took",
         f"{computation_times.mean()}s +/- {computation_times.std()}s to compute",
     )
 
