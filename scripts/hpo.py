@@ -29,8 +29,6 @@ POOLING_SIZE = 2
 EPOCHS = 20
 OPTIMIZER = "adam"
 
-NUM_ITER = 10
-
 
 def build_sweep_config():
     sweep_config = {
