@@ -14,6 +14,7 @@ from gechebnet.model.optimizer import get_optimizer
 from ignite.metrics import Accuracy, Loss
 from torch.nn.functional import nll_loss
 
+print(torchvision.__version__)
 # bug somewhere in :
 # - torch.utils.data import DataLoader
 # - torch.utils.data.sampler import SubsetRandomSampler
