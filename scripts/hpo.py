@@ -67,7 +67,7 @@ def build_sweep_config():
     return sweep_config
 
 
-def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, K, pooling):
+def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, kappa, K, pooling):
 
     if weight_kernel == "gaussian":
         kernel = lambda sqdistc: torch.exp(-sqdistc / weight_sigma ** 2)
@@ -83,6 +83,7 @@ def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, K, pooling):
         knn=int(knn * POOLING_SIZE ** 4),
         sigmas=(xi / eps, xi, 1.0),
         weight_kernel=kernel,
+        kappa=kappa,
     )
     if graph_1.num_nodes > graph_1.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
@@ -94,6 +95,7 @@ def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, K, pooling):
         knn=int(knn * POOLING_SIZE ** 2),
         sigmas=(xi / eps, xi, 1.0),
         weight_kernel=kernel,
+        kappa=kappa,
     )
     if graph_2.num_nodes > graph_2.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
@@ -105,6 +107,7 @@ def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, K, pooling):
         knn=int(knn * POOLING_SIZE ** 4),
         sigmas=(xi / eps, xi, 1.0),
         weight_kernel=kernel,
+        kappa=kappa,
     )
     if graph_3.num_nodes > graph_3.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
@@ -118,6 +121,7 @@ def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, K, pooling):
         HIDDEN_CHANNELS,
         laplacian_device=DEVICE,
         pooling=pooling,
+        kappa=kappa,
     )
 
     wandb.log({"capacity": model.capacity})
@@ -138,6 +142,7 @@ def train(config=None):
             config.xi,
             config.weight_kernel,
             config.weight_sigma,
+            config.kappa,
             config.K,
             config.pooling,
         )
