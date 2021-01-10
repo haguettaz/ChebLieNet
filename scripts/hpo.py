@@ -29,6 +29,8 @@ POOLING_SIZE = 2
 EPOCHS = 20
 OPTIMIZER = "adam"
 
+NUM_EXPERIMENTS = 100
+
 
 def build_sweep_config():
     sweep_config = {
@@ -40,6 +42,7 @@ def build_sweep_config():
         "batch_size": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(256)},
         "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
         "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(64)},
+        "kappa": {"distribution": "uniform", "min": 0.0, "max": 1.0},
         "knn": {"distribution": "categorical", "values": [2, 4, 8, 16, 32]},
         "learning_rate": {
             "distribution": "log_uniform",
@@ -172,4 +175,4 @@ def train(config=None):
 if __name__ == "__main__":
     sweep_config = build_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project="gechebnet")
-    wandb.agent(sweep_id, train, count=50)
+    wandb.agent(sweep_id, train, count=NUM_EXPERIMENTS)
