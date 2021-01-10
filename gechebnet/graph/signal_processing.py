@@ -5,7 +5,6 @@ from numpy import ndarray
 from numpy.linalg import eigh
 from torch import FloatTensor, LongTensor
 from torch.sparse import FloatTensor as SparseFloatTensor
-from torch_scatter import scatter_add
 
 from ..utils import sparse_tensor_diag, sparse_tensor_to_sparse_array
 
@@ -25,9 +24,8 @@ def get_laplacian(
         SparseFloatTensor: symmetric normalized laplacian.
     """
 
-    deg = scatter_add(edge_weight, edge_index[0], dim=0, dim_size=num_nodes)
-    deg_sqrt_inv = deg.pow(-0.5)
-    edge_weight = edge_weight * deg_sqrt_inv[edge_index[0]] * deg_sqrt_inv[edge_index[1]]
+    deg = torch.zeros(num_nodes).scatter_add(0, edge_index[1], edge_weight).pow(-0.5)
+    edge_weight = edge_weight * deg[edge_index[0]] * deg[edge_index[1]]
     W_norm = torch.sparse.FloatTensor(edge_index, edge_weight, torch.Size((num_nodes, num_nodes)))
     I = sparse_tensor_diag(num_nodes)
     return I - W_norm

@@ -7,7 +7,9 @@ from torch_sparse import coalesce, transpose
 from .compression import edge_compression
 
 
-def remove_self_loops(edge_index: LongTensor, edge_weight: FloatTensor) -> Tuple[LongTensor, FloatTensor]:
+def remove_self_loops(
+    edge_index: LongTensor, edge_weight: FloatTensor
+) -> Tuple[LongTensor, FloatTensor]:
     """
     Removes every self-loop in the graph given by edge_index and edge_weight.
 
@@ -23,28 +25,9 @@ def remove_self_loops(edge_index: LongTensor, edge_weight: FloatTensor) -> Tuple
     return edge_index[:, mask], edge_weight[mask]
 
 
-def is_undirected(edge_index: LongTensor, edge_weight: FloatTensor, num_nodes: int) -> bool:
-    """
-    Returns True if the graph given by edge_index and edge_weight is undirected.
-
-    Args:
-        edge_index (LongTensor): indices of edges.
-        edge_weight (FloatTensor): weights of indices.
-        num_nodes (int): number of nodes.
-
-    Returns:
-        (bool): True if graph is undirected, False otherwise.
-    """
-
-    edge_index, edge_weight = coalesce(edge_index, edge_weight, num_nodes, num_nodes)
-
-    edge_index_t, edge_weight_t = transpose(edge_index, edge_weight, num_nodes, num_nodes, coalesced=True)
-    index_symmetric = torch.all(edge_index == edge_index_t)
-    weight_symmetric = torch.all(edge_weight == edge_weight_t)
-    return index_symmetric and weight_symmetric
-
-
-def to_undirected(edge_index: LongTensor, edge_weight: FloatTensor) -> Tuple[LongTensor, FloatTensor]:
+def to_undirected(
+    edge_index: LongTensor, edge_weight: FloatTensor
+) -> Tuple[LongTensor, FloatTensor]:
     """
     Remove edges that are not symmetric.
 
@@ -72,7 +55,9 @@ def to_undirected(edge_index: LongTensor, edge_weight: FloatTensor) -> Tuple[Lon
     return edge_index[:, ~mask], edge_weight[~mask]
 
 
-def process_edges(edge_index: LongTensor, edge_attr: FloatTensor, kappa: float) -> Tuple[LongTensor, FloatTensor]:
+def process_edges(
+    edge_index: LongTensor, edge_attr: FloatTensor, kappa: float
+) -> Tuple[LongTensor, FloatTensor]:
     """
     Process edges of graph:
         1. Remove self-loops
