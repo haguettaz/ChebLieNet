@@ -4,6 +4,7 @@ import random
 
 import numpy as np
 import torch
+import torchvision
 import wandb
 from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engine.utils import prepare_batch
@@ -12,7 +13,6 @@ from gechebnet.model.chebnet import GEChebNet
 from gechebnet.model.optimizer import get_optimizer
 from ignite.metrics import Accuracy, Loss
 from torch.nn.functional import nll_loss
-from torchvision.datasets import MNIST, STL10
 
 # bug somewhere in :
 # - torch.utils.data import DataLoader
