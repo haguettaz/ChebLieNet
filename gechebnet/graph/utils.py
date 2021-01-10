@@ -2,7 +2,6 @@ from typing import Tuple
 
 import torch
 from torch import FloatTensor, LongTensor
-from torch_sparse import coalesce, transpose
 
 from .compression import edge_compression
 
