@@ -4,7 +4,8 @@ import os
 import pykeops
 import torch
 import wandb
-from gechebnet.data.dataloader import get_train_val_data_loaders
+from gechebnet.data.dataloader import (get_test_equivariance_dataloaders,
+                                       get_train_val_dataloaders)
 from gechebnet.engine.engine import (create_supervised_evaluator,
                                      create_supervised_trainer)
 from gechebnet.engine.utils import prepare_batch, wandb_log
