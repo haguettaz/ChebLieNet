@@ -1,5 +1,7 @@
 matplotlib==3.2.2 
 
+torch<1.5
+torchvision<0.6
 pytorch-ignite<0.5
 
 wandb<0.11
