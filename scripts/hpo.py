@@ -79,10 +79,10 @@ def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, kappa, K, pooling)
     graph_1 = HyperCubeGraph(
         grid_size=(NX1, NX2),
         nx3=nx3,
+        kappa=kappa,
         knn=int(knn * POOLING_SIZE ** 4),
         sigmas=(xi / eps, xi, 1.0),
         weight_kernel=kernel,
-        kappa=kappa,
     )
     if graph_1.num_nodes > graph_1.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
@@ -91,10 +91,10 @@ def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, kappa, K, pooling)
     graph_2 = HyperCubeGraph(
         grid_size=(NX1 // POOLING_SIZE, NX2 // POOLING_SIZE),
         nx3=nx3,
+        kappa=kappa,
         knn=int(knn * POOLING_SIZE ** 2),
         sigmas=(xi / eps, xi, 1.0),
         weight_kernel=kernel,
-        kappa=kappa,
     )
     if graph_2.num_nodes > graph_2.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
@@ -103,10 +103,10 @@ def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, kappa, K, pooling)
     graph_3 = HyperCubeGraph(
         grid_size=(NX1 // POOLING_SIZE // POOLING_SIZE, NX2 // POOLING_SIZE // POOLING_SIZE),
         nx3=nx3,
+        kappa=kappa,
         knn=int(knn),
         sigmas=(xi / eps, xi, 1.0),
         weight_kernel=kernel,
-        kappa=kappa,
     )
     if graph_3.num_nodes > graph_3.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
@@ -120,7 +120,6 @@ def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, kappa, K, pooling)
         HIDDEN_CHANNELS,
         laplacian_device=DEVICE,
         pooling=pooling,
-        kappa=kappa,
     )
 
     wandb.log({"capacity": model.capacity})
