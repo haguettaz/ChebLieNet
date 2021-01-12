@@ -8,19 +8,12 @@ $ conda create -n chebnets python=3.6
 $ conda activate chebnets
 ```
 
-2. Install PyTorch and torch-scatter and torch-sparse from PyTorch Geometric:
-```
-pip3 install --user torch==1.7.1+cu101 -f https://download.pytorch.org/whl/torch_stable.html
-pip3 install --user torch-scatter -f https://pytorch-geometric.com/whl/torch-1.7.1+cu101.html
-pip3 install --user torch-sparse -f https://https://pytorch-geometric.com/whl/torch-1.7.1+cu101.html
-```
-
-3. Install PyKeops modified version with more operations:
+3. Install modified version of PyKeops library (and all dependecies):
 ```
 $ pip3 install -e PyKeops
 ```
 
-3. Install GroupEquivariantChebNets:
+3. Install GroupEquivariantChebNets (and all dependencies):
 ```
 $ pip3 install -e GroupEquivariantChebNets
 ```

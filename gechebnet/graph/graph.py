@@ -1,6 +1,7 @@
 import math
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional, Tuple, Union
 
+import numpy as np
 import torch
 from numpy import ndarray
 from pykeops.torch import LazyTensor, Pm, Vi, Vj
@@ -19,6 +20,7 @@ class Graph:
     def __init__(self, *arg, **kwargs):
         self.node_index = LongTensor()
         self.edge_index = LongTensor()
+        self.edge_weight = FloatTensor()
         self.laplacian = SparseFloatTensor()
 
     def neighborhood(self, node_idx: int) -> Tuple[LongTensor, FloatTensor]:
@@ -49,6 +51,19 @@ class Graph:
         """
         return get_fourier_basis(self.laplacian)
 
+    def heat_kernel(self, tau: float) -> ndarray:
+        """
+        Return the heat kernel of the graph with time constant tau.
+
+        Args:
+            tau (float): time constant.
+
+        Returns:
+            ndarray: heat kernel.
+        """
+        lambdas, Phi = self.fourier_basis
+        return Phi @ np.diag(np.exp(tau * lambdas)) @ Phi.T
+
     @property
     def num_nodes(self) -> int:
         """
@@ -69,8 +84,33 @@ class Graph:
         """
         return self.edge_index.shape[1]
 
+    def dirac(self, node_idx: int = 0, lib: str = "numpy") -> Union[ndarray, FloatTensor]:
+        """
+        Return a dirac function centered on a given node index.
 
-class HyperCubeGraph(Graph):
+        Args:
+            node_idx (int, optional): node index. Defaults to 0.
+            lib (str, optional): used library. Defaults to "numpy".
+
+        Raises:
+            ValueError: lib must be 'numpy' or 'pytorch'
+
+        Returns:
+            Union[ndarray, FloatTensor]: dirac ndarray or tensor.
+        """
+        if lib not in {"numpy", "pytorch"}:
+            raise ValueError(f"{lib} is not a valid value for lib: must be 'numpy' or 'pytorch'")
+
+        if lib == "numpy":
+            f = np.zeros(self.num_nodes)
+        else:
+            f = torch.zeros(self.num_nodes)
+
+        f[node_idx] = 1.0
+        return f
+
+
+class SE2GEGraph(Graph):
     def __init__(
         self,
         grid_size: Tuple[int, int],
@@ -106,13 +146,8 @@ class HyperCubeGraph(Graph):
         self.nx3 = nx3
 
         self._initnodes(self.nx1 * self.nx2 * self.nx3)
-        print("Nodes: Done!")
-
         self._initedges(sigmas, knn, weight_kernel, kappa)
-        print("Edges: Done!")
-
         self._initlaplacian()
-        print("Laplacian: Done!")
 
     def _initnodes(self, num_nodes: int):
         """

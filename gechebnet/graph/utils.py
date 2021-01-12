@@ -76,5 +76,4 @@ def process_edges(
     edge_index, edge_attr = to_undirected(edge_index, edge_attr)
     if kappa > 0.0:
         edge_index, edge_attr = edge_compression(edge_index, edge_attr, kappa)
-        print("Compression: Done!")
     return edge_index, edge_attr

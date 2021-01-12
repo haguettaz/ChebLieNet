@@ -1,13 +1,15 @@
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from gechebnet.graph import Graph
+from matplotlib.animation import FuncAnimation, PillowWriter
 from matplotlib.figure import Figure
+from numpy import ndarray
 from torch import FloatTensor
 
 from ..utils import random_choice, rescale
+from .graph import Graph
 from .signal_processing import get_fourier_basis
 
 
@@ -44,7 +46,7 @@ def visualize_graph(graph: Graph, signal: Optional[FloatTensor] = None) -> Figur
 
         return fig
 
-    if signal.max() > 1 or signal.min < 0:
+    if signal.max() > 1 or signal.min() < 0:
         signal = rescale(signal)
 
     ax.scatter(
@@ -81,7 +83,7 @@ def visualize_neighborhood(graph: Graph, node_idx: int) -> Figure:
         zlim=(graph.x3_axis.min(), graph.x3_axis.max()),
     )
 
-    neighbors_index, weights = graph.neighborhood(node_idx, return_weights=True)
+    neighbors_index, weights = graph.neighborhood(node_idx)
 
     im = ax.scatter(
         graph.node_pos[neighbors_index, 0],
@@ -108,38 +110,43 @@ def visualize_neighborhood(graph: Graph, node_idx: int) -> Figure:
     return fig
 
 
-def visualize_heat_diffusion(graph: Graph, f0: np.array, times: Tuple[float, ...] = (0.0, 0.1, 0.2, 0.4)) -> Figure:
+def visualize_heat_diffusion(
+    graph: Graph,
+    f0: ndarray = None,
+    times: ndarray = None,
+    tol: float = 1e-6,
+    file_name: str = "heat_diffusion.gif",
+):
     """
-    Visualize heat diffusion on graph.
+    Visualize heat diffusion on graph by creating a gif.
 
     Args:
-        graph (Graph): graph
-        f0 (np.array): initial function.
-        times (Tuple[float, ...], optional): diffusion times. Defaults to (0.0, 0.1, 0.2, 0.4).
-
-    Returns:
-        Figure: [description]
+        graph (Graph): graph.
+        f0 (ndarray): initial function. Defaults to None.
+        times (ndarray, optional): diffusion times. Defaults to None.
+        tol (float, optional): tolerance to detect zero values. Defaults to 1e-6.
+        file_name (str, optional): name of the generated gif. Defaults to 'heat_diffusion.gif'
     """
 
-    num_cols = len(times)
-    fig = plt.figure(figsize=(num_cols * 8.0, 8.0))
+    if f0 is None:
+        f0 = graph.dirac(graph.centroid_index)
 
-    lambdas, Phi = graph.fourier_basis
-    eps = 1e-6
+    if times is None:
+        times = np.arange(0.0, 1.0, 0.1)
 
-    for c in range(num_cols):
-        ft = Phi @ np.diag(np.exp(times[c] * lambdas)) @ Phi.T @ f0
-        mask_nonzeros = np.abs(ft) > eps
+    fig = plt.figure(figsize=(8.0, 8.0))
 
-        ax = fig.add_subplot(
-            1,
-            num_cols,
-            c + 1,
-            projection="3d",
-            xlim=(graph.x1_axis.min(), graph.x1_axis.max()),
-            ylim=(graph.x2_axis.min(), graph.x2_axis.max()),
-            zlim=(graph.x3_axis.min(), graph.x3_axis.max()),
-        )
+    ax = fig.add_subplot(
+        111,
+        projection="3d",
+        xlim=(graph.x1_axis.min(), graph.x1_axis.max()),
+        ylim=(graph.x2_axis.min(), graph.x2_axis.max()),
+        zlim=(graph.x3_axis.min(), graph.x3_axis.max()),
+    )
+
+    def update(t):
+        ft = graph.heat_kernel(t) @ f0
+        mask_nonzeros = np.abs(ft) > tol
 
         ax.scatter(
             graph.node_pos[graph.node_index, 0][mask_nonzeros],
@@ -150,6 +157,7 @@ def visualize_heat_diffusion(graph: Graph, f0: np.array, times: Tuple[float, ...
             alpha=0.5,
         )
 
-        ax.set_title(fr"heat diffusion at $t = {times[c]}$")
+    ani = FuncAnimation(fig, update, times)
+    writer = PillowWriter(fps=5)
 
-    return fig
+    ani.save(file_name, writer=writer)

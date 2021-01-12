@@ -2,6 +2,7 @@ from time import time
 
 import numpy as np
 from gechebnet.graph.graph import HyperCubeGraph
+from tqdm import tqdm
 
 NX1, NX2, NX3 = 100, 100, 20
 
@@ -20,7 +21,7 @@ def compile_graphs(knn):
 
 def test_speed(knn, iter=50):
     computation_times = np.zeros(iter)
-    for i in range(iter):
+    for i in tqdm(range(iter)):
         start = time()
         graph = HyperCubeGraph(
             grid_size=(NX1, NX2),
