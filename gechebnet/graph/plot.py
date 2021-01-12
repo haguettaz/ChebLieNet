@@ -204,13 +204,12 @@ def visualize_diffusion_process(
 
     def update(t):
         ft = graph.diff_kernel(lambda x: diff_kernel(x, t)) @ f0
-        mask_nonzeros = np.abs(ft) > tol
 
         ax.scatter(
-            graph.node_pos[graph.node_index, 0][mask_nonzeros],
-            graph.node_pos[graph.node_index, 1][mask_nonzeros],
-            graph.node_pos[graph.node_index, 2][mask_nonzeros],
-            c=ft[mask_nonzeros],
+            graph.node_pos[graph.node_index, 0],
+            graph.node_pos[graph.node_index, 1],
+            graph.node_pos[graph.node_index, 2],
+            c=ft,
             s=50,
             alpha=0.5,
         )

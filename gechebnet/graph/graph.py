@@ -18,6 +18,9 @@ from .utils import process_edges, remove_self_loops, to_undirected
 
 class Graph:
     def __init__(self, *arg, **kwargs):
+        """
+        Init the graph attributes with empty tensors
+        """
         self.node_index = LongTensor()
         self.edge_index = LongTensor()
         self.edge_weight = FloatTensor()
@@ -199,7 +202,7 @@ class SE2GEGraph(Graph):
             raise ValueError(f"{kappa} is not a valid value for kappa, must be in [0,1).")
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # device = torch.device("cpu")
+
         xi = Vi(self.node_pos.to(device))  # sources
         xj = Vj(self.node_pos.to(device))  # targets
 

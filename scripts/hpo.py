@@ -4,8 +4,7 @@ import os
 import torch
 import wandb
 from gechebnet.data.dataloader import get_train_val_dataloaders
-from gechebnet.engine.engine import (create_supervised_evaluator,
-                                     create_supervised_trainer)
+from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engine.utils import prepare_batch, wandb_log
 from gechebnet.graph.graph import SE2GEGraph
 from gechebnet.model.chebnet import GEChebNet
@@ -19,13 +18,12 @@ DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
 DEVICE = torch.device("cuda")
 
 DATASET_NAME = "mnist"  # "stl10"
-VAL_RATIO = 0.2
+VAL_RATIO = 0.1
 NX1, NX2 = (28, 28)
 
 IN_CHANNELS = 1
 OUT_CHANNELS = 10
 HIDDEN_CHANNELS = 20
-POOLING_SIZE = 2
 
 EPOCHS = 20
 OPTIMIZER = "adam"
@@ -42,16 +40,15 @@ def build_sweep_config():
     sweep_config["parameters"] = {
         "batch_size": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(256)},
         "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
-        "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(64)},
+        "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(32)},
         "kappa": {"distribution": "uniform", "min": 0.0, "max": 1.0},
-        "knn": {"distribution": "categorical", "values": [2, 4, 8, 16, 32]},
+        "knn": {"distribution": "categorical", "values": [2, 4, 8, 16, 32, 64]},
         "learning_rate": {
             "distribution": "log_uniform",
             "min": math.log(1e-5),
             "max": math.log(0.1),
         },
         "nx3": {"distribution": "int_uniform", "min": 3, "max": 9},
-        "pooling": {"distribution": "categorical", "values": ["max", "avg"]},
         "weight_sigma": {"distribution": "uniform", "min": 0.25, "max": 8.0},
         "weight_decay": {
             "distribution": "log_uniform",
@@ -68,7 +65,7 @@ def build_sweep_config():
     return sweep_config
 
 
-def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, kappa, K, pooling):
+def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, kappa, K):
     if weight_kernel == "gaussian":
         kernel = lambda sqdistc: torch.exp(-sqdistc / weight_sigma ** 2)
     elif weight_kernel == "laplacian":
@@ -77,52 +74,26 @@ def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, kappa, K, pooling)
         kernel = lambda sqdistc: 1 / (1 + sqdistc / weight_sigma ** 2)
 
     # Different graphs are for successive pooling layers
-    graph_1 = SE2GEGraph(
+    graph = SE2GEGraph(
         grid_size=(NX1, NX2),
         nx3=nx3,
         kappa=kappa,
-        knn=int(knn * POOLING_SIZE ** 4),
+        knn=knn,
         sigmas=(xi / eps, xi, 1.0),
         weight_kernel=kernel,
     )
-    if graph_1.num_nodes > graph_1.num_edges:
+    if graph.num_nodes > graph.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
-    wandb.log({f"graph_1_nodes": graph_1.num_nodes, f"graph_1_edges": graph_1.num_edges})
-
-    graph_2 = SE2GEGraph(
-        grid_size=(NX1 // POOLING_SIZE, NX2 // POOLING_SIZE),
-        nx3=nx3,
-        kappa=kappa,
-        knn=int(knn * POOLING_SIZE ** 2),
-        sigmas=(xi / eps, xi, 1.0),
-        weight_kernel=kernel,
-    )
-    if graph_2.num_nodes > graph_2.num_edges:
-        raise ValueError(f"An error occured during the computation of the graph")
-    wandb.log({f"graph_2_nodes": graph_2.num_nodes, f"graph_2_edges": graph_2.num_edges})
-
-    graph_3 = SE2GEGraph(
-        grid_size=(NX1 // POOLING_SIZE // POOLING_SIZE, NX2 // POOLING_SIZE // POOLING_SIZE),
-        nx3=nx3,
-        kappa=kappa,
-        knn=int(knn),
-        sigmas=(xi / eps, xi, 1.0),
-        weight_kernel=kernel,
-    )
-    if graph_3.num_nodes > graph_3.num_edges:
-        raise ValueError(f"An error occured during the computation of the graph")
-    wandb.log({f"graph_3_nodes": graph_3.num_nodes, f"graph_3_edges": graph_3.num_edges})
+    wandb.log({f"num_nodes": graph.num_nodes, f"num_edges": graph.num_edges})
 
     model = GEChebNet(
-        (graph_1, graph_2, graph_3),
+        graph,
         K,
         IN_CHANNELS,
         OUT_CHANNELS,
         HIDDEN_CHANNELS,
         laplacian_device=DEVICE,
-        pooling=pooling,
     )
-
     wandb.log({"capacity": model.capacity})
 
     return model.to(DEVICE)
@@ -143,7 +114,6 @@ def train(config=None):
             config.weight_sigma,
             config.kappa,
             config.K,
-            config.pooling,
         )
 
         optimizer = get_optimizer(model, OPTIMIZER, config.learning_rate, config.weight_decay)
