@@ -9,7 +9,7 @@ from gechebnet.data.dataloader import (get_test_equivariance_dataloaders,
 from gechebnet.engine.engine import (create_supervised_evaluator,
                                      create_supervised_trainer)
 from gechebnet.engine.utils import prepare_batch, wandb_log
-from gechebnet.graph.graph import HyperCubeGraph
+from gechebnet.graph.graph import SE2GEGraph
 from gechebnet.model.chebnet import GEChebNet
 from gechebnet.model.optimizer import get_optimizer
 from gechebnet.utils import random_choice
@@ -54,7 +54,7 @@ def build_config():
 def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
     # Different graphs are for successive pooling layers
     graphs = [
-        HyperCubeGraph(
+        SE2GEGraph(
             grid_size=(NX1, NX2),
             nx3=nx3,
             weight_kernel=weight_kernel,
@@ -63,7 +63,7 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
             sigmas=(xi / eps, xi, 1.0),
             weight_comp_device=DEVICE,
         ),
-        HyperCubeGraph(
+        SE2GEGraph(
             grid_size=(NX1 // POOLING_SIZE, NX2 // POOLING_SIZE),
             nx3=nx3,
             weight_kernel=weight_kernel,
@@ -72,7 +72,7 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
             sigmas=(xi / eps, xi, 1.0),  # adapt the metric kernel to the size of the graph
             weight_comp_device=DEVICE,
         ),
-        HyperCubeGraph(
+        SE2GEGraph(
             grid_size=(NX1 // POOLING_SIZE // POOLING_SIZE, NX2 // POOLING_SIZE // POOLING_SIZE),
             nx3=nx3,
             weight_kernel=weight_kernel,

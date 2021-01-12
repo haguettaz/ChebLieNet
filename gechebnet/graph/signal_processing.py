@@ -31,12 +31,24 @@ def get_laplacian(
     return I - W_norm
 
 
-def get_fourier_basis(laplacian: SparseFloatTensor) -> Tuple[ndarray, ndarray]:
+def get_fourier_basis(laplacian: SparseFloatTensor, tol=1e-2) -> Tuple[ndarray, ndarray]:
     """
     Return graph Fourier basis, i.e. Laplacian eigen decomposition.
+
+    Args:
+        laplacian (SparseFloatTensor): graph laplacian.
+        tol (float): tolerance for negative eigen values. Defaults to 1e-2.
 
     Returns:
         (ndarray): Laplacian eigen values.
         (ndarray): Laplacian eigen vectors.
     """
-    return eigh(sparse_tensor_to_sparse_array(laplacian).toarray())
+    lambdas, Phi = eigh(sparse_tensor_to_sparse_array(laplacian).toarray())
+    if lambdas.min() < -tol:
+        raise ValueError(
+            f"An error occured in the eigen decomposition of the graph laplacian. The eigen values must be positive"
+        )
+
+    else:
+        lambdas[lambdas < 0] = 0.0
+    return lambdas, Phi

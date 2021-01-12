@@ -4,9 +4,10 @@ import os
 import torch
 import wandb
 from gechebnet.data.dataloader import get_train_val_dataloaders
-from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
+from gechebnet.engine.engine import (create_supervised_evaluator,
+                                     create_supervised_trainer)
 from gechebnet.engine.utils import prepare_batch, wandb_log
-from gechebnet.graph.graph import HyperCubeGraph
+from gechebnet.graph.graph import SE2GEGraph
 from gechebnet.model.chebnet import GEChebNet
 from gechebnet.model.optimizer import get_optimizer
 from ignite.contrib.handlers import ProgressBar
@@ -76,7 +77,7 @@ def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, kappa, K, pooling)
         kernel = lambda sqdistc: 1 / (1 + sqdistc / weight_sigma ** 2)
 
     # Different graphs are for successive pooling layers
-    graph_1 = HyperCubeGraph(
+    graph_1 = SE2GEGraph(
         grid_size=(NX1, NX2),
         nx3=nx3,
         kappa=kappa,
@@ -88,7 +89,7 @@ def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, kappa, K, pooling)
         raise ValueError(f"An error occured during the computation of the graph")
     wandb.log({f"graph_1_nodes": graph_1.num_nodes, f"graph_1_edges": graph_1.num_edges})
 
-    graph_2 = HyperCubeGraph(
+    graph_2 = SE2GEGraph(
         grid_size=(NX1 // POOLING_SIZE, NX2 // POOLING_SIZE),
         nx3=nx3,
         kappa=kappa,
@@ -100,7 +101,7 @@ def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, kappa, K, pooling)
         raise ValueError(f"An error occured during the computation of the graph")
     wandb.log({f"graph_2_nodes": graph_2.num_nodes, f"graph_2_edges": graph_2.num_edges})
 
-    graph_3 = HyperCubeGraph(
+    graph_3 = SE2GEGraph(
         grid_size=(NX1 // POOLING_SIZE // POOLING_SIZE, NX2 // POOLING_SIZE // POOLING_SIZE),
         nx3=nx3,
         kappa=kappa,

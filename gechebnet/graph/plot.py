@@ -1,4 +1,4 @@
-from typing import Any, Optional, Tuple
+from typing import Any, Callable, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -146,6 +146,64 @@ def visualize_heat_diffusion(
 
     def update(t):
         ft = graph.heat_kernel(t) @ f0
+        mask_nonzeros = np.abs(ft) > tol
+
+        ax.scatter(
+            graph.node_pos[graph.node_index, 0][mask_nonzeros],
+            graph.node_pos[graph.node_index, 1][mask_nonzeros],
+            graph.node_pos[graph.node_index, 2][mask_nonzeros],
+            c=ft[mask_nonzeros],
+            s=50,
+            alpha=0.5,
+        )
+
+    ani = FuncAnimation(fig, update, times)
+    writer = PillowWriter(fps=5)
+
+    ani.save(file_name, writer=writer)
+
+
+def visualize_diffusion_process(
+    graph: Graph,
+    f0: ndarray = None,
+    times: ndarray = None,
+    diff_kernel: Callable = None,
+    tol: float = 1e-6,
+    file_name: str = "diffusion.gif",
+):
+    """
+    Visualize heat diffusion on graph by creating a gif.
+
+    Args:
+        graph (Graph): graph.
+        f0 (ndarray): initial function. Defaults to None.
+        times (ndarray, optional): diffusion times. Defaults to None.
+        diff_kernel (callable, optional): diffusion kernel taking as input x and t and returning y. Defaults to None.
+        tol (float, optional): tolerance to detect zero values. Defaults to 1e-6.
+        file_name (str, optional): name of the generated gif. Defaults to 'heat_diffusion.gif'
+    """
+
+    if f0 is None:
+        f0 = graph.dirac(graph.centroid_index)
+
+    if times is None:
+        times = np.arange(0.0, 1.0, 0.1)
+
+    if diff_kernel is None:
+        diff_kernel = lambda x, t: np.power(x, t)
+
+    fig = plt.figure(figsize=(8.0, 8.0))
+
+    ax = fig.add_subplot(
+        111,
+        projection="3d",
+        xlim=(graph.x1_axis.min(), graph.x1_axis.max()),
+        ylim=(graph.x2_axis.min(), graph.x2_axis.max()),
+        zlim=(graph.x3_axis.min(), graph.x3_axis.max()),
+    )
+
+    def update(t):
+        ft = graph.diff_kernel(lambda x: diff_kernel(x, t)) @ f0
         mask_nonzeros = np.abs(ft) > tol
 
         ax.scatter(

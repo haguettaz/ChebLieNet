@@ -51,18 +51,18 @@ class Graph:
         """
         return get_fourier_basis(self.laplacian)
 
-    def heat_kernel(self, tau: float) -> ndarray:
+    def diff_kernel(self, kernel: Callable) -> ndarray:
         """
-        Return the heat kernel of the graph with time constant tau.
+        Return the diffusion kernel of the graph specified by the kernel imput.
 
         Args:
             tau (float): time constant.
 
         Returns:
-            ndarray: heat kernel.
+            ndarray: diffusion kernel.
         """
         lambdas, Phi = self.fourier_basis
-        return Phi @ np.diag(np.exp(tau * lambdas)) @ Phi.T
+        return Phi @ np.diag(kernel(lambdas)) @ Phi.T
 
     @property
     def num_nodes(self) -> int:
