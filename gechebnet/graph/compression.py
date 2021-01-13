@@ -5,7 +5,7 @@ from torch import BoolTensor, FloatTensor, LongTensor
 from ..utils import shuffle_tensor
 
 
-def edge_compression(
+def compress_edges(
     edge_index: LongTensor, edge_attr: FloatTensor, kappa: float
 ) -> Tuple[LongTensor, FloatTensor]:
     """

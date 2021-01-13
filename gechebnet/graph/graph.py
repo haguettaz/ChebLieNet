@@ -10,10 +10,9 @@ from torch import FloatTensor, LongTensor
 from torch.sparse import FloatTensor as SparseFloatTensor
 
 from ..utils import sparse_tensor_to_sparse_array
-from .compression import edge_compression
 from .riemannian import metric_tensor, sq_riemannian_distance
 from .signal_processing import get_fourier_basis, get_laplacian
-from .utils import process_edges, remove_self_loops, to_undirected
+from .utils import process_edges
 
 
 class Graph:
@@ -190,13 +189,8 @@ class SE2GEGraph(Graph):
             kappa (float): edges compression rate.
 
         Raises:
-            ValueError: knn must be strictly lower than number of nodes - 1.
             ValueError: kappa must be in [0, 1).
         """
-        if knn > self.num_nodes - 1:
-            raise ValueError(
-                f"{knn} is not a valid value for KNN graph with {self.num_nodes} nodes"
-            )
 
         if not 0.0 <= kappa < 1.0:
             raise ValueError(f"{kappa} is not a valid value for kappa, must be in [0,1).")
@@ -215,9 +209,9 @@ class SE2GEGraph(Graph):
         )
         edge_sqdist = edge_sqdist.cpu().flatten()
 
-        edge_index, edge_sqdist = process_edges(edge_index, edge_sqdist, kappa)
-
         edge_weight = weight_kernel(edge_sqdist)
+
+        edge_index, edge_weight = process_edges(edge_index, edge_weight, knn + 1, kappa)
 
         self.edge_index, self.edge_weight = edge_index, edge_weight
 

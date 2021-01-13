@@ -41,6 +41,6 @@ def test_speed(knn, iter=50):
 
 
 if __name__ == "__main__":
-    for knn in [2, 4, 8, 16, 32, 64, 128, 256, 512]:
+    for knn in [2, 4, 8, 16, 32, 64]:
         # compile_graphs(knn)
         test_speed(knn)

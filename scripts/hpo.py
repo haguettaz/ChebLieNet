@@ -30,6 +30,8 @@ OPTIMIZER = "adam"
 
 NUM_EXPERIMENTS = 100
 
+MODEL = "se2gechebnet"  # "chebnet"
+
 
 def build_sweep_config():
     sweep_config = {
@@ -37,30 +39,70 @@ def build_sweep_config():
         "metric": {"name": "validation_accuracy", "goal": "maximize"},
     }
 
-    sweep_config["parameters"] = {
-        "batch_size": {"distribution": "q_log_uniform", "min": math.log(8), "max": math.log(256)},
-        "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
-        "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(32)},
-        "kappa": {"distribution": "uniform", "min": 0.0, "max": 1.0},
-        "knn": {"distribution": "categorical", "values": [2, 4, 8, 16, 32, 64]},
-        "learning_rate": {
-            "distribution": "log_uniform",
-            "min": math.log(1e-5),
-            "max": math.log(0.1),
-        },
-        "nx3": {"distribution": "int_uniform", "min": 3, "max": 9},
-        "weight_sigma": {"distribution": "uniform", "min": 0.25, "max": 8.0},
-        "weight_decay": {
-            "distribution": "log_uniform",
-            "min": math.log(1e-6),
-            "max": math.log(1e-3),
-        },
-        "weight_kernel": {
-            "distribution": "categorical",
-            "values": ["cauchy", "gaussian", "laplacian"],
-        },
-        "xi": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
-    }
+    if not MODEL in {"se2gechebnet", "chebnet"}:
+        raise ValueError(
+            f"{MODEL} is not a valid value for MODEL: must be 'se2gechebnet' or 'chebnet'"
+        )
+
+    if MODEL == "se2gechebnet":
+        sweep_config["parameters"] = {
+            "batch_size": {
+                "distribution": "q_log_uniform",
+                "min": math.log(8),
+                "max": math.log(256),
+            },
+            "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
+            "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(32)},
+            "kappa": {"distribution": "uniform", "min": 0.0, "max": 1.0},
+            "knn": {"distribution": "categorical", "values": [2, 4, 8, 16, 32, 64]},
+            "learning_rate": {
+                "distribution": "log_uniform",
+                "min": math.log(1e-5),
+                "max": math.log(0.1),
+            },
+            "nx3": {"distribution": "int_uniform", "min": 3, "max": 9},
+            "weight_sigma": {"distribution": "uniform", "min": 0.25, "max": 8.0},
+            "weight_decay": {
+                "distribution": "log_uniform",
+                "min": math.log(1e-6),
+                "max": math.log(1e-3),
+            },
+            "weight_kernel": {
+                "distribution": "categorical",
+                "values": ["cauchy", "gaussian", "laplacian"],
+            },
+            "xi": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
+        }
+
+    else:
+        sweep_config["parameters"] = {
+            "batch_size": {
+                "distribution": "q_log_uniform",
+                "min": math.log(8),
+                "max": math.log(256),
+            },
+            "eps": {"distribution": "constant", "value": 1.0},
+            "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(32)},
+            "kappa": {"distribution": "uniform", "min": 0.0, "max": 1.0},
+            "knn": {"distribution": "categorical", "values": [2, 4, 8, 16, 32, 64]},
+            "learning_rate": {
+                "distribution": "log_uniform",
+                "min": math.log(1e-5),
+                "max": math.log(0.1),
+            },
+            "nx3": {"distribution": "constant", "value": 1},
+            "weight_sigma": {"distribution": "uniform", "min": 0.25, "max": 8.0},
+            "weight_decay": {
+                "distribution": "log_uniform",
+                "min": math.log(1e-6),
+                "max": math.log(1e-3),
+            },
+            "weight_kernel": {
+                "distribution": "categorical",
+                "values": ["cauchy", "gaussian", "laplacian"],
+            },
+            "xi": {"distribution": "constant", "value": 1.0},
+        }
 
     return sweep_config
 
@@ -73,7 +115,6 @@ def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, kappa, K):
     elif weight_kernel == "cauchy":
         kernel = lambda sqdistc: 1 / (1 + sqdistc / weight_sigma ** 2)
 
-    # Different graphs are for successive pooling layers
     graph = SE2GEGraph(
         grid_size=(NX1, NX2),
         nx3=nx3,
