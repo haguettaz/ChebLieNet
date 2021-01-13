@@ -52,16 +52,15 @@ def build_sweep_config():
                 "max": math.log(256),
             },
             "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
-            "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(32)},
-            "kappa": {"distribution": "uniform", "min": 0.0, "max": 1.0},
-            "knn": {"distribution": "categorical", "values": [2, 4, 8, 16, 32, 64]},
+            "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(16)},
+            "kappa": {"distribution": "log_uniform", "min": math.log(0.0), "max": math.log(1.0)},
+            "knn": {"distribution": "categorical", "values": [2, 4, 8, 16, 32, 64, 128]},
             "learning_rate": {
                 "distribution": "log_uniform",
                 "min": math.log(1e-5),
                 "max": math.log(0.1),
             },
             "nx3": {"distribution": "int_uniform", "min": 3, "max": 9},
-            "weight_sigma": {"distribution": "uniform", "min": 0.25, "max": 8.0},
             "weight_decay": {
                 "distribution": "log_uniform",
                 "min": math.log(1e-6),
@@ -82,8 +81,8 @@ def build_sweep_config():
                 "max": math.log(256),
             },
             "eps": {"distribution": "constant", "value": 1.0},
-            "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(32)},
-            "kappa": {"distribution": "uniform", "min": 0.0, "max": 1.0},
+            "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(16)},
+            "kappa": {"distribution": "log_uniform", "min": math.log(0.0), "max": math.log(1.0)},
             "knn": {"distribution": "categorical", "values": [2, 4, 8, 16, 32, 64]},
             "learning_rate": {
                 "distribution": "log_uniform",
@@ -91,7 +90,6 @@ def build_sweep_config():
                 "max": math.log(0.1),
             },
             "nx3": {"distribution": "constant", "value": 1},
-            "weight_sigma": {"distribution": "uniform", "min": 0.25, "max": 8.0},
             "weight_decay": {
                 "distribution": "log_uniform",
                 "min": math.log(1e-6),
@@ -107,13 +105,13 @@ def build_sweep_config():
     return sweep_config
 
 
-def get_model(nx3, knn, eps, xi, weight_kernel, weight_sigma, kappa, K):
+def get_model(nx3, knn, eps, xi, weight_kernel, kappa, K):
     if weight_kernel == "gaussian":
-        kernel = lambda sqdistc: torch.exp(-sqdistc / weight_sigma ** 2)
+        kernel = lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac ** 2)
     elif weight_kernel == "laplacian":
-        kernel = lambda sqdistc: torch.exp(-torch.sqrt(sqdistc) / weight_sigma)
+        kernel = lambda sqdistc, sigmac: torch.exp(-torch.sqrt(sqdistc) / sigmac)
     elif weight_kernel == "cauchy":
-        kernel = lambda sqdistc: 1 / (1 + sqdistc / weight_sigma ** 2)
+        kernel = lambda sqdistc, sigmac: 1 / (1 + sqdistc / sigmac ** 2)
 
     graph = SE2GEGraph(
         grid_size=(NX1, NX2),
@@ -152,7 +150,6 @@ def train(config=None):
             config.eps,
             config.xi,
             config.weight_kernel,
-            config.weight_sigma,
             config.kappa,
             config.K,
         )

@@ -211,7 +211,6 @@ def visualize_diffusion_process(
             graph.node_pos[graph.node_index, 2],
             c=ft,
             s=50,
-            alpha=0.5,
         )
 
     ani = FuncAnimation(fig, update, times)

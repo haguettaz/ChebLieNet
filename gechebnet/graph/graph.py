@@ -119,6 +119,7 @@ class SE2GEGraph(Graph):
         nx3: Optional[int] = 6,
         kappa: Optional[float] = 0.0,
         weight_kernel: Optional[Callable] = None,
+        sigma_fn: Optional[Callable] = None,
         knn: Optional[int] = 16,
         sigmas: Optional[Tuple[float, float, float]] = (1.0, 1.0, 1.0),
     ):
@@ -142,7 +143,7 @@ class SE2GEGraph(Graph):
         super().__init__()
 
         if weight_kernel is None:
-            weight_kernel = lambda x: torch.exp(-(x ** 2))
+            weight_kernel = lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac ** 2)
 
         self.nx1, self.nx2 = grid_size
         self.nx3 = nx3
@@ -175,7 +176,11 @@ class SE2GEGraph(Graph):
         self.node_pos = torch.stack([x1_.flatten(), x2_.flatten(), x3_.flatten()], axis=-1)
 
     def _initedges(
-        self, sigmas: Tuple[float, float, float], knn: int, weight_kernel: Callable, kappa: float
+        self,
+        sigmas: Tuple[float, float, float],
+        knn: int,
+        weight_kernel: Callable,
+        kappa: float,
     ):
         """
         Init edge indices and attributes (weights). The stored attributes are:
@@ -209,8 +214,8 @@ class SE2GEGraph(Graph):
         )
         edge_sqdist = edge_sqdist.cpu().flatten()
 
-        edge_weight = weight_kernel(edge_sqdist)
-
+        # as an heuristic, we choose sigma as the mean squared Riemannian distance
+        edge_weight = weight_kernel(edge_sqdist, edge_sqdist.mean())
         edge_index, edge_weight = process_edges(edge_index, edge_weight, knn + 1, kappa)
 
         self.edge_index, self.edge_weight = edge_index, edge_weight

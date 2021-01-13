@@ -1,29 +1,50 @@
 from typing import Tuple
 
+import torch
 from torch import BoolTensor, FloatTensor, LongTensor
 
 from ..utils import shuffle_tensor
 
 
-def compress_edges(
-    edge_index: LongTensor, edge_attr: FloatTensor, kappa: float
+def multinomial_compression(
+    edge_index: LongTensor, edge_weight: FloatTensor, kappa: float
 ) -> Tuple[LongTensor, FloatTensor]:
     """
-    Randomly remove a given rate of edges from the original tensor of edge's indices.
+    Randomly sample a rate kappa of edges to remove from the graph.
+    For the whole graph, samples from a multinomial distribution with probabilities
+    the weights of the edges.
 
     Args:
         edge_index (LongTensor): the original edge's indices.
-        edge_attr (FloatTensor): the original edge's weights.
+        edge_weight (FloatTensor): the original edge's weights.
         kappa (float): the rate of edges to remove.
 
     Returns:
         (LongTensor): the compressed edge's indices.
         (FloatTensor): the compressed edge's weights.
     """
-    num_to_remove = int(kappa * edge_index.shape[1])
-    num_to_keep = edge_index.shape[1] - num_to_remove
+    num_samples = int((1 - kappa) * edge_index.shape[1])
+    mask = torch.multinomial(edge_weight, num_samples)
+    # mask = torch.bernoulli((1 - kappa) * edge_weight).bool() # hard compression
+    return edge_index[:, mask], edge_weight[mask]
 
-    mask = BoolTensor([True] * num_to_remove + [False] * num_to_keep)
-    mask = shuffle_tensor(mask)
 
-    return edge_index[:, ~mask], edge_attr[~mask]
+def bernoulli_compression(
+    edge_index: LongTensor, edge_weight: FloatTensor, kappa: float
+) -> Tuple[LongTensor, FloatTensor]:
+    """
+    Randomly sample a rate kappa of edges to remove from the graph.
+    For each edge, samples from a bernoulli distribution with probability
+    (1-kappa)*weight. A failure results in an edge dropping.
+
+    Args:
+        edge_index (LongTensor): the original edge's indices.
+        edge_weight (FloatTensor): the original edge's weights.
+        kappa (float): the rate of edges to remove.
+
+    Returns:
+        (LongTensor): the compressed edge's indices.
+        (FloatTensor): the compressed edge's weights.
+    """
+    mask = torch.bernoulli((1 - kappa) * edge_weight).bool()
+    return edge_index[:, mask], edge_weight[mask]
