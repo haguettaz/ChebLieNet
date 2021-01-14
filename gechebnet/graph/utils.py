@@ -3,7 +3,7 @@ from typing import Tuple
 import torch
 from torch import BoolTensor, FloatTensor, LongTensor
 
-from .compression import compress_edges
+from .compression import multinomial_compression
 
 
 def process_edges(
@@ -37,7 +37,7 @@ def process_edges(
 
     # compress graph
     if kappa > 0.0:
-        edge_index, edge_weight = compress_edges(edge_index, edge_weight, kappa)
+        edge_index, edge_weight = multinomial_compression(edge_index, edge_weight, kappa)
 
     return edge_index, edge_weight
 
