@@ -49,11 +49,15 @@ class GEChebNet(Module):
             graph, hidden_channels, hidden_channels, K, laplacian_device=laplacian_device
         )
         self.conv3 = ChebConv(
+            graph, hidden_channels, hidden_channels, K, laplacian_device=laplacian_device
+        )
+        self.conv4 = ChebConv(
             graph, hidden_channels, out_channels, K, laplacian_device=laplacian_device
         )
 
         self.bn2 = BatchNorm1d(hidden_channels)
         self.bn3 = BatchNorm1d(hidden_channels)
+        self.bn4 = BatchNorm1d(hidden_channels)
 
         self.nx1, self.nx2, self.nx3 = graph.nx1, graph.nx2, graph.nx3
 
@@ -82,6 +86,10 @@ class GEChebNet(Module):
 
         x = self.bn3(x)  # (B, C, V)
         x = self.conv3(x)  # (B, C, V)
+        x = F.relu(x)  # (B, C, V)
+
+        x = self.bn4(x)  # (B, C, V)
+        x = self.conv4(x)  # (B, C, V)
         x = F.relu(x)  # (B, C, V)
 
         # Global pooling
