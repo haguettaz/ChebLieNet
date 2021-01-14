@@ -61,6 +61,7 @@ def build_sweep_config():
                 "max": math.log(0.1),
             },
             "nx3": {"distribution": "int_uniform", "min": 3, "max": 9},
+            "pooling": {"distribution": "categorical", "values": ["avg", "pooling"]},
             "weight_decay": {
                 "distribution": "log_uniform",
                 "min": math.log(1e-6),
@@ -90,6 +91,7 @@ def build_sweep_config():
                 "max": math.log(0.1),
             },
             "nx3": {"distribution": "constant", "value": 1},
+            "pooling": {"distribution": "categorical", "values": ["avg", "pooling"]},
             "weight_decay": {
                 "distribution": "log_uniform",
                 "min": math.log(1e-6),
@@ -105,7 +107,7 @@ def build_sweep_config():
     return sweep_config
 
 
-def get_model(nx3, knn, eps, xi, weight_kernel, kappa, K):
+def get_model(nx3, knn, eps, xi, weight_kernel, kappa, K, pooling):
     if weight_kernel == "gaussian":
         kernel = lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac ** 2)
     elif weight_kernel == "laplacian":
@@ -131,6 +133,7 @@ def get_model(nx3, knn, eps, xi, weight_kernel, kappa, K):
         IN_CHANNELS,
         OUT_CHANNELS,
         HIDDEN_CHANNELS,
+        pooling,
         laplacian_device=DEVICE,
     )
     wandb.log({"capacity": model.capacity})
@@ -152,6 +155,7 @@ def train(config=None):
             config.weight_kernel,
             config.kappa,
             config.K,
+            config.pooling,
         )
 
         optimizer = get_optimizer(model, OPTIMIZER, config.learning_rate, config.weight_decay)

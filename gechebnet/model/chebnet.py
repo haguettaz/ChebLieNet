@@ -3,7 +3,7 @@ from typing import Optional, Tuple
 import torch
 import torch.nn.functional as F
 from torch import FloatTensor
-from torch.nn import BatchNorm1d, Module
+from torch.nn import AvgPool1d, BatchNorm1d, MaxPool1d, Module
 
 from ..graph.graph import Graph
 from .convolution import ChebConv
@@ -17,6 +17,7 @@ class GEChebNet(Module):
         in_channels: int,
         out_channels: int,
         hidden_channels: int,
+        pooling: str,
         laplacian_device: Optional[torch.device] = None,
     ):
         """
@@ -24,15 +25,22 @@ class GEChebNet(Module):
 
         Args:
             graph (Graph): graph.
-            K (int): the degree of the Chebyschev polynomials, the sum goes from indices 0 to K-1.
-            in_channels (int): the number of dimensions of the input layer.
-            out_channels (int): the number of dimensions of the output layer.
-            hidden_channels (int): the number of dimensions of the hidden layers.
-            laplacian_device (torch.device, optional): computation device.
+            K (int): degree of the Chebyschev polynomials, the sum goes from indices 0 to K-1.
+            in_channels (int): number of dimensions of the input layer.
+            out_channels (int): number of dimensions of the output layer.
+            hidden_channels (int): number of dimensions of the hidden layers.
+            pooling (str): global pooling function
+            laplacian_device (torch.device, optional): computation device. Defaults to None.
+
+        Raises:
+            ValueError: pooling must be 'avg' or 'max'
         """
         super(GEChebNet, self).__init__()
 
         laplacian_device = laplacian_device or torch.device("cpu")
+
+        if pooling not in {"avg", "max"}:
+            raise ValueError(f"{pooling} is not a valid value for pooling: must be 'avg' or 'max'")
 
         self.conv1 = ChebConv(
             graph, in_channels, hidden_channels, K, laplacian_device=laplacian_device
@@ -48,6 +56,11 @@ class GEChebNet(Module):
         self.bn3 = BatchNorm1d(hidden_channels)
 
         self.nx1, self.nx2, self.nx3 = graph.nx1, graph.nx2, graph.nx3
+
+        if pooling == "avg":
+            self.pool = AvgPool1d(graph.num_nodes)  # theoretical equivariance
+        else:
+            self.pool = MaxPool1d(graph.num_nodes)  # adds some non linearities, better in practice
 
     def forward(self, x: FloatTensor) -> FloatTensor:
         """
@@ -73,7 +86,7 @@ class GEChebNet(Module):
         x = F.relu(x)  # (B, C, V)
 
         # Global pooling
-        x = torch.mean(x, dim=2)  # (B, C)
+        x = self.pool(x).squeeze()  # (B, C)
 
         # Output layer
         x = F.log_softmax(x, dim=1)  # (B, C)
