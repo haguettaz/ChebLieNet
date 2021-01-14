@@ -36,7 +36,7 @@ def visualize_graph(graph: Graph, signal: Optional[FloatTensor] = None) -> Figur
     )
 
     if signal is None:
-        ax.scatter(
+        im = ax.scatter(
             graph.node_pos[graph.node_index, 0],
             graph.node_pos[graph.node_index, 1],
             graph.node_pos[graph.node_index, 2],
@@ -44,19 +44,20 @@ def visualize_graph(graph: Graph, signal: Optional[FloatTensor] = None) -> Figur
             alpha=0.5,
         )
 
-        return fig
+    else:
+        if signal.max() > 1 or signal.min() < 0:
+            signal = rescale(signal)
 
-    if signal.max() > 1 or signal.min() < 0:
-        signal = rescale(signal)
+        im = ax.scatter(
+            graph.node_pos[graph.node_index, 0],
+            graph.node_pos[graph.node_index, 1],
+            graph.node_pos[graph.node_index, 2],
+            s=50,
+            c=signal,
+            alpha=0.5,
+        )
 
-    ax.scatter(
-        graph.node_pos[graph.node_index, 0],
-        graph.node_pos[graph.node_index, 1],
-        graph.node_pos[graph.node_index, 2],
-        s=50,
-        c=signal,
-        alpha=0.5,
-    )
+    plt.colorbar(im, fraction=0.04, pad=0.1)
 
     return fig
 

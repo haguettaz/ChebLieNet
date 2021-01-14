@@ -6,42 +6,6 @@ from torch import BoolTensor, FloatTensor, LongTensor
 from .compression import multinomial_compression
 
 
-def process_edges(
-    edge_index: LongTensor, edge_weight: FloatTensor, knn: int, kappa: float
-) -> Tuple[LongTensor, FloatTensor]:
-    """
-    Process edges of graph:
-        1. Remove duplicated edges
-        2. Remove self loops
-        2. Remove directed edges
-        3. Compress edges (optional)
-
-    Args:
-        edge_index (LongTensor): indices of edges.
-        edge_weight (FloatTensor): weights of edges.
-        kappa (float): compression rate.
-
-    Returns:
-        (LongTensor): indices of edges.
-        (FloatTensor): weights of edges.
-    """
-
-    # remove duplicated edges due to too high knn
-    edge_index, edge_weight = remove_duplicated_edges(edge_index, edge_weight, knn)
-
-    # remove self loops
-    edge_index, edge_weight = remove_self_loops(edge_index, edge_weight)
-
-    # remove directed edges
-    edge_index, edge_weight = remove_directed_edges(edge_index, edge_weight)
-
-    # compress graph
-    if kappa > 0.0:
-        edge_index, edge_weight = multinomial_compression(edge_index, edge_weight, kappa)
-
-    return edge_index, edge_weight
-
-
 def code_edges(edge_index: LongTensor, edge_weight: FloatTensor) -> FloatTensor:
     """
     Generates a coded tensor corresponding to edges' indices and weights. Let s(e) (resp. t(e)) be the indices
@@ -60,7 +24,6 @@ def code_edges(edge_index: LongTensor, edge_weight: FloatTensor) -> FloatTensor:
     Returns:
         FloatTensor: coded edges.
     """
-
     num_nodes = edge_index.max() + 1
 
     if edge_weight.max() >= 1:
@@ -75,15 +38,15 @@ def code_edges(edge_index: LongTensor, edge_weight: FloatTensor) -> FloatTensor:
 
 
 def remove_duplicated_edges(
-    edge_index: LongTensor, edge_weight: FloatTensor, knn: int
+    edge_index: LongTensor, edge_attr: FloatTensor, knn: int
 ) -> Tuple[LongTensor, FloatTensor]:
     """
-    Remove duplicated edges in the graph given by edge_index and edge_weight. Duplicated edges can appear if the
+    Remove duplicated edges in the graph given by edge_index and edge_attr. Duplicated edges can appear if the
     number of connections per vertex is higher than the total number of vertices.
 
     Args:
         edge_index (LongTensor): indices of edges.
-        edge_weight (FloatTensor): weights of edges.
+        edge_attr (FloatTensor): attributes of edges.
         knn (int): number of connections of a vertex.
 
     Raises:
@@ -91,7 +54,7 @@ def remove_duplicated_edges(
 
     Returns:
         (LongTensor): indices of edges.
-        (FloatTensor)]: weights of edges
+        (FloatTensor)]: attributes of edges
     """
     num_nodes, num_edges = edge_index.max() + 1, edge_index.shape[1]
 
@@ -100,27 +63,27 @@ def remove_duplicated_edges(
             f"The number of edges {num_edges} does not coincide with the number of nodes {num_nodes} and knn {knn}"
         )
 
-    indices = [idx for idx in range(num_edges) if idx % knn <= num_nodes]
+    indices = [idx for idx in range(num_edges) if idx % knn < num_nodes]
 
-    return edge_index[:, indices], edge_weight[indices]
+    return edge_index[:, indices], edge_attr[indices]
 
 
 def remove_self_loops(
-    edge_index: LongTensor, edge_weight: FloatTensor
+    edge_index: LongTensor, edge_attr: FloatTensor
 ) -> Tuple[LongTensor, FloatTensor]:
     """
-    Removes every self-loop in the graph given by edge_index and edge_weight.
+    Removes every self-loop in the graph given by edge_index and edge_attr.
 
     Args:
         edge_index (LongTensor): indices of edges.
-        edge_weight (FloatTensor): weights of edges.
+        edge_attr (FloatTensor): attributes of edges.
 
     Returns:
         LongTensor: indices of edges.
-        FloatTensor: weights of edges.
+        FloatTensor: attributes of edges.
     """
     mask = edge_index[0] != edge_index[1]
-    return edge_index[:, mask], edge_weight[mask]
+    return edge_index[:, mask], edge_attr[mask]
 
 
 def remove_directed_edges(
@@ -147,7 +110,7 @@ def remove_directed_edges(
     counts_indices = torch.arange(counts.shape[0])
 
     mask = BoolTensor([False] * num_edges)
-    for c_i in counts_indices[counts == 1]: # directed edges
+    for c_i in counts_indices[counts == 1]:  # directed edges
         mask |= indices == c_i
 
     return edge_index[:, ~mask], edge_weight[~mask]

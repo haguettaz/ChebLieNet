@@ -10,9 +10,10 @@ from torch import FloatTensor, LongTensor
 from torch.sparse import FloatTensor as SparseFloatTensor
 
 from ..utils import sparse_tensor_to_sparse_array
+from .compression import multinomial_compression
 from .riemannian import metric_tensor, sq_riemannian_distance
 from .signal_processing import get_fourier_basis, get_laplacian
-from .utils import process_edges
+from .utils import remove_directed_edges, remove_duplicated_edges, remove_self_loops
 
 
 class Graph:
@@ -42,10 +43,30 @@ class Graph:
         weights = self.edge_weight[mask]
         return neighbors, weights
 
-    @property
-    def fourier_basis(self) -> Tuple[ndarray, ndarray]:
+    def _initlaplacian(self):
         """
-        Return graph Fourier basis, i.e. Laplacian eigen decomposition.
+        Init the symmetric normalized laplacian of the graph. The stored attributes are:
+            - laplacian (torch.sparse.tensor): symmetric normalized laplacian.
+            - lmax (float): maximum eigenvalue of the laplacian.
+        """
+        self.laplacian = get_laplacian(self.edge_index, self.edge_weight, self.num_nodes)
+
+        try:
+            lmax = eigsh(
+                sparse_tensor_to_sparse_array(self.laplacian),
+                k=1,
+                which="LM",
+                return_eigenvectors=False,
+            )
+            self.lmax = float(lmax.real)
+        except ArpackError:
+            # in case the eigen decomposition's algorithm does not converge, set lmax to theoretic upper bound.
+            self.lmax = 2.0
+
+    @property
+    def eigen_space(self) -> Tuple[ndarray, ndarray]:
+        """
+        Return graph eigen space, i.e. Laplacian eigen decomposition.
 
         Returns:
             (ndarray): Laplacian eigen values.
@@ -63,7 +84,7 @@ class Graph:
         Returns:
             ndarray: diffusion kernel.
         """
-        lambdas, Phi = self.fourier_basis
+        lambdas, Phi = self.eigen_space
         return Phi @ np.diag(kernel(lambdas)) @ Phi.T
 
     @property
@@ -137,7 +158,7 @@ class SE2GEGraph(Graph):
             kappa (float, optional): edges compression rate. Defaults to 0.0.
             weight_kernel (callable, optional): weight kernel to use. Defaults to None.
             knn (int, optional): maximum number of connections of a vertex. Defaults to 16.
-            sigmas (Optional, optional): anisotropy parameters. Defaults to (1.0, 1.0, 1.0).
+            sigmas (float, optional): anisotropy parameters. Defaults to (1.0, 1.0, 1.0).
         """
 
         super().__init__()
@@ -150,7 +171,7 @@ class SE2GEGraph(Graph):
 
         self._initnodes(self.nx1 * self.nx2 * self.nx3)
         self._initedges(sigmas, knn, weight_kernel, kappa)
-        self._initlaplacian()
+        super()._initlaplacian()
 
     def _initnodes(self, num_nodes: int):
         """
@@ -214,31 +235,23 @@ class SE2GEGraph(Graph):
         )
         edge_sqdist = edge_sqdist.cpu().flatten()
 
+        # remove duplicated edges due to too high knn
+        edge_index, edge_sqdist = remove_duplicated_edges(edge_index, edge_sqdist, knn + 1)
+
+        # remove self loops
+        edge_index, edge_sqdist = remove_self_loops(edge_index, edge_sqdist)
+
         # as an heuristic, we choose sigma as the mean squared Riemannian distance
         edge_weight = weight_kernel(edge_sqdist, edge_sqdist.mean())
-        edge_index, edge_weight = process_edges(edge_index, edge_weight, knn + 1, kappa)
+
+        # remove directed edges
+        edge_index, edge_weight = remove_directed_edges(edge_index, edge_weight)
+
+        # compress graph
+        if kappa > 0.0:
+            edge_index, edge_weight = multinomial_compression(edge_index, edge_weight, kappa)
 
         self.edge_index, self.edge_weight = edge_index, edge_weight
-
-    def _initlaplacian(self):
-        """
-        Init the symmetric normalized laplacian of the graph. The stored attributes are:
-            - laplacian (torch.sparse.tensor): symmetric normalized laplacian.
-            - lmax (float): maximum eigenvalue of the laplacian.
-        """
-        self.laplacian = get_laplacian(self.edge_index, self.edge_weight, self.num_nodes)
-
-        try:
-            lmax = eigsh(
-                sparse_tensor_to_sparse_array(self.laplacian),
-                k=1,
-                which="LM",
-                return_eigenvectors=False,
-            )
-            self.lmax = float(lmax.real)
-        except ArpackError:
-            # in case the eigen decomposition's algorithm does not converge, set lmax to theoretic upper bound.
-            self.lmax = 2.0
 
     @property
     def centroid_index(self) -> int:

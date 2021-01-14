@@ -30,7 +30,7 @@ OPTIMIZER = "adam"
 
 NUM_EXPERIMENTS = 100
 
-MODEL = "se2gechebnet"  # "chebnet"
+MODEL = "se2gechebnet"  # "chebnet", se2gechebnet_"
 
 
 def build_sweep_config():
@@ -44,7 +44,7 @@ def build_sweep_config():
             f"{MODEL} is not a valid value for MODEL: must be 'se2gechebnet' or 'chebnet'"
         )
 
-    if MODEL == "se2gechebnet":
+    if MODEL == "se2gechebnet" or "se2gechebnet_":
         sweep_config["parameters"] = {
             "batch_size": {
                 "distribution": "q_log_uniform",
@@ -66,10 +66,6 @@ def build_sweep_config():
                 "distribution": "log_uniform",
                 "min": math.log(1e-6),
                 "max": math.log(1e-3),
-            },
-            "weight_kernel": {
-                "distribution": "categorical",
-                "values": ["cauchy", "gaussian", "laplacian"],
             },
             "xi": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
         }
@@ -97,31 +93,20 @@ def build_sweep_config():
                 "min": math.log(1e-6),
                 "max": math.log(1e-3),
             },
-            "weight_kernel": {
-                "distribution": "categorical",
-                "values": ["cauchy", "gaussian", "laplacian"],
-            },
             "xi": {"distribution": "constant", "value": 1.0},
         }
 
     return sweep_config
 
 
-def get_model(nx3, knn, eps, xi, weight_kernel, kappa, K, pooling):
-    if weight_kernel == "gaussian":
-        kernel = lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac ** 2)
-    elif weight_kernel == "laplacian":
-        kernel = lambda sqdistc, sigmac: torch.exp(-torch.sqrt(sqdistc) / sigmac)
-    elif weight_kernel == "cauchy":
-        kernel = lambda sqdistc, sigmac: 1 / (1 + sqdistc / sigmac ** 2)
-
+def get_model(nx3, knn, eps, xi, kappa, K, pooling):
     graph = SE2GEGraph(
         grid_size=(NX1, NX2),
         nx3=nx3,
         kappa=kappa,
         knn=knn,
-        sigmas=(xi / eps, xi, 1.0),
-        weight_kernel=kernel,
+        sigmas=(xi / eps, xi, 1000.0 if MODEL == "se2gechebnet_" else 1.0),
+        weight_kernel=lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac),
     )
     if graph.num_nodes > graph.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
@@ -152,7 +137,6 @@ def train(config=None):
             config.knn,
             config.eps,
             config.xi,
-            config.weight_kernel,
             config.kappa,
             config.K,
             config.pooling,

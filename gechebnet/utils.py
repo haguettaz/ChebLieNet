@@ -1,6 +1,8 @@
 from typing import Optional, Union
 
+import numpy as np
 import torch
+from numpy import ndarray
 from pykeops.torch import LazyTensor
 from scipy.sparse import coo_matrix
 from torch import Tensor
@@ -54,8 +56,14 @@ def rescale(tensor: Tensor, low: Union[int, float] = 0.0, up: Union[int, float] 
     Returns:
         (Tensor): rescaled input.
     """
-    max_, _ = torch.max(tensor, dim=0)
-    min_, _ = torch.min(tensor, dim=0)
+
+    if len(tensor.shape) == 2:
+        max_, _ = torch.max(tensor, dim=1)
+        min_, _ = torch.min(tensor, dim=1)
+
+    else:
+        max_, _ = torch.max(tensor, dim=0)
+        min_, _ = torch.min(tensor, dim=0)
 
     return (up - low) * torch.divide(tensor - min_, max_ - min_) + low
 
@@ -118,7 +126,9 @@ def sparse_tensor_to_sparse_array(sparse_tensor) -> coo_matrix:
     return out
 
 
-def sparse_tensor_diag(size: int, diag: Tensor = None, device: torch.device = None) -> SparseFloatTensor:
+def sparse_tensor_diag(
+    size: int, diag: Tensor = None, device: torch.device = None
+) -> SparseFloatTensor:
     """
     Return a diagonal sparse tensor.
 
@@ -134,4 +144,6 @@ def sparse_tensor_diag(size: int, diag: Tensor = None, device: torch.device = No
     device = device or torch.device("cpu")
     diag = diag or torch.ones(size)
 
-    return SparseFloatTensor(indices=torch.arange(size).expand(2, -1), values=diag, size=(size, size), device=device)
+    return SparseFloatTensor(
+        indices=torch.arange(size).expand(2, -1), values=diag, size=(size, size), device=device
+    )
