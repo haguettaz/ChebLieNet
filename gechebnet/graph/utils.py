@@ -6,7 +6,7 @@ from torch import BoolTensor, FloatTensor, LongTensor
 from .compression import multinomial_compression
 
 
-def code_edges(edge_index: LongTensor, edge_weight: FloatTensor) -> FloatTensor:
+def code_edges(edge_index: LongTensor, edge_weight: FloatTensor, num_nodes: int) -> FloatTensor:
     """
     Generates a coded tensor corresponding to edges' indices and weights. Let s(e) (resp. t(e)) be the indices
     of the source (resp. target) of the edge e with weight w(e) and let N be the total number of nodes. The code
@@ -16,6 +16,7 @@ def code_edges(edge_index: LongTensor, edge_weight: FloatTensor) -> FloatTensor:
     Args:
         edge_index (LongTensor): indices of edges.
         edge_weight (FloatTensor): weights of edges.
+        num_nodes (int): number of nodes.
 
     Raises:
         ValueError: maximum weights must be strictly lower than 1, otherwise, the code is not uniquely decodable
@@ -24,8 +25,6 @@ def code_edges(edge_index: LongTensor, edge_weight: FloatTensor) -> FloatTensor:
     Returns:
         FloatTensor: coded edges.
     """
-    num_nodes = edge_index.max() + 1
-
     if edge_weight.max() >= 1:
         raise ValueError(
             f"Found at least one weight higher or equal to 1, the edge's code cannot work"
@@ -34,7 +33,7 @@ def code_edges(edge_index: LongTensor, edge_weight: FloatTensor) -> FloatTensor:
     val_min, _ = edge_index.min(dim=0)
     val_diff = (edge_index[1] - edge_index[0]).abs()
 
-    return val_min + num_nodes * val_diff + edge_weight
+    return val_min * num_nodes + val_diff + edge_weight
 
 
 def remove_duplicated_edges(
@@ -87,7 +86,7 @@ def remove_self_loops(
 
 
 def remove_directed_edges(
-    edge_index: LongTensor, edge_weight: FloatTensor
+    edge_index: LongTensor, edge_weight: FloatTensor, num_nodes: int
 ) -> Tuple[LongTensor, FloatTensor]:
     """
     Removes every directed edges in the graph given by edge_index and edge_weight.
@@ -95,6 +94,7 @@ def remove_directed_edges(
     Args:
         edge_index (LongTensor): indices of edges.
         edge_weight (FloatTensor): weights of edges.
+        num_nodes (int): number of nodes.
 
     Returns:
         LongTensor: indices of edges.
@@ -102,7 +102,7 @@ def remove_directed_edges(
     """
 
     # codes the edges to use unique function of pytorch
-    coded_edges = code_edges(edge_index, edge_weight)
+    coded_edges = code_edges(edge_index, edge_weight, num_nodes)
 
     num_edges = edge_index.shape[1]
 
@@ -110,7 +110,7 @@ def remove_directed_edges(
     counts_indices = torch.arange(counts.shape[0])
 
     mask = BoolTensor([False] * num_edges)
-    for c_i in counts_indices[counts == 1]:  # directed edges
+    for c_i in counts_indices[counts < 2]:  # directed edges
         mask |= indices == c_i
 
     return edge_index[:, ~mask], edge_weight[~mask]

@@ -72,7 +72,6 @@ class GEChebNet(Module):
         Returns:
             (FloatTensor): the predictions on the batch.
         """
-
         # Chebyschev Convolutions
         x = self.conv1(x)  # (B, C, V)
         x = F.relu(x)  # (B, C, V)

@@ -245,11 +245,12 @@ class SE2GEGraph(Graph):
         edge_weight = weight_kernel(edge_sqdist, edge_sqdist.mean())
 
         # remove directed edges
-        edge_index, edge_weight = remove_directed_edges(edge_index, edge_weight)
+        edge_index, edge_weight = remove_directed_edges(edge_index, edge_weight, self.num_nodes)
 
         # compress graph
         if kappa > 0.0:
             edge_index, edge_weight = multinomial_compression(edge_index, edge_weight, kappa)
+            edge_index, edge_weight = remove_directed_edges(edge_index, edge_weight, self.num_nodes)
 
         self.edge_index, self.edge_weight = edge_index, edge_weight
 

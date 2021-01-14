@@ -61,7 +61,7 @@ def build_sweep_config():
                 "max": math.log(0.1),
             },
             "nx3": {"distribution": "int_uniform", "min": 3, "max": 9},
-            "pooling": {"distribution": "categorical", "values": ["avg", "pooling"]},
+            "pooling": {"distribution": "categorical", "values": ["avg", "max"]},
             "weight_decay": {
                 "distribution": "log_uniform",
                 "min": math.log(1e-6),
