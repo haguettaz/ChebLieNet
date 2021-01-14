@@ -53,7 +53,7 @@ def build_sweep_config():
             },
             "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
             "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(16)},
-            "kappa": {"distribution": "log_uniform", "min": math.log(0.0), "max": math.log(1.0)},
+            "kappa": {"distribution": "log_uniform", "min": 0.0, "max": 1.0},
             "knn": {"distribution": "categorical", "values": [2, 4, 8, 16, 32, 64, 128]},
             "learning_rate": {
                 "distribution": "log_uniform",
