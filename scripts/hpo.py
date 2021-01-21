@@ -30,7 +30,7 @@ OPTIMIZER = "adam"
 
 NUM_EXPERIMENTS = 100
 
-MODEL = "se2gechebnet"  # "chebnet", se2gechebnet_"
+MODEL = "chebnet"  # "se2gechebnet" "se2gechebnet_"
 
 
 def build_sweep_config():
@@ -39,12 +39,12 @@ def build_sweep_config():
         "metric": {"name": "validation_accuracy", "goal": "maximize"},
     }
 
-    if not MODEL in {"se2gechebnet", "chebnet"}:
+    if not MODEL in {"se2gechebnet", "chebnet", "se2gechebnet_"}:
         raise ValueError(
-            f"{MODEL} is not a valid value for MODEL: must be 'se2gechebnet' or 'chebnet'"
+            f"{MODEL} is not a valid value for MODEL: must be 'se2gechebnet' or 'chebnet', 'se2gechebnet_'"
         )
 
-    if MODEL == "se2gechebnet" or "se2gechebnet_":
+    if MODEL == "se2gechebnet":
         sweep_config["parameters"] = {
             "batch_size": {
                 "distribution": "q_log_uniform",
@@ -53,8 +53,8 @@ def build_sweep_config():
             },
             "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
             "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(16)},
-            "kappa": {"distribution": "uniform", "min": 0.0, "max": 0.9},
-            "knn": {"distribution": "categorical", "values": [2, 4, 8, 16, 32, 64, 128]},
+            "kappa": {"distribution": "uniform", "min": 0.0, "max": 0.4},
+            "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
             "learning_rate": {
                 "distribution": "log_uniform",
                 "min": math.log(1e-5),
@@ -69,8 +69,33 @@ def build_sweep_config():
             },
             "xi": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
         }
+    elif MODEL == "se2gechebnet_":
+        sweep_config["parameters"] = {
+            "batch_size": {
+                "distribution": "q_log_uniform",
+                "min": math.log(8),
+                "max": math.log(256),
+            },
+            "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
+            "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(16)},
+            "kappa": {"distribution": "uniform", "min": 0.0, "max": 0.4},
+            "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
+            "learning_rate": {
+                "distribution": "log_uniform",
+                "min": math.log(1e-5),
+                "max": math.log(0.1),
+            },
+            "nx3": {"distribution": "int_uniform", "min": 3, "max": 9},
+            "pooling": {"distribution": "categorical", "values": ["avg", "max"]},
+            "weight_decay": {
+                "distribution": "log_uniform",
+                "min": math.log(1e-6),
+                "max": math.log(1e-3),
+            },
+            "xi": {"distribution": "constant", "value": 1e-3},  # independent symmetry layers
+        }
 
-    else:
+    elif MODEL == "chebnet":
         sweep_config["parameters"] = {
             "batch_size": {
                 "distribution": "q_log_uniform",
@@ -79,15 +104,15 @@ def build_sweep_config():
             },
             "eps": {"distribution": "constant", "value": 1.0},
             "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(16)},
-            "kappa": {"distribution": "uniform", "min": 0.0, "max": 0.9},
-            "knn": {"distribution": "categorical", "values": [2, 4, 8, 16, 32, 64]},
+            "kappa": {"distribution": "uniform", "min": 0.0, "max": 0.4},
+            "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
             "learning_rate": {
                 "distribution": "log_uniform",
                 "min": math.log(1e-5),
                 "max": math.log(0.1),
             },
             "nx3": {"distribution": "constant", "value": 1},
-            "pooling": {"distribution": "categorical", "values": ["avg", "pooling"]},
+            "pooling": {"distribution": "categorical", "values": ["avg", "max"]},
             "weight_decay": {
                 "distribution": "log_uniform",
                 "min": math.log(1e-6),
