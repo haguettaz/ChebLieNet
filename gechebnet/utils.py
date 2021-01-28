@@ -1,3 +1,4 @@
+import math
 from typing import Optional, Union
 
 import numpy as np
@@ -10,46 +11,12 @@ from torch.sparse import FloatTensor as SparseFloatTensor
 from torch.sparse import Tensor as SparseTensor
 
 
-def lower(x: LazyTensor, b: Union[float, int], inclusive: Optional[bool] = True) -> LazyTensor:
+def rescale(input: Tensor, low: Union[int, float] = 0.0, up: Union[int, float] = 1.0) -> Tensor:
     """
-    Indicator function wether x is (strictly) lower than b.
+    Returns a new tensor with the rescaled version of the elements of input.
 
     Args:
-        x (LazyTensor): input.
-        b (Union[float, int]): upper bound.
-        inclusive (Optional[bool], optional): False if the comparision is strict. Defaults to True.
-
-    Returns:
-        (LazyTensor): x if x is (strictly) lower than b, 0 otherwise.
-    """
-    if not inclusive:
-        return (-x - 1e-4 + b).step()
-    return (-x + b).step()
-
-
-def upper(x: LazyTensor, a: Union[float, int], inclusive: Optional[bool] = True) -> LazyTensor:
-    """
-    Indicator function wether x is (strictly) upper than b.
-
-    Args:
-        x (LazyTensor): input.
-        a (Union[float, int]): upper bound.
-        inclusive (Optional[bool], optional): False if the comparision is strict. Defaults to True.
-
-    Returns:
-        (LazyTensor): x if x is (strictly) higher than a, 0 otherwise.
-    """
-    if not inclusive:
-        return (x - 1e-5 - a).step()
-    return (x - a).step()
-
-
-def rescale(tensor: Tensor, low: Union[int, float] = 0.0, up: Union[int, float] = 1.0) -> Tensor:
-    """
-    Standardize tensor
-
-    Args:
-        tensor (Tensor): input.
+        input (Tensor): input tensor.
         low (int or float, optional): lowest value of output.
         up (int or float, optional): highest value of output.
 
@@ -57,72 +24,85 @@ def rescale(tensor: Tensor, low: Union[int, float] = 0.0, up: Union[int, float] 
         (Tensor): rescaled input.
     """
 
-    if len(tensor.shape) == 2:
-        max_, _ = torch.max(tensor, dim=1)
-        min_, _ = torch.min(tensor, dim=1)
+    max_, _ = torch.max(input, dim=-1)
+    min_, _ = torch.min(input, dim=-1)
 
-    else:
-        max_, _ = torch.max(tensor, dim=0)
-        min_, _ = torch.min(tensor, dim=0)
+    if max_ == min_:
+        return (input - min_) + low
 
-    return (up - low) * torch.divide(tensor - min_, max_ - min_) + low
+    return (up - low) * torch.divide(input - min_, max_ - min_) + low
 
 
-def shuffle_tensor(tensor: Tensor) -> Tensor:
+def mod(input: Tensor, n: float, d: float = 0.0) -> Tensor:
     """
-    Randomly permute elements of an input tensor.
+    Returns a new tensor with the modulo with offset of the elements of input.
 
     Args:
-        tensor (Tensor): input.
+        input (Tensor): input tensor.
+        n (float): modulus.
+        d (float, optional): offset. Defaults to 0.0.
 
     Returns:
-        (Tensor): shuffled input.
+        (Tensor): output tensor.
     """
-    return tensor[torch.randperm(tensor.nelement())]
+    return (input - d) % n + d
 
 
-def random_choice(tensor: Tensor) -> Tensor:
+def shuffle_tensor(input: Tensor) -> Tensor:
     """
-    Randomly pick one element of an input tensor.
+    Returns a new tensor with a shuffling of the elements of input.
 
     Args:
-        tensor (Tensor): input.
+        input (Tensor): input tensor.
 
     Returns:
-        (Tensor): random element in input.
+        (Tensor): output tensor.
     """
-    return Tensor[torch.randint(tensor.nelement(), (1,))]
+    return input[torch.randperm(input.nelement())]
 
 
-def sparsity_measure(sparse_tensor: SparseTensor) -> float:
+def random_choice(input: Tensor) -> Tensor:
     """
-    Measure sparsity of a sparse tensor, i.e. percentage of zero elements.
+    Returns a random element of input.
 
     Args:
-        sparse_tensor (SparseTensor): input.
+        input (Tensor): input tensor.
 
     Returns:
-        float: sparsity measure.
+        (Tensor): output tensor.
     """
-    return sparse_tensor._nnz() / (sparse_tensor.size(0) * sparse_tensor.size(1))
+    return Tensor[torch.randint(input.nelement(), (1,))]
 
 
-def sparse_tensor_to_sparse_array(sparse_tensor) -> coo_matrix:
+def sparsity_measure(input: SparseTensor) -> float:
     """
-    Convert a sparse tensor (PyTorch) to a sparse coo matrix (Scipy).
+    Returns the sparsity rate of the input sparse tensor, i.e. percentage of zero elements.
 
     Args:
-        sparse_tensor (SparseTensor): sparse tensor.
+        input (SparseTensor): input tensor.
 
     Returns:
-        coo_matrix: sparse coo matrix.
+        (float): sparsity rate.
     """
-    sparse_tensor = sparse_tensor.cpu()
+    return input._nnz() / (input.size(0) * input.size(1))
 
-    row, col = sparse_tensor._indices()
-    value = sparse_tensor._values()
 
-    out = coo_matrix((value, (row, col)), sparse_tensor.size())
+def sparse_tensor_to_sparse_array(input) -> coo_matrix:
+    """
+    Returns a sparse version of the input tensor.
+
+    Args:
+        input (SparseTensor): sparse tensor.
+
+    Returns:
+        (coo_matrix): output matrix.
+    """
+    input = input.cpu()
+
+    row, col = input._indices()
+    value = input._values()
+
+    out = coo_matrix((value, (row, col)), input.size())
     return out
 
 
@@ -130,7 +110,7 @@ def sparse_tensor_diag(
     size: int, diag: Tensor = None, device: torch.device = None
 ) -> SparseFloatTensor:
     """
-    Return a diagonal sparse tensor.
+    Returns a diagonal sparse tensor.
 
     Args:
         size (int): number of diagonal elements.
@@ -138,7 +118,7 @@ def sparse_tensor_diag(
         device (torch.device, optional): computation device. Defaults to None.
 
     Returns:
-        SparseFloatTensor: diagonal sparse tensor.
+        (SparseFloatTensor): output tensor.
     """
 
     device = device or torch.device("cpu")

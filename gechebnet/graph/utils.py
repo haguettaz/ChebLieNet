@@ -114,3 +114,4 @@ def remove_directed_edges(
         mask |= indices == c_i
 
     return edge_index[:, ~mask], edge_weight[~mask]
+

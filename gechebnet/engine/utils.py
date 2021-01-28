@@ -5,23 +5,28 @@ import wandb
 from ignite.engine.engine import Engine
 from torch.utils.data import DataLoader
 
+from ..graph.graph import Graph
 
-def prepare_batch(batch: tuple, L: int, device: torch.device) -> Tuple[torch.tensor]:
+
+def prepare_batch(batch: tuple, graph: Graph, device: torch.device) -> Tuple[FloatTensor, FloatTensor]:
     """
-    Prepare a batch to directly feed a model with.
+    Prepares a batch to directly feed a model with.
 
     Args:
         batch (tuple): batch containing input and target data.
-        L (int): number of equivariance layers to use.
+        graph (Graph): graph object corresponding to the support of the input.
         device (torch.device): device on which to put the batch data.
 
     Returns:
-        Tuple[torch.tensor]: input and target to feed a model with.
+        (FloatTensor): batch input.
+        (FloatTensor): batch target.
     """
     x, y = batch
-    B, C, H, W = x.shape  # (B, C, H, W)
+    B, C, H, W = x.shape
 
-    x = x.unsqueeze(2).expand(B, C, L, H, W).reshape(B, C, -1)  # (B, C, L*H*W)
+    x = x.unsqueeze(2).expand(B, C, graph.nsym, H, W)
+    x = graph.project(x)
+    x = x.reshape(B, C, -1)  # (B, C, L*H*W)
 
     return x.to(device), y.to(device)
 
@@ -31,7 +36,7 @@ def wandb_log(trainer: Engine, evaluator: Engine, data_loader: DataLoader):
     Evaluate a model and add performance to wandb.
 
     Args:
-        trainer (Engine): training engine.
+        trainer (Engine): trainer engine.
         evaluator (Engine): evaluator engine.
         data_loader (DataLoader): dataloader on which to evaluate the model.
     """

@@ -27,7 +27,7 @@ def get_train_val_dataloaders(
     data_path: Optional[str] = "data",
 ) -> Tuple[DataLoader, DataLoader]:
     """
-    Get train and validation dataloaders.
+    Gets train and validation dataloaders.
 
     Args:
         dataset_name (str): name of the dataset.
@@ -70,20 +70,20 @@ def get_train_val_dataloaders(
     train_indices, val_indices = indices[split:], indices[:split]
 
     train_sampler = SubsetRandomSampler(train_indices)
-    valid_sampler = SubsetRandomSampler(val_indices)
+    val_sampler = SubsetRandomSampler(val_indices)
 
     train_loader = DataLoader(dataset, batch_size=batch_size, sampler=train_sampler)
 
-    valid_loader = DataLoader(dataset, batch_size=batch_size, sampler=valid_sampler)
+    val_loader = DataLoader(dataset, batch_size=batch_size, sampler=val_sampler)
 
-    return train_loader, valid_loader
+    return train_loader, val_loader
 
 
 def get_test_equivariance_dataloaders(
     dataset_name: str, batch_size: Optional[int] = 32, data_path: Optional[str] = "data"
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
-    Get test dataloaders to test equivariance under rotation and flip property of the network.
+    Gets test dataloaders to test equivariance under rotation and flip property of the network.
 
     Args:
         dataset_name (str): name of the dataset.

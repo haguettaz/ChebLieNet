@@ -6,7 +6,7 @@ import wandb
 from gechebnet.data.dataloader import get_train_val_dataloaders
 from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engine.utils import prepare_batch, wandb_log
-from gechebnet.graph.graph import SE2GEGraph
+from gechebnet.graph.graph import SE2GEGraph, SO3GEGraph
 from gechebnet.model.chebnet import GEChebNet
 from gechebnet.model.optimizer import get_optimizer
 from ignite.contrib.handlers import ProgressBar
@@ -19,7 +19,6 @@ DEVICE = torch.device("cuda")
 
 DATASET_NAME = "mnist"  # "stl10"
 VAL_RATIO = 0.1
-NX1, NX2 = (28, 28)
 
 IN_CHANNELS = 1
 OUT_CHANNELS = 10
@@ -28,9 +27,10 @@ HIDDEN_CHANNELS = 20
 EPOCHS = 20
 OPTIMIZER = "adam"
 
-NUM_EXPERIMENTS = 100
+NUM_EXPERIMENTS = 50
 
-MODEL = "chebnet"  # "se2gechebnet" "se2gechebnet_"
+LIE_GROUP = "se2"  # "so3"
+MODEL = "chebnet"  # "gechebnet" "gechebnet_"
 
 
 def build_sweep_config():
@@ -39,19 +39,19 @@ def build_sweep_config():
         "metric": {"name": "validation_accuracy", "goal": "maximize"},
     }
 
-    if not MODEL in {"se2gechebnet", "chebnet", "se2gechebnet_"}:
+    if not MODEL in {"gechebnet", "chebnet", "gechebnet_"}:
         raise ValueError(
-            f"{MODEL} is not a valid value for MODEL: must be 'se2gechebnet' or 'chebnet', 'se2gechebnet_'"
+            f"{MODEL} is not a valid value for MODEL: must be 'gechebnet' or 'chebnet', 'gechebnet_'"
         )
 
-    if MODEL == "se2gechebnet":
+    if MODEL == "gechebnet":
         sweep_config["parameters"] = {
             "batch_size": {
                 "distribution": "q_log_uniform",
                 "min": math.log(8),
                 "max": math.log(256),
             },
-            "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
+            "eps": {"distribution": "constant", "value": 0.1},
             "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(16)},
             "kappa": {"distribution": "uniform", "min": 0.0, "max": 0.4},
             "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
@@ -60,7 +60,7 @@ def build_sweep_config():
                 "min": math.log(1e-5),
                 "max": math.log(0.1),
             },
-            "nx3": {"distribution": "int_uniform", "min": 3, "max": 9},
+            "nsym": {"distribution": "int_uniform", "min": 3, "max": 12},
             "pooling": {"distribution": "categorical", "values": ["avg", "max"]},
             "weight_decay": {
                 "distribution": "log_uniform",
@@ -69,14 +69,14 @@ def build_sweep_config():
             },
             "xi": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
         }
-    elif MODEL == "se2gechebnet_":
+    elif MODEL == "gechebnet_":
         sweep_config["parameters"] = {
             "batch_size": {
                 "distribution": "q_log_uniform",
                 "min": math.log(8),
                 "max": math.log(256),
             },
-            "eps": {"distribution": "log_uniform", "min": math.log(0.1), "max": math.log(1.0)},
+            "eps": {"distribution": "constant", "value": 0.1},
             "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(16)},
             "kappa": {"distribution": "uniform", "min": 0.0, "max": 0.4},
             "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
@@ -85,14 +85,14 @@ def build_sweep_config():
                 "min": math.log(1e-5),
                 "max": math.log(0.1),
             },
-            "nx3": {"distribution": "int_uniform", "min": 3, "max": 9},
+            "nsym": {"distribution": "int_uniform", "min": 3, "max": 12},
             "pooling": {"distribution": "categorical", "values": ["avg", "max"]},
             "weight_decay": {
                 "distribution": "log_uniform",
                 "min": math.log(1e-6),
                 "max": math.log(1e-3),
             },
-            "xi": {"distribution": "constant", "value": 1e-3},  # independent symmetry layers
+            "xi": {"distribution": "constant", "value": 1e-4},  # independent symmetry layers
         }
 
     elif MODEL == "chebnet":
@@ -111,7 +111,7 @@ def build_sweep_config():
                 "min": math.log(1e-5),
                 "max": math.log(0.1),
             },
-            "nx3": {"distribution": "constant", "value": 1},
+            "nsym": {"distribution": "constant", "value": 1},
             "pooling": {"distribution": "categorical", "values": ["avg", "max"]},
             "weight_decay": {
                 "distribution": "log_uniform",
@@ -124,15 +124,30 @@ def build_sweep_config():
     return sweep_config
 
 
-def get_model(nx3, knn, eps, xi, kappa, K, pooling):
-    graph = SE2GEGraph(
-        grid_size=(NX1, NX2),
-        nx3=nx3,
-        kappa=kappa,
-        knn=knn,
-        sigmas=(xi / eps, xi, 1000.0 if MODEL == "se2gechebnet_" else 1.0),
-        weight_kernel=lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac),
-    )
+def get_model(nsym, knn, eps, xi, kappa, K, pooling):
+    if LIE_GROUP == "se2":
+        graph = SE2GEGraph(
+            nx=28 if DATASET_NAME == "mnist" else 96,
+            ny=28 if DATASET_NAME == "mnist" else 96,
+            ntheta=nsym,
+            knn=knn,
+            sigmas=(xi / eps, xi, 1.0),
+            weight_kernel=lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac),
+            kappa=kappa,
+            device=DEVICE,
+        )
+
+    elif LIE_GROUP == "so3":
+        graph = SO3GEGraph(
+            nsamples=28 * 28 if DATASET_NAME == "mnist" else 96 * 96,
+            nalpha=nsym,
+            knn=knn,
+            sigmas=(xi / eps, xi, 1.0),
+            weight_kernel=lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac),
+            kappa=kappa,
+            device=DEVICE,
+        )
+
     if graph.num_nodes > graph.num_edges:
         raise ValueError(f"An error occured during the computation of the graph")
     wandb.log({f"num_nodes": graph.num_nodes, f"num_edges": graph.num_edges})
@@ -158,7 +173,7 @@ def train(config=None):
 
         # Model and optimizer
         model = get_model(
-            config.nx3,
+            config.nsym,
             config.knn,
             config.eps,
             config.xi,
@@ -171,7 +186,7 @@ def train(config=None):
 
         # Trainer and evaluator(s) engines
         trainer = create_supervised_trainer(
-            L=config.nx3,
+            L=config.nsym,
             model=model,
             optimizer=optimizer,
             loss_fn=nll_loss,
@@ -183,7 +198,7 @@ def train(config=None):
         metrics = {"validation_accuracy": Accuracy(), "validation_loss": Loss(nll_loss)}
 
         evaluator = create_supervised_evaluator(
-            L=config.nx3, model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch
+            L=config.nsym, model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch
         )
         ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
 

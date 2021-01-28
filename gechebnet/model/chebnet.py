@@ -59,8 +59,6 @@ class GEChebNet(Module):
         self.bn3 = BatchNorm1d(hidden_channels)
         self.bn4 = BatchNorm1d(hidden_channels)
 
-        self.nx1, self.nx2, self.nx3 = graph.nx1, graph.nx2, graph.nx3
-
         if pooling == "avg":
             self.pool = AvgPool1d(graph.num_nodes)  # theoretical equivariance
         else:

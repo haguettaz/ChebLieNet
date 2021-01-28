@@ -41,7 +41,7 @@ def build_config():
         "K": {"value": },
         "knn": {"value": },
         "learning_rate": {"value": },
-        "nx3": {"value": },
+        "nsym": {"value": },
         "pooling": {"value": },
         "weight_sigma": {"value": },
         "weight_decay": {"value": },
@@ -51,12 +51,12 @@ def build_config():
 
 
 
-def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
+def get_model(nsym, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
     # Different graphs are for successive pooling layers
     graphs = [
         SE2GEGraph(
             grid_size=(NX1, NX2),
-            nx3=nx3,
+            nsym=nsym,
             weight_kernel=weight_kernel,
             weight_sigma=weight_sigma,
             knn=knn,
@@ -65,7 +65,7 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
         ),
         SE2GEGraph(
             grid_size=(NX1 // POOLING_SIZE, NX2 // POOLING_SIZE),
-            nx3=nx3,
+            nsym=nsym,
             weight_kernel=weight_kernel,
             weight_sigma=weight_sigma,
             knn=knn,  # adapt the number of neighbors to the size of the graph
@@ -74,7 +74,7 @@ def get_model(nx3, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
         ),
         SE2GEGraph(
             grid_size=(NX1 // POOLING_SIZE // POOLING_SIZE, NX2 // POOLING_SIZE // POOLING_SIZE),
-            nx3=nx3,
+            nsym=nsym,
             weight_kernel=weight_kernel,
             weight_sigma=weight_sigma,
             knn=knn,  # adapt the number of neighbors to the size of the graph
@@ -107,7 +107,7 @@ def train(config=None):
             DATASET_NAME, batch_size=config.batch_size, data_path=DATA_PATH)
 
         model = get_model(
-            config.nx3,
+            config.nsym,
             config.knn,
             config.eps,
             config.xi,
@@ -126,7 +126,7 @@ def train(config=None):
 
         # create ignite's engines
         trainer = create_supervised_trainer(
-            L=config.nx3,
+            L=config.nsym,
             model=model,
             optimizer=optimizer,
             loss_fn=loss_fn,
@@ -136,17 +136,17 @@ def train(config=None):
         ProgressBar(persist=False, desc="Training").attach(trainer)
 
         classic_evaluator = create_supervised_evaluator(
-            L=config.nx3, model=model, metrics=classic_metrics, device=DEVICE, prepare_batch=prepare_batch
+            L=config.nsym, model=model, metrics=classic_metrics, device=DEVICE, prepare_batch=prepare_batch
         )
         ProgressBar(persist=False, desc="Evaluation").attach(classic_evaluator)
 
         rotated_evaluator = create_supervised_evaluator(
-            L=config.nx3, model=model, metrics=rotated_metrics, device=DEVICE, prepare_batch=prepare_batch
+            L=config.nsym, model=model, metrics=rotated_metrics, device=DEVICE, prepare_batch=prepare_batch
         )
         ProgressBar(persist=False, desc="Evaluation").attach(rotated_evaluator)
 
         flipped_evaluator = create_supervised_evaluator(
-            L=config.nx3, model=model, metrics=flipped_metrics, device=DEVICE, prepare_batch=prepare_batch
+            L=config.nsym, model=model, metrics=flipped_metrics, device=DEVICE, prepare_batch=prepare_batch
         )
         ProgressBar(persist=False, desc="Evaluation").attach(flipped_evaluator)
 

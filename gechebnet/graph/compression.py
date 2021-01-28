@@ -25,7 +25,6 @@ def multinomial_compression(
     """
     num_samples = int((1 - kappa) * edge_index.shape[1])
     mask = torch.multinomial(edge_weight, num_samples)
-    # mask = torch.bernoulli((1 - kappa) * edge_weight).bool() # hard compression
     return edge_index[:, mask], edge_weight[mask]
 
 
