@@ -1,21 +1,25 @@
 from typing import Optional, Tuple
 
-import torch.tensor
+import torch
 import wandb
 from ignite.engine.engine import Engine
+from torch import FloatTensor
+from torch import device as Device
 from torch.utils.data import DataLoader
 
 from ..graph.graph import Graph
 
 
-def prepare_batch(batch: tuple, graph: Graph, device: torch.device) -> Tuple[FloatTensor, FloatTensor]:
+def prepare_batch(
+    batch: tuple, graph: Graph, device: Device
+) -> Tuple[FloatTensor, FloatTensor]:
     """
     Prepares a batch to directly feed a model with.
 
     Args:
         batch (tuple): batch containing input and target data.
         graph (Graph): graph object corresponding to the support of the input.
-        device (torch.device): device on which to put the batch data.
+        device (Device): device on which to put the batch data.
 
     Returns:
         (FloatTensor): batch input.

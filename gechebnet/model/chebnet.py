@@ -3,6 +3,7 @@ from typing import Optional, Tuple
 import torch
 import torch.nn.functional as F
 from torch import FloatTensor
+from torch import device as Device
 from torch.nn import AvgPool1d, BatchNorm1d, MaxPool1d, Module
 
 from ..graph.graph import Graph
@@ -18,7 +19,7 @@ class GEChebNet(Module):
         out_channels: int,
         hidden_channels: int,
         pooling: str,
-        laplacian_device: Optional[torch.device] = None,
+        laplacian_device: Optional[Device] = None,
     ):
         """
         Initialize a ChebNet with 6 convolutional layers and batch normalization.
@@ -30,14 +31,14 @@ class GEChebNet(Module):
             out_channels (int): number of dimensions of the output layer.
             hidden_channels (int): number of dimensions of the hidden layers.
             pooling (str): global pooling function
-            laplacian_device (torch.device, optional): computation device. Defaults to None.
+            laplacian_device (Device, optional): computation device. Defaults to None.
 
         Raises:
             ValueError: pooling must be 'avg' or 'max'
         """
         super(GEChebNet, self).__init__()
 
-        laplacian_device = laplacian_device or torch.device("cpu")
+        laplacian_device = laplacian_device or Device("cpu")
 
         if pooling not in {"avg", "max"}:
             raise ValueError(f"{pooling} is not a valid value for pooling: must be 'avg' or 'max'")

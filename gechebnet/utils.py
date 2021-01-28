@@ -9,7 +9,7 @@ from scipy.sparse import coo_matrix
 from torch import Tensor
 from torch.sparse import FloatTensor as SparseFloatTensor
 from torch.sparse import Tensor as SparseTensor
-
+from torch import device as Device
 
 def rescale(input: Tensor, low: Union[int, float] = 0.0, up: Union[int, float] = 1.0) -> Tensor:
     """
@@ -107,7 +107,7 @@ def sparse_tensor_to_sparse_array(input) -> coo_matrix:
 
 
 def sparse_tensor_diag(
-    size: int, diag: Tensor = None, device: torch.device = None
+    size: int, diag: Tensor = None, device: Device = None
 ) -> SparseFloatTensor:
     """
     Returns a diagonal sparse tensor.
@@ -115,13 +115,13 @@ def sparse_tensor_diag(
     Args:
         size (int): number of diagonal elements.
         diag (Tensor, optional): elements of the diagonal. Defaults to None.
-        device (torch.device, optional): computation device. Defaults to None.
+        device (Device, optional): computation device. Defaults to None.
 
     Returns:
         (SparseFloatTensor): output tensor.
     """
 
-    device = device or torch.device("cpu")
+    device = device or Device("cpu")
     diag = diag or torch.ones(size)
 
     return SparseFloatTensor(

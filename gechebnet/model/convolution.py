@@ -5,6 +5,7 @@ import math
 
 import torch
 from torch import FloatTensor
+from torch import device as Device
 from torch.nn import Module, Parameter
 from torch.sparse import FloatTensor as SparseFloatTensor
 
@@ -49,7 +50,13 @@ class ChebConv(Module):
     """Graph convolutional layer."""
 
     def __init__(
-        self, graph: Graph, in_channels: int, out_channels: int, kernel_size: int, bias=True, laplacian_device=None
+        self,
+        graph: Graph,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        bias=True,
+        laplacian_device=None,
     ):
         """
         Initialize the Chebyshev layer.
@@ -60,13 +67,15 @@ class ChebConv(Module):
             kernel_size (int): number of trainable parameters per filter, which is also the size of the convolutional kernel.
                                 The order of the Chebyshev polynomials is kernel_size - 1.
             bias (bool, optional): whether to add a bias term. Defaults to True.
-            laplacian_device (torch.device, optional): computation device. Defaults to None.
+            laplacian_device (Device, optional): computation device. Defaults to None.
         """
         super().__init__()
-        laplacian_device = laplacian_device or torch.device("cpu")
+        laplacian_device = laplacian_device or Device("cpu")
 
         if kernel_size < 1:
-            raise ValueError(f"{kernel_size} is not a valid value for kernel_size: must be strictly positive")
+            raise ValueError(
+                f"{kernel_size} is not a valid value for kernel_size: must be strictly positive"
+            )
 
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -82,7 +91,9 @@ class ChebConv(Module):
 
         self._kaiming_initialization()
 
-        self.laplacian = self._norm(graph.laplacian, graph.lmax, graph.num_nodes).to(laplacian_device)
+        self.laplacian = self._norm(graph.laplacian, graph.lmax, graph.num_nodes).to(
+            laplacian_device
+        )
 
     def _norm(self, laplacian: SparseFloatTensor, lmax: float, num_nodes: int) -> SparseFloatTensor:
         """Scale the eigenvalues from [0, lmax] to [-1, 1]."""

@@ -3,14 +3,14 @@ from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union
 import torch
 from ignite.engine.engine import Engine
 from ignite.metrics import Metric
-
+from torch import device as Device
 
 def create_supervised_trainer(
     L: int,
     model: torch.nn.Module,
     optimizer: torch.optim.Optimizer,
     loss_fn: Union[Callable, torch.nn.Module],
-    device: Optional[torch.device] = None,
+    device: Optional[Device] = None,
     prepare_batch: Callable = None,
     output_transform: Callable = lambda x, y, y_pred, loss: loss.item(),
 ) -> Engine:
@@ -47,7 +47,7 @@ def create_supervised_trainer(
         Engine: a trainer engine with supervised update function.
     """
 
-    device = device or torch.device("cpu")
+    device = device or Device("cpu")
 
     if prepare_batch is None:
         raise ValueError("prepare_batch function must be specified")
@@ -72,7 +72,7 @@ def create_supervised_evaluator(
     L: int,
     model: torch.nn.Module,
     metrics: Optional[Dict[str, Metric]] = None,
-    device: Optional[torch.device] = None,
+    device: Optional[Device] = None,
     prepare_batch: Callable = None,
     output_transform: Callable = lambda x, y, y_pred: (y_pred, y),
 ) -> Engine:
@@ -112,7 +112,7 @@ def create_supervised_evaluator(
         Engine: an evaluator engine with supervised inference function.
     """
 
-    device = device or torch.device("cpu")
+    device = device or Device("cpu")
 
     metrics = metrics or {}
 

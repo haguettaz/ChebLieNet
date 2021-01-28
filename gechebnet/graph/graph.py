@@ -18,7 +18,7 @@ from .optimization import repulsive_loss, repulsive_sampling
 from .signal_processing import get_fourier_basis, get_laplacian
 from .utils import remove_directed_edges, remove_duplicated_edges, remove_self_loops
 
-
+from torch import device as Device
 class Graph:
     """
     Symbolic class representing a graph with nodes and edges. The main graph's operations are implemented
@@ -159,7 +159,7 @@ class SO3GEGraph(Graph):
         sigmas: Optional[Tuple[float, float, float]] = (1.0, 1.0, 1.0),
         weight_kernel: Optional[Callable] = None,
         kappa: Optional[float] = 0.0,
-        device: torch.device = None,
+        device: Device = None,
     ):
         """
         Inits a SO(3) group equivariant graph.
@@ -176,7 +176,7 @@ class SO3GEGraph(Graph):
             sigmas (tuple, optional): anisotropy's parameters to compute anisotropic Riemannian distances. Defaults to (1., 1., 1.).
             weight_kernel (callable, optional): mapping from squared distance to weight value.
             kappa (float, optional): edges' compression rate. Defaults to 0.0.
-            device (torch.device, optional): computation device. Defaults to None.
+            device (Device, optional): computation device. Defaults to None.
         """
 
         super().__init__()
@@ -184,7 +184,7 @@ class SO3GEGraph(Graph):
         if weight_kernel is None:
             weight_kernel = lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac ** 2)
 
-        self.device = device or torch.device("cpu")
+        self.device = device or Device("cpu")
 
         self.nsamples = nsamples
         self.nalpha = nalpha  # alpha
@@ -397,7 +397,7 @@ class SE2GEGraph(Graph):
             weight_kernel (callable, optional): weight kernel to use. Defaults to None.
             knn (int, optional): maximum number of connections of a vertex. Defaults to 16.
             sigmas (tuple, optional): anisotropy's parameters to compute anisotropic Riemannian distances. Defaults to (1., 1., 1.).
-            device (torch.device): device. Defaults to None.
+            device (Device): device. Defaults to None.
         """
 
         super().__init__()
@@ -405,7 +405,7 @@ class SE2GEGraph(Graph):
         if weight_kernel is None:
             weight_kernel = lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac ** 2)
 
-        self.device = device or torch.device("cpu")
+        self.device = device or Device("cpu")
 
         self.nx, self.ny, self.ntheta = nx, ny, ntheta
 

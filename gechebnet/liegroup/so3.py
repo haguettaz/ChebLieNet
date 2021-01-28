@@ -2,6 +2,7 @@ import math
 
 import torch
 from pykeops.torch import LazyTensor, Pm
+from torch import device as Device
 
 from ..utils import mod
 
@@ -15,7 +16,7 @@ def so3_matrix(alpha, beta, gamma, device=None):
         alpha (FloatTensor): x rotation input tensor.
         beta (FloatTensor): y rotation input tensor.
         gamma (FloatTensor): z rotation input tensor.
-        device (torch.device, optional): computation device. Defaults to None.
+        device (Device, optional): computation device. Defaults to None.
 
     Returns:
         FloatTensor: matrix representation output tensor.
@@ -83,7 +84,7 @@ def so3_anisotropic_square_riemannanian_distance(xi, xj, xi_t, xj_t, sigmas, dev
         xi_t (LazyTensor): input tensor, i.e. source points in format (N, 1, 3) for the transposed operation.
         xj_t (LazyTensor): input tensor, i.e. target points in format (1, N, 3) for the transposed operation.
         sigmas (tuple): anisotropy's parameters to compute anisotropic riemannian distances.
-        device (torch.device): computation device.
+        device (Device): computation device.
 
     Returns:
         (LazyTensor): output tensor, i.e. square anisotropic riemannian distances in format (N, N, 1).

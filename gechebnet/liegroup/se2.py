@@ -4,12 +4,13 @@ from typing import Optional, Tuple
 import torch
 from pykeops.torch import LazyTensor, Pm
 from torch import FloatTensor
+from torch import device as Device
 
 from ..utils import mod
 
 
 def se2_matrix(
-    x: FloatTensor, y: FloatTensor, theta: FloatTensor, device: Optional[torch.device] = None
+    x: FloatTensor, y: FloatTensor, theta: FloatTensor, device: Optional[Device] = None
 ) -> FloatTensor:
     """
     Returns a new tensor corresponding to matrix formulation of the given input tensors representing
@@ -19,7 +20,7 @@ def se2_matrix(
         x (FloatTensor): x translation input tensor.
         y (FloatTensor): y translation input tensor.
         theta (FloatTensor): z rotation input tensor.
-        device (torch.device, optional): computation device. Defaults to None.
+        device (Device, optional): computation device. Defaults to None.
 
     Returns:
         FloatTensor: matrix representation output tensor.
@@ -61,7 +62,7 @@ def se2_log(Gg: LazyTensor) -> LazyTensor:
 
 
 def se2_anisotropic_square_riemannanian_distance(
-    xi: LazyTensor, xj: LazyTensor, sigmas: Tuple[float, float, float], device: torch.device
+    xi: LazyTensor, xj: LazyTensor, sigmas: Tuple[float, float, float], device: Device
 ) -> LazyTensor:
     """
     Returns the square anisotropic riemannian distances between xi and xj.
@@ -70,7 +71,7 @@ def se2_anisotropic_square_riemannanian_distance(
         xi (LazyTensor): input tensor, i.e. source points in format (N, 1, 3).
         xj (LazyTensor): input tensor, i.e. target points in format (1, N, 3).
         sigmas (tuple): anisotropy's parameters to compute anisotropic riemannian distances.
-        device (torch.device): computation device.
+        device (Device): computation device.
 
     Returns:
         (LazyTensor): output tensor, i.e. square anisotropic riemannian distances in format (N, N, 1).
