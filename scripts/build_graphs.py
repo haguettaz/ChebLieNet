@@ -20,7 +20,7 @@ def compile_graphs(knn):
         )
 
     graph = SO3GEGraph(
-        nsamples=10000,
+        nsamples=1000,
         nalpha=12,
         knn=knn,
     )
@@ -53,7 +53,6 @@ def test_speed(knn, iter=50):
         f"{knn}-NN SE2GEGraph with {graph.num_nodes} nodes and {graph.num_edges} edges took",
         f"{np.mean(computation_times)}s +/- {np.std(computation_times)}s to compute",
     )
-
 
     computation_times = []
     for _ in tqdm(range(iter), file=sys.stdout):
