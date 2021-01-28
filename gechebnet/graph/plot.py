@@ -47,7 +47,7 @@ def visualize_graph(
             x[graph.node_index],
             y[graph.node_index],
             z[graph.node_index],
-            s=50,
+            s=10,
             alpha=0.5,
         )
 
@@ -56,7 +56,7 @@ def visualize_graph(
             x[graph.node_index],
             y[graph.node_index],
             z[graph.node_index],
-            s=50,
+            s=10,
             c=rescale(signal, 0.0, 1.0),
             alpha=0.5,
         )
@@ -68,13 +68,20 @@ def visualize_graph(
     return fig
 
 
-def visualize_neighborhood(graph: Graph, node_idx: int) -> Figure:
+def visualize_neighborhood(
+    graph: Graph,
+    node_idx: int,
+    view_init: Optional[Tuple[float, float]] = None,
+    show_axis: Optional[bool] = True,
+) -> Figure:
     """
     Visualize graph neighborhood of node index.
 
     Args:
         graph (Graph): graph.
         signal (FloatTensor, optional): graph's signal. Defaults to None.
+        view_init: Optional[Tuple[float, float]] = None,
+        show_axis: Optional[bool] = True,
 
     Returns:
         Figure: figure with graph visualization.
@@ -84,6 +91,9 @@ def visualize_neighborhood(graph: Graph, node_idx: int) -> Figure:
 
     ax = fig.add_subplot(111, projection="3d")
 
+    if view_init is not None:
+        ax.view_init(*view_init)
+
     neighbors_index, weights = graph.neighborhood(node_idx)
 
     x, y, z = graph.node_pos
@@ -92,7 +102,7 @@ def visualize_neighborhood(graph: Graph, node_idx: int) -> Figure:
         x[neighbors_index],
         y[neighbors_index],
         z[neighbors_index],
-        s=50,
+        s=10,
         c=weights,
         alpha=0.5,
     )
@@ -103,12 +113,14 @@ def visualize_neighborhood(graph: Graph, node_idx: int) -> Figure:
         x[node_idx],
         y[node_idx],
         z[node_idx],
-        s=50,
+        s=10,
         c="white",
         edgecolors="black",
         linewidth=3,
         alpha=1.0,
     )
+
+    plt.axis("on" if show_axis else "off")
 
     return fig
 

@@ -65,7 +65,7 @@ def so3_log(Gg: LazyTensor, Gg_t: LazyTensor):
     """
     theta = (((Gg[0] + Gg[4] + Gg[8]) - 1) / 2).acos()
 
-    A = 0.5 * theta.xdivsinx() * (Gg - Gg_t)
+    A = 0.5 * (Gg - Gg_t) / theta.sinxdivx()
 
     c1 = A[7]
     c2 = A[2]
