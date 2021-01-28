@@ -2,28 +2,22 @@ import sys
 from time import time
 
 import numpy as np
+import torch
 from gechebnet.graph.graph import SE2GEGraph, SO3GEGraph
 from tqdm import tqdm
 
+DEVICE = torch.device("cuda")
+
 
 def compile_graphs(knn):
-    graph = SE2GEGraph(
-        nx=100,
-        ny=100,
-        ntheta=12,
-        knn=knn,
-    )
+    graph = SE2GEGraph(nx=100, ny=100, ntheta=12, knn=knn, device=DEVICE)
 
     if graph.num_edges < graph.num_nodes:
         raise ValueError(
             f"An error occured during the computation of the SE2 group equivariant {knn}-NN graph"
         )
 
-    graph = SO3GEGraph(
-        nsamples=1000,
-        nalpha=12,
-        knn=knn,
-    )
+    graph = SO3GEGraph(nsamples=1000, nalpha=12, knn=knn, device=DEVICE)
 
     if graph.num_edges < graph.num_nodes:
         raise ValueError(
@@ -31,16 +25,11 @@ def compile_graphs(knn):
         )
 
 
-def test_speed(knn, iter=50):
+def test_speed(knn, iter=10):
     computation_times = []
     for _ in tqdm(range(iter), file=sys.stdout):
         start = time()
-        graph = SE2GEGraph(
-            nx=100,
-            ny=100,
-            ntheta=12,
-            knn=knn,
-        )
+        graph = SE2GEGraph(nx=100, ny=100, ntheta=12, knn=knn, device=DEVICE)
         end = time()
         computation_times.append(end - start)
 
@@ -57,11 +46,7 @@ def test_speed(knn, iter=50):
     computation_times = []
     for _ in tqdm(range(iter), file=sys.stdout):
         start = time()
-        graph = SO3GEGraph(
-            nsamples=10000,
-            nalpha=12,
-            knn=knn,
-        )
+        graph = SO3GEGraph(nsamples=1000, nalpha=12, knn=knn, device=DEVICE)
         end = time()
         computation_times.append(end - start)
 
