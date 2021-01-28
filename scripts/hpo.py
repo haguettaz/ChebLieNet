@@ -30,7 +30,7 @@ OPTIMIZER = "adam"
 NUM_EXPERIMENTS = 50
 
 LIE_GROUP = "se2"  # "so3"
-MODEL = "chebnet"  # "gechebnet" "gechebnet_"
+MODEL = "gechebnet"  # "gechebnet" "gechebnet_"
 
 
 def build_sweep_config():
@@ -124,7 +124,7 @@ def build_sweep_config():
     return sweep_config
 
 
-def get_model(nsym, knn, eps, xi, kappa, K, pooling):
+def get_graph(nsym, knn, eps, xi, kappa):
     if LIE_GROUP == "se2":
         graph = SE2GEGraph(
             nx=28 if DATASET_NAME == "mnist" else 96,
@@ -152,18 +152,7 @@ def get_model(nsym, knn, eps, xi, kappa, K, pooling):
         raise ValueError(f"An error occured during the computation of the graph")
     wandb.log({f"num_nodes": graph.num_nodes, f"num_edges": graph.num_edges})
 
-    model = GEChebNet(
-        graph,
-        K,
-        IN_CHANNELS,
-        OUT_CHANNELS,
-        HIDDEN_CHANNELS,
-        pooling,
-        laplacian_device=DEVICE,
-    )
-    wandb.log({"capacity": model.capacity})
-
-    return model.to(DEVICE)
+    return graph
 
 
 def train(config=None):
@@ -171,22 +160,24 @@ def train(config=None):
     with wandb.init(config=config):
         config = wandb.config
 
-        # Model and optimizer
-        model = get_model(
-            config.nsym,
-            config.knn,
-            config.eps,
-            config.xi,
-            config.kappa,
-            config.K,
-            config.pooling,
-        )
+        graph = get_graph(config.nsym, config.knn, config.eps, config.xi, config.kappa)
 
+        model = GEChebNet(
+            graph=graph,
+            K=config.K,
+            in_channels=IN_CHANNELS,
+            out_channels=OUT_CHANNELS,
+            hidden_channels=HIDDEN_CHANNELS,
+            pooling=config.pooling,
+            laplacian_device=DEVICE,
+        )
+        model = model.to(DEVICE)
         optimizer = get_optimizer(model, OPTIMIZER, config.learning_rate, config.weight_decay)
+        wandb.log({"capacity": model.capacity})
 
         # Trainer and evaluator(s) engines
         trainer = create_supervised_trainer(
-            L=config.nsym,
+            graph=graph,
             model=model,
             optimizer=optimizer,
             loss_fn=nll_loss,
@@ -198,7 +189,7 @@ def train(config=None):
         metrics = {"validation_accuracy": Accuracy(), "validation_loss": Loss(nll_loss)}
 
         evaluator = create_supervised_evaluator(
-            L=config.nsym, model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch
+            graph=graph, model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch
         )
         ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
 
