@@ -3,7 +3,7 @@ from typing import Optional, Tuple
 import torch
 import wandb
 from ignite.engine.engine import Engine
-from torch import FloatTensor
+from torch import FloatTensor, Tensor
 from torch import device as Device
 from torch.utils.data import DataLoader
 
@@ -11,8 +11,8 @@ from ..graph.graph import Graph
 
 
 def prepare_batch(
-    batch: tuple, graph: Graph, device: Device
-) -> Tuple[FloatTensor, FloatTensor]:
+    batch: Tuple[Tensor, Tensor], graph: Graph, device: Device
+) -> Tuple[Tensor, Tensor]:
     """
     Prepares a batch to directly feed a model with.
 
@@ -22,8 +22,8 @@ def prepare_batch(
         device (Device): device on which to put the batch data.
 
     Returns:
-        (FloatTensor): batch input.
-        (FloatTensor): batch target.
+        (Tensor): batch input.
+        (Tensor): batch target.
     """
     x, y = batch
     B, C, H, W = x.shape

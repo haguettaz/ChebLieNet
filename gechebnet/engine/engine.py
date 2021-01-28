@@ -1,50 +1,43 @@
-from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import torch
 from ignite.engine.engine import Engine
 from ignite.metrics import Metric
+from torch import Tensor
 from torch import device as Device
+from torch.nn import Module
+from torch.optim import Optimizer
+
+from ..graph.graph import Graph
+
 
 def create_supervised_trainer(
-    L: int,
-    model: torch.nn.Module,
-    optimizer: torch.optim.Optimizer,
-    loss_fn: Union[Callable, torch.nn.Module],
+    graph: Graph,
+    model: Module,
+    optimizer: Optimizer,
+    loss_fn: Callable,
     device: Optional[Device] = None,
-    prepare_batch: Callable = None,
-    output_transform: Callable = lambda x, y, y_pred, loss: loss.item(),
+    prepare_batch: Optional[Callable] = None,
+    output_transform: Optional[Callable] = lambda x, y, y_pred, loss: loss.item(),
 ) -> Engine:
-    """Factory function for creating a trainer for supervised models.
+    """
+    Factory function for creating a trainer for supervised models.
 
     Args:
-        model (`torch.nn.Module`): the model to train.
-        optimizer (`torch.optim.Optimizer`): the optimizer to use.
-        loss_fn (torch.nn loss function): the loss function to use.
-        device (str, optional): device type specification (default: None).
-            Applies to batches after starting the engine. Model *will not* be moved.
-            Device can be CPU, GPU or TPU.
-        prepare_batch (callable, optional): function that receives `batch`, `device`, `non_blocking` and outputs
-            tuple of tensors `(batch_x, batch_y)`.
+        model (Module): neural network.
+        optimizer (Optimizer): optimizer.
+        loss_fn (callable): loss function.
+        device (Device, optional): computation device. Defaults to None.
+        prepare_batch (callable, optional): function that receives `batch`, `graph` and `device` and outputs
+            tuple of tensors `(batch_x, batch_y)`. Defaults to None.
         output_transform (callable, optional): function that receives 'x', 'y', 'y_pred', 'loss' and returns value
-            to be assigned to engine's state.output after each iteration. Default is returning `loss.item()`.
+            to be assigned to engine's state.output after each iteration. Default to lambda x, y, y_pred, loss: loss.item().
 
-    Note:
-        `engine.state.output` for this engine is defined by `output_transform` parameter and is the loss
-        of the processed batch by default.
-
-    .. warning::
-
-        The internal use of `device` has changed.
-        `device` will now *only* be used to move the input data to the correct device.
-        The `model` should be moved by the user before creating an optimizer.
-        For more information see:
-
-        - `PyTorch Documentation <https://pytorch.org/docs/stable/optim.html#constructing-it>`_
-
-        - `PyTorch's Explanation <https://github.com/pytorch/pytorch/issues/7844#issuecomment-503713840>`_
+    Raises:
+        ValueError: prepare batch function has to be defined.
 
     Returns:
-        Engine: a trainer engine with supervised update function.
+        (Engine): trainer engine with supervised update function.
     """
 
     device = device or Device("cpu")
@@ -52,15 +45,24 @@ def create_supervised_trainer(
     if prepare_batch is None:
         raise ValueError("prepare_batch function must be specified")
 
-    def _update(engine: Engine, batch: Sequence[torch.Tensor]) -> Union[Any, Tuple[torch.Tensor]]:
+    def _update(engine: Engine, batch: Tuple[Tensor, Tensor]) -> Any:
+        """
+        Updates engine.
+
+        Args:
+            engine (Engine): trainer engine.
+            batch (tuple): tuple of tensors `(batch_x, batch_y)`.
+
+        Returns:
+            Any: specified by output transforms.
+        """
         model.train()
         optimizer.zero_grad()
-        x, y = prepare_batch(batch, L, device)
+        x, y = prepare_batch(batch, graph, device)
         y_pred = model(x)
         loss = loss_fn(y_pred, y)
         loss.backward()
         optimizer.step()
-
         return output_transform(x, y, y_pred, loss)
 
     trainer = Engine(_update)
@@ -69,8 +71,8 @@ def create_supervised_trainer(
 
 
 def create_supervised_evaluator(
-    L: int,
-    model: torch.nn.Module,
+    graph: Graph,
+    model: Module,
     metrics: Optional[Dict[str, Metric]] = None,
     device: Optional[Device] = None,
     prepare_batch: Callable = None,
@@ -80,33 +82,16 @@ def create_supervised_evaluator(
     Factory function for creating an evaluator for supervised models.
 
     Args:
-        model (`torch.nn.Module`): the model to train.
-        metrics (dict of str - :class:`~ignite.metrics.Metric`): a map of metric names to Metrics.
-        device (str, optional): device type specification (default: None).
-            Applies to batches after starting the engine. Model *will not* be moved.
-        non_blocking (bool, optional): if True and this copy is between CPU and GPU, the copy may occur asynchronously
-            with respect to the host. For other cases, this argument has no effect.
-        prepare_batch (callable, optional): function that receives `batch`, `device`, `non_blocking` and outputs
-            tuple of tensors `(batch_x, batch_y)`.
-        output_transform (callable, optional): function that receives 'x', 'y', 'y_pred' and returns value
-            to be assigned to engine's state.output after each iteration. Default is returning `(y_pred, y,)` which fits
-            output expected by metrics. If you change it you should use `output_transform` in metrics.
+        model (Module): neural network.
+        metrics (dict, optional): map metric names to Metrics. Defaults to None.
+        device (Device): computation device. Defaults to None.
+        prepare_batch (callable, optional): function that receives `batch`, `graph` and `device` and outputs
+            tuple of tensors `(batch_x, batch_y)`. Defaults to None.
+        output_transform (callable, optional): function that receives 'x', 'y', 'y_pred', 'loss' and returns value
+            to be assigned to engine's state.output after each iteration. Default to lambda x, y, y_pred, loss: (y_pred, y).
 
-    Note:
-        `engine.state.output` for this engine is defind by `output_transform` parameter and is
-        a tuple of `(batch_pred, batch_y)` by default.
-
-    .. warning::
-
-        The internal use of `device` has changed.
-        `device` will now *only* be used to move the input data to the correct device.
-        The `model` should be moved by the user before creating an optimizer.
-
-        For more information see:
-
-        - `PyTorch Documentation <https://pytorch.org/docs/stable/optim.html#constructing-it>`_
-
-        - `PyTorch's Explanation <https://github.com/pytorch/pytorch/issues/7844#issuecomment-503713840>`_
+    Raises:
+        ValueError("prepare_batch function must be specified")
 
     Returns:
         Engine: an evaluator engine with supervised inference function.
@@ -119,12 +104,20 @@ def create_supervised_evaluator(
     if prepare_batch is None:
         raise ValueError("prepare_batch function must be specified")
 
-    def _inference(
-        engine: Engine, batch: Sequence[torch.Tensor]
-    ) -> Union[Any, Tuple[torch.Tensor]]:
+    def _inference(engine: Engine, batch: Tuple[Tensor, Tensor]) -> Any:
+        """
+        Infers
+
+        Args:
+            engine (Engine): evaluator engine.
+            batch (tuple): tuple of tensors `(batch_x, batch_y)`.
+
+        Returns:
+            Any: specified by output transforms.
+        """
         model.eval()
         with torch.no_grad():
-            x, y = prepare_batch(batch, L, device)
+            x, y = prepare_batch(batch, graph, device)
             y_pred = model(x)
             return output_transform(x, y, y_pred)
 

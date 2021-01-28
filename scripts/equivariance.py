@@ -16,15 +16,12 @@ from gechebnet.utils import random_choice
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
 from ignite.metrics import Accuracy, Loss
-from torch.nn import NLLLoss
 from torch.nn.functional import nll_loss
 
 DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-DATASET_NAME = "MNIST"  # STL10
-
-NX1, NX2 = (28, 28)
+DATASET_NAME = "mnist"  # stl10
 
 IN_CHANNELS = 1
 OUT_CHANNELS = 10
@@ -34,60 +31,98 @@ POOLING_SIZE = 2
 EPOCHS = 20
 OPTIMIZER = "adam"
 
+MAX_ITER = 5
+
+LIE_GROUP = "se2"  # "so3"
+MODEL = "chebnet"  # "gechebnet" "gechebnet_"
+
 def build_config():
-    return {
-        "batch_size": {"value": },
-        "eps": {"value": },
-        "K": {"value": },
-        "knn": {"value": },
-        "learning_rate": {"value": },
-        "nsym": {"value": },
-        "pooling": {"value": },
-        "weight_sigma": {"value": },
-        "weight_decay": {"value": },
-        "weight_kernel": {"value": },
-        "xi": {"value": },
-    }
+    if not MODEL in {"gechebnet", "chebnet", "gechebnet_"}:
+        raise ValueError(
+            f"{MODEL} is not a valid value for MODEL: must be 'gechebnet' or 'chebnet', 'gechebnet_'"
+        )
+
+    if MODEL == "gechebnet":
+        return {
+            "batch_size": {"value": },
+            "eps": {"value": },
+            "K": {"value": },
+            "knn": {"value": },
+            "learning_rate": {"value": },
+            "nsym": {"value": },
+            "pooling": {"value": },
+            "weight_sigma": {"value": },
+            "weight_decay": {"value": },
+            "xi": {"value": },
+        }
+    
+    elif MODEL == "gechebnet_":
+        return {
+            "batch_size": {"value": },
+            "eps": {"value": },
+            "K": {"value": },
+            "knn": {"value": },
+            "learning_rate": {"value": },
+            "nsym": {"value": },
+            "pooling": {"value": },
+            "weight_sigma": {"value": },
+            "weight_decay": {"value": },
+            "xi": {"value": },
+        }
+
+    elif MODEL == "chebnet":
+        return {
+            "batch_size": {"value": },
+            "eps": {"value": },
+            "K": {"value": },
+            "knn": {"value": },
+            "learning_rate": {"value": },
+            "nsym": {"value": },
+            "pooling": {"value": },
+            "weight_sigma": {"value": },
+            "weight_decay": {"value": },
+            "xi": {"value": },
+        }
 
 
 
-def get_model(nsym, knn, eps, xi, weight_sigma, weight_kernel, K, pooling):
-    # Different graphs are for successive pooling layers
-    graphs = [
-        SE2GEGraph(
-            grid_size=(NX1, NX2),
-            nsym=nsym,
-            weight_kernel=weight_kernel,
-            weight_sigma=weight_sigma,
+def get_model(nsym, knn, eps, xi, kappa, K, pooling):
+    if LIE_GROUP == "se2":
+        graph = SE2GEGraph(
+            nx=28 if DATASET_NAME == "mnist" else 96,
+            ny=28 if DATASET_NAME == "mnist" else 96,
+            ntheta=nsym,
             knn=knn,
             sigmas=(xi / eps, xi, 1.0),
-            weight_comp_device=DEVICE,
-        ),
-        SE2GEGraph(
-            grid_size=(NX1 // POOLING_SIZE, NX2 // POOLING_SIZE),
-            nsym=nsym,
-            weight_kernel=weight_kernel,
-            weight_sigma=weight_sigma,
-            knn=knn,  # adapt the number of neighbors to the size of the graph
-            sigmas=(xi / eps, xi, 1.0),  # adapt the metric kernel to the size of the graph
-            weight_comp_device=DEVICE,
-        ),
-        SE2GEGraph(
-            grid_size=(NX1 // POOLING_SIZE // POOLING_SIZE, NX2 // POOLING_SIZE // POOLING_SIZE),
-            nsym=nsym,
-            weight_kernel=weight_kernel,
-            weight_sigma=weight_sigma,
-            knn=knn,  # adapt the number of neighbors to the size of the graph
-            sigmas=(xi / eps, xi, 1.0),  # adapt the metric kernel to the size of the graph
-            weight_comp_device=DEVICE,
-        ),
-    ]
+            weight_kernel=lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac),
+            kappa=kappa,
+            device=DEVICE,
+        )
 
-    for idx, graph in enumerate(graphs):
-        wandb.log({f"graph_{idx}_nodes": graph.num_nodes, f"graph_{idx}_edges": graph.num_edges})
+    elif LIE_GROUP == "so3":
+        graph = SO3GEGraph(
+            nsamples=28 * 28 if DATASET_NAME == "mnist" else 96 * 96,
+            nalpha=nsym,
+            knn=knn,
+            sigmas=(xi / eps, xi, 1.0),
+            weight_kernel=lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac),
+            kappa=kappa,
+            device=DEVICE,
+        )
 
-    model = GEChebNet(graphs, K, IN_CHANNELS, OUT_CHANNELS, HIDDEN_CHANNELS, laplacian_device=DEVICE, pooling=pooling)
+    if graph.num_nodes > graph.num_edges:
+        raise ValueError(f"An error occured during the computation of the graph")
+    wandb.log({f"num_nodes": graph.num_nodes, f"num_edges": graph.num_edges})
 
+    model = GEChebNet(
+        graph,
+        K,
+        IN_CHANNELS,
+        OUT_CHANNELS,
+        HIDDEN_CHANNELS,
+        pooling,
+        laplacian_device=DEVICE,
+    )
     wandb.log({"capacity": model.capacity})
 
     return model.to(DEVICE)
@@ -99,11 +134,11 @@ def train(config=None):
     with wandb.init(config=config):
         config = wandb.config
 
-        train_loader, _ = get_train_val_data_loaders(
+        train_loader, _ = get_train_val_dataloaders(
             DATASET_NAME, batch_size=config.batch_size, val_ratio=0., data_path=DATA_PATH
         )
 
-        classic_test_loader, rotated_test_loader, flipped_test_loader = get_test_equivariance_data_loader(
+        classic_test_loader, rotated_test_loader, flipped_test_loader = get_test_equivariance_dataloaders(
             DATASET_NAME, batch_size=config.batch_size, data_path=DATA_PATH)
 
         model = get_model(
@@ -111,8 +146,7 @@ def train(config=None):
             config.knn,
             config.eps,
             config.xi,
-            config.weight_sigma,
-            config.weight_kernel,
+            config.kappa,
             config.K,
             config.pooling,
         )
@@ -126,7 +160,7 @@ def train(config=None):
 
         # create ignite's engines
         trainer = create_supervised_trainer(
-            L=config.nsym,
+            graph=graph,
             model=model,
             optimizer=optimizer,
             loss_fn=loss_fn,
@@ -160,5 +194,5 @@ def train(config=None):
 
 if __name__ == "__main__":
     config = build_config()
-    for _ in range(NUM_RUNS):
+    for _ in range(MAX_ITER):
         train(config)
