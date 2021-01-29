@@ -7,7 +7,7 @@ from gechebnet.data.dataloader import get_train_val_dataloaders
 from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engine.utils import prepare_batch, wandb_log
 from gechebnet.graph.graph import SE2GEGraph, SO3GEGraph
-from gechebnet.model.chebnet import GEChebNet
+from gechebnet.model.chebnet import GEChebNet_v0, GEChebNet_v1
 from gechebnet.model.optimizer import get_optimizer
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
@@ -23,7 +23,6 @@ VAL_RATIO = 0.1
 IN_CHANNELS = 1 if DATASET_NAME == "mnist" else 3
 OUT_CHANNELS = 10
 HIDDEN_CHANNELS = 20
-HIDDEN_LAYERS = 2 if DATASET_NAME == "mnist" else 6
 
 EPOCHS = 20 if DATASET_NAME == "mnist" else 100
 OPTIMIZER = "adam"
@@ -175,16 +174,26 @@ def train(config=None):
 
         graph = get_graph(config.nsym, config.knn, config.eps, config.xi, config.kappa)
 
-        model = GEChebNet(
-            graph=graph,
-            K=config.K,
-            in_channels=IN_CHANNELS,
-            out_channels=OUT_CHANNELS,
-            hidden_channels=HIDDEN_CHANNELS,
-            hidden_layers=HIDDEN_LAYERS,
-            pooling=config.pooling,
-            device=DEVICE,
-        )
+        if DATASET_NAME == "mnist":
+            model = GEChebNet_v0(
+                graph=graph,
+                K=config.K,
+                in_channels=IN_CHANNELS,
+                out_channels=OUT_CHANNELS,
+                hidden_channels=HIDDEN_CHANNELS,
+                pooling=config.pooling,
+                device=DEVICE,
+            )
+        elif DATASET_NAME == "stl10":
+            model = GEChebNet_v1(
+                graph=graph,
+                K=config.K,
+                in_channels=IN_CHANNELS,
+                out_channels=OUT_CHANNELS,
+                hidden_channels=HIDDEN_CHANNELS,
+                pooling=config.pooling,
+                device=DEVICE,
+            )
         model = model.to(DEVICE)
         optimizer = get_optimizer(model, OPTIMIZER, config.learning_rate, config.weight_decay)
         wandb.log({"capacity": model.capacity})
