@@ -7,9 +7,10 @@ from numpy import ndarray
 from pykeops.torch import LazyTensor
 from scipy.sparse import coo_matrix
 from torch import Tensor
+from torch import device as Device
 from torch.sparse import FloatTensor as SparseFloatTensor
 from torch.sparse import Tensor as SparseTensor
-from torch import device as Device
+
 
 def rescale(input: Tensor, low: Union[int, float] = 0.0, up: Union[int, float] = 1.0) -> Tensor:
     """
@@ -106,9 +107,7 @@ def sparse_tensor_to_sparse_array(input) -> coo_matrix:
     return out
 
 
-def sparse_tensor_diag(
-    size: int, diag: Tensor = None, device: Device = None
-) -> SparseFloatTensor:
+def sparse_tensor_diag(size: int, diag: Tensor = None, device: Device = None) -> SparseFloatTensor:
     """
     Returns a diagonal sparse tensor.
 
@@ -121,9 +120,8 @@ def sparse_tensor_diag(
         (SparseFloatTensor): output tensor.
     """
 
-    device = device or Device("cpu")
     diag = diag or torch.ones(size)
 
     return SparseFloatTensor(
-        indices=torch.arange(size).expand(2, -1), values=diag, size=(size, size), device=device
-    )
+        indices=torch.arange(size).expand(2, -1), values=diag, size=(size, size)
+    ).to(device)

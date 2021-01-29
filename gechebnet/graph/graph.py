@@ -5,8 +5,8 @@ import numpy as np
 import torch
 from numpy import ndarray
 from pykeops.torch import Vi, Vj
-from scipy.sparse.linalg import ArpackError, eigsh
 from torch import FloatTensor, LongTensor
+from torch import device as Device
 from torch.sparse import FloatTensor as SparseFloatTensor
 
 from ..liegroup.se2 import se2_anisotropic_square_riemannanian_distance, se2_log, se2_matrix
@@ -18,7 +18,7 @@ from .optimization import repulsive_loss, repulsive_sampling
 from .signal_processing import get_fourier_basis, get_laplacian
 from .utils import remove_directed_edges, remove_duplicated_edges, remove_self_loops
 
-from torch import device as Device
+
 class Graph:
     """
     Symbolic class representing a graph with nodes and edges. The main graph's operations are implemented
@@ -32,7 +32,6 @@ class Graph:
         self.node_index = LongTensor()
         self.edge_index = LongTensor()
         self.edge_weight = FloatTensor()
-        self.laplacian = SparseFloatTensor()
 
     def neighborhood(self, node_idx: int) -> Tuple[LongTensor, FloatTensor]:
         """
@@ -51,25 +50,17 @@ class Graph:
         weights = self.edge_weight[mask]
         return neighbors, weights
 
-    def _initlaplacian(self):
+    def laplacian(self, device: Optional[Device] = None):
         """
-        Init the symmetric normalized laplacian of the graph. The stored attributes are:
-            - laplacian (torch.sparse.tensor): symmetric normalized laplacian.
-            - lmax (float): maximum eigenvalue of the laplacian.
-        """
-        self.laplacian = get_laplacian(self.edge_index, self.edge_weight, self.num_nodes)
+        Returns symmetric normalized graph laplacian
 
-        try:
-            lmax = eigsh(
-                sparse_tensor_to_sparse_array(self.laplacian),
-                k=1,
-                which="LM",
-                return_eigenvectors=False,
-            )
-            self.lmax = float(lmax.real)
-        except ArpackError:
-            # in case the eigen decomposition's algorithm does not converge, set lmax to theoretic upper bound.
-            self.lmax = 2.0
+        Args:
+            device (Device, optional): computation device. Defaults to None.
+
+        Returns:
+            (SparseFloatTensor): laplacian.
+        """
+        return get_laplacian(self.edge_index, self.edge_weight, self.num_nodes, device=device)
 
     @property
     def eigen_space(self) -> Tuple[ndarray, ndarray]:
@@ -182,19 +173,16 @@ class SO3GEGraph(Graph):
         super().__init__()
 
         if weight_kernel is None:
-            weight_kernel = lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac ** 2)
-
-        self.device = device or Device("cpu")
+            weight_kernel = lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac)
 
         self.nsamples = nsamples
         self.nalpha = nalpha  # alpha
 
-        self._initnodes(nsamples * nalpha)
-        self._initedges(sigmas, knn, weight_kernel, kappa)
-        super()._initlaplacian()
+        self._initnodes(nsamples * nalpha, device)
+        self._initedges(sigmas, knn, weight_kernel, kappa, device)
         self._initprojection()
 
-    def _initnodes(self, num_nodes: int):
+    def _initnodes(self, num_nodes: int, device: Device):
         """
         Init nodes on the SO(3) manifold. The stored attributes are:
             - node_index (LongTensor): indices of nodes in format (num_nodes).
@@ -204,6 +192,7 @@ class SO3GEGraph(Graph):
 
         Args:
             num_nodes (int): number of nodes to sample.
+            device (Device): computation device.
         """
 
         self.node_index = torch.arange(num_nodes, out=LongTensor())
@@ -213,7 +202,7 @@ class SO3GEGraph(Graph):
             self.nsamples,
             loss_fn=lambda x_: repulsive_loss(x_, 1.0, 10.0),
             radius=math.pi,
-            device=self.device,
+            device=device,
             max_iter=25000,
         )
 
@@ -232,6 +221,7 @@ class SO3GEGraph(Graph):
         knn: int,
         weight_kernel: Callable,
         kappa: float,
+        device: Device,
     ):
         """
         Init edge indices and attributes (weights). The stored attributes are:
@@ -243,6 +233,7 @@ class SO3GEGraph(Graph):
             knn (int): maximum number of connections of a vertex.
             weight_kernel (callable): mapping from squared distance to weight value.
             kappa (float): edges' compression rate.
+            device (Device): computation device.
 
         Raises:
             ValueError: kappa must be in [0, 1).
@@ -251,8 +242,8 @@ class SO3GEGraph(Graph):
         if not 0.0 <= kappa < 1.0:
             raise ValueError(f"{kappa} is not a valid value for kappa, must be in [0,1).")
 
-        Gg = self.node_Gg.reshape(self.num_nodes, -1)
-        Gh = self.node_Gg.inverse().reshape(self.num_nodes, -1)
+        Gg = self.node_Gg(device).reshape(self.num_nodes, -1)
+        Gh = self.node_Gg(device).inverse().reshape(self.num_nodes, -1)
 
         xi = Vi(Gh)  # sources
         xj = Vj(Gg)  # targets
@@ -261,9 +252,7 @@ class SO3GEGraph(Graph):
         xi_t = Vi(Gg)
         xj_t = Vj(Gh)
 
-        sqdist = so3_anisotropic_square_riemannanian_distance(
-            xi, xj, xi_t, xj_t, sigmas, self.device
-        )
+        sqdist = so3_anisotropic_square_riemannanian_distance(xi, xj, xi_t, xj_t, sigmas, device)
 
         edge_sqdist, neighbors = sqdist.Kmin_argKmin(knn + 1, dim=1)
 
@@ -309,15 +298,17 @@ class SO3GEGraph(Graph):
         """
         return self.nalpha
 
-    @property
-    def node_Gg(self):
+    def node_Gg(self, device) -> FloatTensor:
         """
         Returns the matrix formulation of group elements.
+
+        Args:
+            device (Device): computation device.
 
         Returns:
             (FloatTensor): nodes' in matrix formulation
         """
-        return so3_matrix(self.alpha, self.beta, self.gamma, device=self.device)
+        return so3_matrix(self.alpha, self.beta, self.gamma, device=device)
 
     @property
     def node_pos(self):
@@ -403,15 +394,12 @@ class SE2GEGraph(Graph):
         super().__init__()
 
         if weight_kernel is None:
-            weight_kernel = lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac ** 2)
-
-        self.device = device or Device("cpu")
+            weight_kernel = lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac)
 
         self.nx, self.ny, self.ntheta = nx, ny, ntheta
 
         self._initnodes(nx * ny * ntheta)
-        self._initedges(sigmas, knn, weight_kernel, kappa)
-        super()._initlaplacian()
+        self._initedges(sigmas, knn, weight_kernel, kappa, device)
 
     def _initnodes(self, num_nodes: int):
         """
@@ -445,6 +433,7 @@ class SE2GEGraph(Graph):
         knn: int,
         weight_kernel: Callable,
         kappa: float,
+        device: Device,
     ):
         """
         Init edge indices and attributes (weights). The stored attributes are:
@@ -456,6 +445,7 @@ class SE2GEGraph(Graph):
             knn (int): maximum number of connections of a vertex.
             weight_kernel (callable): mapping from squared distance to weight value.
             kappa (float): edges' compression rate.
+            device (Device): computation device.
 
         Raises:
             ValueError: kappa must be in [0, 1).
@@ -464,12 +454,10 @@ class SE2GEGraph(Graph):
         if not 0.0 <= kappa < 1.0:
             raise ValueError(f"{kappa} is not a valid value for kappa, must be in [0,1).")
 
-        node_Gg = self.node_Gg
+        xi = Vi(torch.inverse(self.node_Gg(device)).reshape(self.num_nodes, -1))  # sources
+        xj = Vj(self.node_Gg(device).reshape(self.num_nodes, -1))  # targets
 
-        xi = Vi(torch.inverse(node_Gg).reshape(self.num_nodes, -1))  # sources
-        xj = Vj(node_Gg.reshape(self.num_nodes, -1))  # targets
-
-        sqdist = se2_anisotropic_square_riemannanian_distance(xi, xj, sigmas, self.device)
+        sqdist = se2_anisotropic_square_riemannanian_distance(xi, xj, sigmas, device)
         edge_sqdist, neighbors = sqdist.Kmin_argKmin(knn + 1, dim=1)
 
         edge_index = torch.stack(
@@ -506,15 +494,17 @@ class SE2GEGraph(Graph):
         """
         return self.ntheta
 
-    @property
-    def node_Gg(self) -> FloatTensor:
+    def node_Gg(self, device) -> FloatTensor:
         """
         Returns the matrix formulation of group elements.
+
+        Args:
+            device (Device): computation device.
 
         Returns:
             (FloatTensor): nodes' in matrix formulation
         """
-        return se2_matrix(self.node_x, self.node_y, self.node_theta, device=self.device)
+        return se2_matrix(self.node_x, self.node_y, self.node_theta, device=device)
 
     @property
     def node_pos(self) -> Tuple[FloatTensor, FloatTensor, FloatTensor]:

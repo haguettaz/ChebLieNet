@@ -145,7 +145,7 @@ def get_graph(nsym, knn, eps, xi, kappa):
             ntheta=nsym,
             knn=knn,
             sigmas=(xi / eps, xi, 1.0),
-            weight_kernel=lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac),
+            weight_kernel=lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac),
             kappa=kappa,
             device=DEVICE,
         )

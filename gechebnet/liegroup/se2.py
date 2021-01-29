@@ -9,9 +9,7 @@ from torch import device as Device
 from ..utils import mod
 
 
-def se2_matrix(
-    x: FloatTensor, y: FloatTensor, theta: FloatTensor, device: Optional[Device] = None
-) -> FloatTensor:
+def se2_matrix(x: FloatTensor, y: FloatTensor, theta: FloatTensor, device: Device) -> FloatTensor:
     """
     Returns a new tensor corresponding to matrix formulation of the given input tensors representing
     SE(2) group elements.
@@ -20,7 +18,7 @@ def se2_matrix(
         x (FloatTensor): x translation input tensor.
         y (FloatTensor): y translation input tensor.
         theta (FloatTensor): z rotation input tensor.
-        device (Device, optional): computation device. Defaults to None.
+        device (Device): computation device.
 
     Returns:
         FloatTensor: matrix representation output tensor.
@@ -50,12 +48,13 @@ def se2_log(Gg: LazyTensor) -> LazyTensor:
     Returns:
         (LazyTensor): output LazyTensor, i.e. tangent space coefficients.
     """
-    theta = Gg[3].sign() * Gg[0].acos().mod(math.pi, -math.pi / 2)
+
+    theta = Gg[0].atan2(Gg[3]).mod(math.pi, -math.pi / 2)
     x = Gg[2]
     y = Gg[5]
 
-    c1 = theta / 2 * y + x * (theta / 2).cos() / (theta / 2).sinxdivx()
-    c2 = -theta / 2 * x + y * (theta / 2).cos() / (theta / 2).sinxdivx()
+    c1 = theta / 2 * y + x * (theta / 2).cos() / ((theta / 2).sinxdivx())
+    c2 = -theta / 2 * x + y * (theta / 2).cos() / ((theta / 2).sinxdivx())
     c3 = theta
 
     return LazyTensor.cat((c1, c2, c3), dim=-1)

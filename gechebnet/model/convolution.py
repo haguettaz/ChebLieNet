@@ -13,13 +13,13 @@ from ..graph.graph import Graph
 from ..utils import sparse_tensor_diag
 
 
-def cheb_conv(laplacian: SparseFloatTensor, x: FloatTensor, weight: FloatTensor) -> FloatTensor:
+def cheb_conv(x: FloatTensor, laplacian: SparseFloatTensor, weight: FloatTensor) -> FloatTensor:
     """
     Chebyshev convolution.
 
     Args:
-        laplacian (SparseFloatTensor): symmetric normalized laplacian.
         x (FloatTensor): data input in format (B, Cin, V).
+        laplacian (SparseFloatTensor): symmetric normalized laplacian.
         weight (FloatTensor): layer's weights in format (K, Cin, Cout).
 
     Returns:
@@ -30,14 +30,20 @@ def cheb_conv(laplacian: SparseFloatTensor, x: FloatTensor, weight: FloatTensor)
     K, _, _ = weight.shape  # (K, Cin, Cout)
 
     x0 = x.permute(2, 0, 1).contiguous().view(V, B * Cin)  # (B, Cin, V) -> (V, B*Cin)
-
     x = x0.unsqueeze(0)  # (V, B*Cin) -> (1, V, B*Cin)
+    print("0", x.isnan().sum())
+    print(x0.min(), x0.max())
     if K > 1:
         x1 = torch.mm(laplacian, x0)  # (V, B*Cin)
         x = torch.cat((x, x1.unsqueeze(0)), 0)  # (1, V, B*Cin) -> (2, V, B*Cin)
-        for _ in range(1, K - 1):
+        print("1", x.isnan().sum())
+        print(x1.min(), x1.max())
+
+        for k in range(2, K):
             x2 = 2 * torch.mm(laplacian, x1) - x0  # -> (V, B*Cin)
             x = torch.cat((x, x2.unsqueeze(0)), 0)  # (k-1, V, B*Cin) -> (k, V, B*Cin)
+            print(k, x.isnan().sum())
+            print(x2.min(), x2.max())
             x0, x1 = x1, x2  # (V, B*Cin), (V, B*Cin)
 
     x = x.contiguous().view(K, V, B, Cin)  # (K, V, B*Cin) -> (K, V, B, Cin)
@@ -51,12 +57,10 @@ class ChebConv(Module):
 
     def __init__(
         self,
-        graph: Graph,
         in_channels: int,
         out_channels: int,
         kernel_size: int,
         bias=True,
-        laplacian_device=None,
     ):
         """
         Initialize the Chebyshev layer.
@@ -67,10 +71,8 @@ class ChebConv(Module):
             kernel_size (int): number of trainable parameters per filter, which is also the size of the convolutional kernel.
                                 The order of the Chebyshev polynomials is kernel_size - 1.
             bias (bool, optional): whether to add a bias term. Defaults to True.
-            laplacian_device (Device, optional): computation device. Defaults to None.
         """
         super().__init__()
-        laplacian_device = laplacian_device or Device("cpu")
 
         if kernel_size < 1:
             raise ValueError(
@@ -91,14 +93,6 @@ class ChebConv(Module):
 
         self._kaiming_initialization()
 
-        self.laplacian = self._norm(graph.laplacian, graph.lmax, graph.num_nodes).to(
-            laplacian_device
-        )
-
-    def _norm(self, laplacian: SparseFloatTensor, lmax: float, num_nodes: int) -> SparseFloatTensor:
-        """Scale the eigenvalues from [0, lmax] to [-1, 1]."""
-        return 2 * laplacian / lmax - sparse_tensor_diag(num_nodes)
-
     def _kaiming_initialization(self):
         """Initialize weights and bias."""
         std = math.sqrt(2 / (self.in_channels * self.kernel_size))
@@ -106,7 +100,7 @@ class ChebConv(Module):
         if self.bias is not None:
             self.bias.data.fill_(0.01)
 
-    def forward(self, x: FloatTensor):
+    def forward(self, x: FloatTensor, laplacian: SparseFloatTensor):
         """Forward graph convolution.
 
         Args:
@@ -115,7 +109,9 @@ class ChebConv(Module):
         Returns:
             (FloatTensor): convolved input data.
         """
-        x = cheb_conv(self.laplacian, x, self.weight)  # (B, V, Cin) -> (V, B, Cout)
+        print("before", x.isnan().sum())
+        x = cheb_conv(x, laplacian, self.weight)  # (B, V, Cin) -> (V, B, Cout)
+        print("after", x.isnan().sum())
 
         if self.bias is not None:
             x += self.bias  # (V, B, Cout) -> (V, B, Cout)

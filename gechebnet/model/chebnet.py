@@ -5,8 +5,10 @@ import torch.nn.functional as F
 from torch import FloatTensor
 from torch import device as Device
 from torch.nn import AvgPool1d, BatchNorm1d, MaxPool1d, Module
+from torch.sparse import FloatTensor as SparseFloatTensor
 
 from ..graph.graph import Graph
+from ..utils import sparse_tensor_diag
 from .convolution import ChebConv
 
 
@@ -20,10 +22,10 @@ class GEChebNet(Module):
         hidden_channels: int = 20,
         hidden_layers: int = 2,
         pooling: str = "max",
-        laplacian_device: Optional[Device] = None,
+        device: Device = None,
     ):
         """
-        Initialize a ChebNet with 6 convolutional layers and batch normalization.
+        Initialize a ChebNet with convolutional layers and batch normalization.
 
         Args:
             graph (Graph): graph.
@@ -33,32 +35,29 @@ class GEChebNet(Module):
             hidden_channels (int, optional): number of dimensions of the hidden layers. Defaults to 20.
             hidden_layers (int, optional): number of hidden layers. Defaults to 2.
             pooling (str, optional): global pooling function. Defaults to 'max'.
-            laplacian_device (Device, optional): computation device. Defaults to None.
 
         Raises:
             ValueError: pooling must be 'avg' or 'max'
         """
         super(GEChebNet, self).__init__()
 
-        laplacian_device = laplacian_device or Device("cpu")
+        self.laplacian = self._normlaplacian(
+            graph.laplacian(device), lmax=2.0, num_nodes=graph.num_nodes
+        )
         self.hidden_layers = hidden_layers
 
         if pooling not in {"avg", "max"}:
             raise ValueError(f"{pooling} is not a valid value for pooling: must be 'avg' or 'max'")
 
-        self.in_conv = ChebConv(
-            graph, in_channels, hidden_channels, K, laplacian_device=laplacian_device
-        )
+        self.in_conv = ChebConv(in_channels, hidden_channels, K)
 
-        self.hidden_bn = [BatchNorm1d(hidden_channels)] * hidden_layers
-        self.hidden_conv = [
-            ChebConv(graph, hidden_channels, hidden_channels, K, laplacian_device=laplacian_device)
-        ] * hidden_layers
+        self.hidden_bn = torch.nn.ModuleList([BatchNorm1d(hidden_channels)] * hidden_layers)
+        self.hidden_conv = torch.nn.ModuleList(
+            [ChebConv(hidden_channels, hidden_channels, K)] * hidden_layers
+        )
 
         self.out_bn = BatchNorm1d(hidden_channels)
-        self.out_conv = ChebConv(
-            graph, hidden_channels, out_channels, K, laplacian_device=laplacian_device
-        )
+        self.out_conv = ChebConv(hidden_channels, out_channels, K)
 
         if pooling == "avg":
             self.pool = AvgPool1d(graph.num_nodes)  # theoretical equivariance
@@ -76,23 +75,29 @@ class GEChebNet(Module):
             (FloatTensor): the predictions on the batch.
         """
         # Input layer
-        x = self.in_conv(x)  # (B, C, V)
+        x = self.in_conv(x, self.laplacian)  # (B, C, V)
         x = F.relu(x)  # (B, C, V)
 
         # Hidden layers
         for l in range(self.hidden_layers):
             x = self.hidden_bn[l](x)  # (B, C, V)
-            x = self.hidden_conv[l](x)  # (B, C, V)
+            x = self.hidden_conv[l](x, self.laplacian)  # (B, C, V)
             x = F.relu(x)  # (B, C, V)
 
         # Output layer
         x = self.out_bn(x)  # (B, C, V)
-        x = self.out_conv(x)  # (B, C, V)
+        x = self.out_conv(x, self.laplacian)  # (B, C, V)
         x = F.relu(x)  # (B, C, V)
         x = self.pool(x).squeeze()  # (B, C)
         x = F.log_softmax(x, dim=1)  # (B, C)
 
         return x
+
+    def _normlaplacian(
+        self, laplacian: SparseFloatTensor, lmax: float, num_nodes: int
+    ) -> SparseFloatTensor:
+        """Scale the eigenvalues from [0, lmax] to [-1, 1]."""
+        return 2 * laplacian / lmax - sparse_tensor_diag(num_nodes, device=laplacian.device)
 
     @property
     def capacity(self) -> int:
