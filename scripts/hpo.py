@@ -20,11 +20,12 @@ DEVICE = torch.device("cuda")
 DATASET_NAME = "mnist"  # "stl10"
 VAL_RATIO = 0.1
 
-IN_CHANNELS = 1
+IN_CHANNELS = 1 if DATASET_NAME == "mnist" else 3
 OUT_CHANNELS = 10
 HIDDEN_CHANNELS = 20
+HIDDEN_LAYERS = 2 if DATASET_NAME == "mnist" else 6
 
-EPOCHS = 20
+EPOCHS = 20 if DATASET_NAME == "mnist" else 100
 OPTIMIZER = "adam"
 
 NUM_EXPERIMENTS = 50
@@ -52,7 +53,11 @@ def build_sweep_config():
                 "max": math.log(256),
             },
             "eps": {"distribution": "constant", "value": 0.1},
-            "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(16)},
+            "K": {
+                "distribution": "q_log_uniform",
+                "min": math.log(2),
+                "max": math.log(16) if DATASET_NAME == "mnist" else math.log(32),
+            },
             "kappa": {"distribution": "uniform", "min": 0.0, "max": 0.4},
             "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
             "learning_rate": {
@@ -77,7 +82,11 @@ def build_sweep_config():
                 "max": math.log(256),
             },
             "eps": {"distribution": "constant", "value": 0.1},
-            "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(16)},
+            "K": {
+                "distribution": "q_log_uniform",
+                "min": math.log(2),
+                "max": math.log(16) if DATASET_NAME == "mnist" else math.log(32),
+            },
             "kappa": {"distribution": "uniform", "min": 0.0, "max": 0.4},
             "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
             "learning_rate": {
@@ -103,7 +112,11 @@ def build_sweep_config():
                 "max": math.log(256),
             },
             "eps": {"distribution": "constant", "value": 1.0},
-            "K": {"distribution": "q_log_uniform", "min": math.log(2), "max": math.log(16)},
+            "K": {
+                "distribution": "q_log_uniform",
+                "min": math.log(2),
+                "max": math.log(16) if DATASET_NAME == "mnist" else math.log(32),
+            },
             "kappa": {"distribution": "uniform", "min": 0.0, "max": 0.4},
             "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
             "learning_rate": {
@@ -168,6 +181,7 @@ def train(config=None):
             in_channels=IN_CHANNELS,
             out_channels=OUT_CHANNELS,
             hidden_channels=HIDDEN_CHANNELS,
+            hidden_layers=HIDDEN_LAYERS,
             pooling=config.pooling,
             laplacian_device=DEVICE,
         )
