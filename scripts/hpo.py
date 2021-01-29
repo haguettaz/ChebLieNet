@@ -58,7 +58,7 @@ def build_sweep_config():
                 "min": math.log(2),
                 "max": math.log(16) if DATASET_NAME == "mnist" else math.log(32),
             },
-            "kappa": {"distribution": "uniform", "min": 0.0, "max": 0.4},
+            "kappa": {"distribution": "constant", "value": 0.0},
             "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
             "learning_rate": {
                 "distribution": "log_uniform",
@@ -87,7 +87,7 @@ def build_sweep_config():
                 "min": math.log(2),
                 "max": math.log(16) if DATASET_NAME == "mnist" else math.log(32),
             },
-            "kappa": {"distribution": "uniform", "min": 0.0, "max": 0.4},
+            "kappa": {"distribution": "constant", "value": 0.0},
             "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
             "learning_rate": {
                 "distribution": "log_uniform",
@@ -117,7 +117,7 @@ def build_sweep_config():
                 "min": math.log(2),
                 "max": math.log(16) if DATASET_NAME == "mnist" else math.log(32),
             },
-            "kappa": {"distribution": "uniform", "min": 0.0, "max": 0.4},
+            "kappa": {"distribution": "constant", "value": 0.0},
             "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
             "learning_rate": {
                 "distribution": "log_uniform",

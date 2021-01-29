@@ -31,19 +31,14 @@ def cheb_conv(x: FloatTensor, laplacian: SparseFloatTensor, weight: FloatTensor)
 
     x0 = x.permute(2, 0, 1).contiguous().view(V, B * Cin)  # (B, Cin, V) -> (V, B*Cin)
     x = x0.unsqueeze(0)  # (V, B*Cin) -> (1, V, B*Cin)
-    print("0", x.isnan().sum())
-    print(x0.min(), x0.max())
+
     if K > 1:
         x1 = torch.mm(laplacian, x0)  # (V, B*Cin)
         x = torch.cat((x, x1.unsqueeze(0)), 0)  # (1, V, B*Cin) -> (2, V, B*Cin)
-        print("1", x.isnan().sum())
-        print(x1.min(), x1.max())
 
         for k in range(2, K):
             x2 = 2 * torch.mm(laplacian, x1) - x0  # -> (V, B*Cin)
             x = torch.cat((x, x2.unsqueeze(0)), 0)  # (k-1, V, B*Cin) -> (k, V, B*Cin)
-            print(k, x.isnan().sum())
-            print(x2.min(), x2.max())
             x0, x1 = x1, x2  # (V, B*Cin), (V, B*Cin)
 
     x = x.contiguous().view(K, V, B, Cin)  # (K, V, B*Cin) -> (K, V, B, Cin)
