@@ -10,7 +10,7 @@ from gechebnet.engine.engine import (create_supervised_evaluator,
                                      create_supervised_trainer)
 from gechebnet.engine.utils import prepare_batch, wandb_log
 from gechebnet.graph.graph import SE2GEGraph
-from gechebnet.model.chebnet import GEChebNet
+from gechebnet.model.chebnet import GEChebNet_v0, GEChebNet_v1
 from gechebnet.model.optimizer import get_optimizer
 from gechebnet.utils import random_choice
 from ignite.contrib.handlers import ProgressBar
