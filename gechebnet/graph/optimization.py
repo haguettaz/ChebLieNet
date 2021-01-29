@@ -6,7 +6,9 @@ from tqdm import tqdm
 def repulsive_loss(x, alpha=1.0, beta=1.0):
     N = x.shape[0]
 
-    dist = (x.unsqueeze(0) - x.unsqueeze(1)).pow(2).sum(dim=2) + 1000 * torch.eye(N, N).to(x.device)
+    dist = (x.unsqueeze(0) - x.unsqueeze(1)).pow(2).sum(dim=2) + 10000 * torch.eye(N, N).to(
+        x.device
+    )
 
     norm = x.norm(dim=1)
 
@@ -14,7 +16,7 @@ def repulsive_loss(x, alpha=1.0, beta=1.0):
 
 
 def repulsive_sampling(num_samples, loss_fn, radius=1.0, device=None, max_iter=10000):
-    lr = 1e-2
+    lr = 1e-3
 
     X = FloatTensor(num_samples, 3).uniform_(-1, 1).to(device)
     X.requires_grad_()

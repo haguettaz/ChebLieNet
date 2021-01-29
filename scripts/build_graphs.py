@@ -18,12 +18,12 @@ def compile_graphs(knn):
             f"An error occured during the computation of the SE2 group equivariant {knn}-NN graph"
         )
 
-    graph = SO3GEGraph(nsamples=100, nalpha=10, knn=knn, device=DEVICE)
+    # graph = SO3GEGraph(nsamples=100, nalpha=10, knn=knn, device=DEVICE)
 
-    if graph.num_edges < graph.num_nodes:
-        raise ValueError(
-            f"An error occured during the computation of the SO3 group equivariant {knn}-NN graph"
-        )
+    # if graph.num_edges < graph.num_nodes:
+    #     raise ValueError(
+    #         f"An error occured during the computation of the SO3 group equivariant {knn}-NN graph"
+    #     )
 
 
 def test_speed(knn, iter=10):
@@ -38,16 +38,16 @@ def test_speed(knn, iter=10):
         f"{np.mean(computation_times)}s +/- {np.std(computation_times)}s to compute",
     )
 
-    computation_times = []
-    for _ in tqdm(range(iter), file=sys.stdout):
-        start = time()
-        graph = SO3GEGraph(nsamples=2500, nalpha=12, knn=knn, device=DEVICE)
-        end = time()
-        computation_times.append(end - start)
-    print(
-        f"{knn}-NN SO3GEGraph with {graph.num_nodes} nodes and {graph.num_edges} edges took",
-        f"{np.mean(computation_times)}s +/- {np.std(computation_times)}s to compute",
-    )
+    # computation_times = []
+    # for _ in tqdm(range(iter), file=sys.stdout):
+    #     start = time()
+    #     graph = SO3GEGraph(nsamples=2500, nalpha=12, knn=knn, device=DEVICE)
+    #     end = time()
+    #     computation_times.append(end - start)
+    # print(
+    #     f"{knn}-NN SO3GEGraph with {graph.num_nodes} nodes and {graph.num_edges} edges took",
+    #     f"{np.mean(computation_times)}s +/- {np.std(computation_times)}s to compute",
+    # )
 
 
 if __name__ == "__main__":
