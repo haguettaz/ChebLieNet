@@ -183,7 +183,7 @@ def train(config=None):
             hidden_channels=HIDDEN_CHANNELS,
             hidden_layers=HIDDEN_LAYERS,
             pooling=config.pooling,
-            laplacian_device=DEVICE,
+            device=DEVICE,
         )
         model = model.to(DEVICE)
         optimizer = get_optimizer(model, OPTIMIZER, config.learning_rate, config.weight_decay)
