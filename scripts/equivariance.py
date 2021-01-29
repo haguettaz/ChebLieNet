@@ -84,9 +84,7 @@ def build_config():
             "xi": {"value": },
         }
 
-
-
-def get_model(nsym, knn, eps, xi, kappa, K, pooling):
+def get_graph(nsym, knn, eps, xi, kappa):
     if LIE_GROUP == "se2":
         graph = SE2GEGraph(
             nx=28 if DATASET_NAME == "mnist" else 96,
@@ -94,7 +92,7 @@ def get_model(nsym, knn, eps, xi, kappa, K, pooling):
             ntheta=nsym,
             knn=knn,
             sigmas=(xi / eps, xi, 1.0),
-            weight_kernel=lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac),
+            weight_kernel=lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac),
             kappa=kappa,
             device=DEVICE,
         )
@@ -114,19 +112,7 @@ def get_model(nsym, knn, eps, xi, kappa, K, pooling):
         raise ValueError(f"An error occured during the computation of the graph")
     wandb.log({f"num_nodes": graph.num_nodes, f"num_edges": graph.num_edges})
 
-    model = GEChebNet(
-        graph,
-        K,
-        IN_CHANNELS,
-        OUT_CHANNELS,
-        HIDDEN_CHANNELS,
-        pooling,
-        laplacian_device=DEVICE,
-    )
-    wandb.log({"capacity": model.capacity})
-
-    return model.to(DEVICE)
-
+    return graph
 
 def train(config=None):
 
@@ -141,15 +127,28 @@ def train(config=None):
         classic_test_loader, rotated_test_loader, flipped_test_loader = get_test_equivariance_dataloaders(
             DATASET_NAME, batch_size=config.batch_size, data_path=DATA_PATH)
 
-        model = get_model(
-            config.nsym,
-            config.knn,
-            config.eps,
-            config.xi,
-            config.kappa,
-            config.K,
-            config.pooling,
-        )
+        graph = get_graph(config.nsym, config.knn, config.eps, config.xi, config.kappa)
+
+        if DATASET_NAME == "mnist":
+            model = GEChebNet_v0(
+                graph=graph,
+                K=config.K,
+                in_channels=IN_CHANNELS,
+                out_channels=OUT_CHANNELS,
+                hidden_channels=HIDDEN_CHANNELS,
+                pooling=config.pooling,
+                device=DEVICE,
+            )
+        elif DATASET_NAME == "stl10":
+            model = GEChebNet_v1(
+                graph=graph,
+                K=config.K,
+                in_channels=IN_CHANNELS,
+                out_channels=OUT_CHANNELS,
+                hidden_channels=HIDDEN_CHANNELS,
+                pooling=config.pooling,
+                device=DEVICE,
+            )
 
         optimizer = get_optimizer(model, OPTIMIZER, config.learning_rate, config.weight_decay)
 
