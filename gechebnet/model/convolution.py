@@ -104,9 +104,7 @@ class ChebConv(Module):
         Returns:
             (FloatTensor): convolved input data.
         """
-        print("before", x.isnan().sum())
         x = cheb_conv(x, laplacian, self.weight)  # (B, V, Cin) -> (V, B, Cout)
-        print("after", x.isnan().sum())
 
         if self.bias is not None:
             x += self.bias  # (V, B, Cout) -> (V, B, Cout)
