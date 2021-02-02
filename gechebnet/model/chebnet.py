@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 from torch import FloatTensor
 from torch import device as Device
-from torch.nn import AvgPool1d, BatchNorm1d, MaxPool1d, Module, ReLU, Softmax
+from torch.nn import AvgPool1d, BatchNorm1d, MaxPool1d, Module, ReLU, LogSoftmax
 from torch.sparse import FloatTensor as SparseFloatTensor
 
 from ..graph.graph import Graph
@@ -61,8 +61,8 @@ class ResGEChebNet(Module):
         graph: Graph,
         K: int,
         in_channels: int,
+        hidden_channels: int,
         out_channels: int,
-        hidden_channels: int = 20,
         pooling: Optional[str] = "max",
         device: Optional[Device] = None,
     ):
@@ -74,8 +74,8 @@ class ResGEChebNet(Module):
             graph (Graph): graph.
             K (int): degree of the Chebyschev polynomials, the sum goes from indices 0 to K-1.
             in_channels (int): number of dimensions of the input layer.
+            hidden_channels (int): number of dimensions of the hidden layers.
             out_channels (int): number of dimensions of the output layer.
-            hidden_channels (int, optional): number of dimensions of the hidden layers. Defaults to 20.
             pooling (str, optional): global pooling function. Defaults to 'max'.
             device (Device, optional): computation device. Defaults to None.
 
@@ -107,7 +107,7 @@ class ResGEChebNet(Module):
         else:
             self.pool = MaxPool1d(graph.num_nodes)  # adds some non linearities, better in practice
 
-        self.logsoftmax = Softmax(dim=1)
+        self.logsoftmax = LogSoftmax(dim=1)
 
     def forward(self, x: FloatTensor) -> FloatTensor:
         """
@@ -209,7 +209,7 @@ class GEChebNet(Module):
         else:
             self.pool = MaxPool1d(graph.num_nodes)  # adds some non linearities, better in practice
 
-        self.logsoftmax = Softmax(dim=1)
+        self.logsoftmax = LogSoftmax(dim=1)
 
     def forward(self, x: FloatTensor) -> FloatTensor:
         """
