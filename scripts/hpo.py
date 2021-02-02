@@ -176,23 +176,23 @@ def train(config=None):
 
         if DATASET_NAME == "mnist":
             model = GEChebNet(
-                graph=graph,
-                K=config.K,
-                in_channels=IN_CHANNELS,
-                out_channels=OUT_CHANNELS,
-                hidden_channels=HIDDEN_CHANNELS,
-                pooling=config.pooling,
-                device=DEVICE,
+                graph,
+                config.K,
+                IN_CHANNELS,
+                HIDDEN_CHANNELS,
+                OUT_CHANNELS,
+                config.pooling,
+                DEVICE,
             )
         elif DATASET_NAME == "stl10":
             model = ResGEChebNet(
-                graph=graph,
-                K=config.K,
-                in_channels=IN_CHANNELS,
-                out_channels=OUT_CHANNELS,
-                hidden_channels=HIDDEN_CHANNELS,
-                pooling=config.pooling,
-                device=DEVICE,
+                graph,
+                config.K,
+                IN_CHANNELS,
+                HIDDEN_CHANNELS,
+                OUT_CHANNELS,
+                config.pooling,
+                DEVICE,
             )
         model = model.to(DEVICE)
         optimizer = get_optimizer(model, OPTIMIZER, config.learning_rate, config.weight_decay)

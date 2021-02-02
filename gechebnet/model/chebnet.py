@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 from torch import FloatTensor
 from torch import device as Device
-from torch.nn import AvgPool1d, BatchNorm1d, MaxPool1d, Module, ReLU, LogSoftmax
+from torch.nn import AvgPool1d, BatchNorm1d, LogSoftmax, MaxPool1d, Module, ReLU
 from torch.sparse import FloatTensor as SparseFloatTensor
 
 from ..graph.graph import Graph
@@ -161,8 +161,8 @@ class GEChebNet(Module):
         graph: Graph,
         K: int,
         in_channels: int,
+        hidden_channels: int,
         out_channels: int,
-        hidden_channels: int = 20,
         pooling: Optional[str] = "max",
         device: Optional[Device] = None,
     ):
@@ -174,8 +174,8 @@ class GEChebNet(Module):
             graph (Graph): graph.
             K (int): degree of the Chebyschev polynomials, the sum goes from indices 0 to K-1.
             in_channels (int): number of dimensions of the input layer.
-            out_channels (int): number of dimensions of the output layer.
             hidden_channels (int, optional): number of dimensions of the hidden layers. Defaults to 20.
+            out_channels (int): number of dimensions of the output layer.
             pooling (str, optional): global pooling function. Defaults to 'max'.
             device (Device, optional): computation device. Defaults to None.
 
