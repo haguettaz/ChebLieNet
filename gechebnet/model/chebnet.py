@@ -17,22 +17,20 @@ class ResidualBlock(Module):
     Base class for residual blocks.
     """
 
-    def __init__(self, in_channels: int, out_channels: int, hidden_channels: int, K: int):
+    def __init__(self, channels: int, K: int):
         """
         Inits the residual block with 2 chebyschev convolutional layers, relu activation function
         and batch normalization.
 
         Args:
-            in_channels (int): input channels.
-            out_channels (int): output channels.
-            hidden_channels (int): hidden channels.
+            channels (int): channels.
             K (int): Chebschev's polynomials' order.
         """
         super().__init__()
-        self.conv1 = ChebConv(in_channels, hidden_channels, K)
+        self.conv1 = ChebConv(channels, channels, K)
         self.relu1 = ReLU()
-        self.bn2 = BatchNorm1d(hidden_channels)
-        self.conv2 = ChebConv(hidden_channels, out_channels, K)
+        self.bn2 = BatchNorm1d(channels)
+        self.conv2 = ChebConv(channels, channels, K)
         self.relu2 = ReLU()
 
     def forward(self, x: FloatTensor, laplacian: SparseFloatTensor) -> FloatTensor:
@@ -93,13 +91,16 @@ class ResGEChebNet(Module):
         if pooling not in {"avg", "max"}:
             raise ValueError(f"{pooling} is not a valid value for pooling: must be 'avg' or 'max'")
 
-        self.resblock1 = ResidualBlock(in_channels, hidden_channels, hidden_channels, K)
+        self.conv1 = ChebConv(in_channels, hidden_channels, K)
 
         self.bn2 = BatchNorm1d(hidden_channels)
-        self.resblock2 = ResidualBlock(in_channels, hidden_channels, hidden_channels, K)
+        self.resblock2 = ResidualBlock(hidden_channels, K)
 
         self.bn3 = BatchNorm1d(hidden_channels)
-        self.resblock3 = ResidualBlock(in_channels, hidden_channels, out_channels, K)
+        self.resblock3 = ResidualBlock(hidden_channels, K)
+
+        self.bn4 = BatchNorm1d(hidden_channels)
+        self.conv4 = ChebConv(hidden_channels, out_channels, K)
 
         if pooling == "avg":
             self.pool = AvgPool1d(graph.num_nodes)  # theoretical equivariance
@@ -119,7 +120,7 @@ class ResGEChebNet(Module):
             (FloatTensor): the predictions on the batch.
         """
         # Input layer
-        out = self.resblock1(x, self.laplacian)  # (B, C, V)
+        out = self.conv1(x, self.laplacian)  # (B, C, V)
 
         # Hidden layers
         out = self.bn2(out)
@@ -128,6 +129,8 @@ class ResGEChebNet(Module):
         out = self.resblock3(out, self.laplacian)  # (B, C, V)
 
         # Output layer
+        out = self.bn4(out)
+        out = self.conv4(out, self.laplacian)
         out = self.pool(out).squeeze()  # (B, C)
         return self.logsoftmax(out)  # (B, C)
 
