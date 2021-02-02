@@ -7,7 +7,7 @@ from gechebnet.data.dataloader import get_train_val_dataloaders
 from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engine.utils import prepare_batch, wandb_log
 from gechebnet.graph.graph import SE2GEGraph, SO3GEGraph
-from gechebnet.model.chebnet import GEChebNet_v0, GEChebNet_v1
+from gechebnet.model.chebnet import GEChebNet, ResGEChebNet
 from gechebnet.model.optimizer import get_optimizer
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
@@ -175,7 +175,7 @@ def train(config=None):
         graph = get_graph(config.nsym, config.knn, config.eps, config.xi, config.kappa)
 
         if DATASET_NAME == "mnist":
-            model = GEChebNet_v0(
+            model = GEChebNet(
                 graph=graph,
                 K=config.K,
                 in_channels=IN_CHANNELS,
@@ -185,7 +185,7 @@ def train(config=None):
                 device=DEVICE,
             )
         elif DATASET_NAME == "stl10":
-            model = GEChebNet_v1(
+            model = ResGEChebNet(
                 graph=graph,
                 K=config.K,
                 in_channels=IN_CHANNELS,

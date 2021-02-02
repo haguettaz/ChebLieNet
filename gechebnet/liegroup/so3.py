@@ -63,13 +63,13 @@ def so3_log(Gg: LazyTensor, Gg_t: LazyTensor):
     Returns:
         (LazyTensor): output LazyTensor, i.e. tangent space coefficients.
     """
-    theta = (((Gg[0] + Gg[4] + Gg[8]) - 1) / 2).acos()
+    theta = (((Gg[0] + Gg[4] + Gg[8]) - 1) / 2).acos()  # always return number in (-pi, pi]
 
-    A = 0.5 * (Gg - Gg_t) / theta.sinxdivx()  # problem when theta == +/- pi
+    A = 0.5 * (Gg - Gg_t) / theta.sinxdivx()  # problem with theta == +/- pi !!!!!!!!
 
-    c1 = A[7]
-    c2 = A[2]
-    c3 = A[3]
+    c1 = A[2] * (math.pi - 1e-5 - theta).step() + 0 * (theta - math.pi).step()
+    c2 = A[3] * (math.pi - 1e-5 - theta).step() + 0 * (theta - math.pi).step()
+    c3 = A[7] * (math.pi - 1e-5 - theta).step() + theta * (theta - math.pi).step()
 
     return LazyTensor.cat((c1, c2, c3), dim=-1)
 
