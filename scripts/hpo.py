@@ -214,11 +214,12 @@ def train(config=None):
             out_channels=10,
             K=config.K,
             pooling=config.pooling,
-            resnet=args.model[0] == "resnet",
+            resnet=args.model_type[2] == "resnet",
             device=DEVICE,
         )
-        wandb.log({"resnet": args.model[0] == "resnet"})
-        wandb.log({"model_type": args.model[1]})
+        wandb.log({"anisotropic": args.model_type[0] == "anisotropic"})
+        wandb.log({"coupled_sym": args.model_type[1] == "coupled_sym"})
+        wandb.log({"resnet": args.model_type[2] == "resnet"})
         wandb.log({"capacity": model.capacity})
 
         optimizer = get_optimizer(model, config.learning_rate, config.weight_decay)
