@@ -13,7 +13,9 @@ from ..graph.graph import Graph
 from ..utils import sparse_tensor_diag
 
 
-def cheb_conv(x: FloatTensor, laplacian: SparseFloatTensor, weight: FloatTensor) -> FloatTensor:
+def cheb_conv(
+    x: FloatTensor, laplacian: SparseFloatTensor, weight: FloatTensor
+) -> FloatTensor:
     """
     Chebyshev convolution.
 
@@ -36,7 +38,7 @@ def cheb_conv(x: FloatTensor, laplacian: SparseFloatTensor, weight: FloatTensor)
         x1 = torch.mm(laplacian, x0)  # (V, B*Cin)
         x = torch.cat((x, x1.unsqueeze(0)), 0)  # (1, V, B*Cin) -> (2, V, B*Cin)
 
-        for k in range(2, K):
+        for _ in range(2, K):
             x2 = 2 * torch.mm(laplacian, x1) - x0  # -> (V, B*Cin)
             x = torch.cat((x, x2.unsqueeze(0)), 0)  # (k-1, V, B*Cin) -> (k, V, B*Cin)
             x0, x1 = x1, x2  # (V, B*Cin), (V, B*Cin)

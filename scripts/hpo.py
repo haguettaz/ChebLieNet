@@ -7,8 +7,9 @@ from gechebnet.data.dataloader import get_train_val_dataloaders
 from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engine.utils import prepare_batch, wandb_log
 from gechebnet.graph.graph import SE2GEGraph, SO3GEGraph
-from gechebnet.model.chebnet import GEChebNet, ResGEChebNet
+from gechebnet.model.chebnet import GEChebNet
 from gechebnet.model.optimizer import get_optimizer
+from gechebnet.model.reschebnet import ResGEChebNet
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
 from ignite.metrics import Accuracy, Loss
@@ -49,7 +50,7 @@ def build_sweep_config():
             "batch_size": {
                 "distribution": "q_log_uniform",
                 "min": math.log(8),
-                "max": math.log(256),
+                "max": math.log(256) if DATASET_NAME == "mnist" else math.log(64),
             },
             "eps": {"distribution": "constant", "value": 0.1},
             "K": {
@@ -212,12 +213,19 @@ def train(config=None):
         metrics = {"validation_accuracy": Accuracy(), "validation_loss": Loss(nll_loss)}
 
         evaluator = create_supervised_evaluator(
-            graph=graph, model=model, metrics=metrics, device=DEVICE, prepare_batch=prepare_batch
+            graph=graph,
+            model=model,
+            metrics=metrics,
+            device=DEVICE,
+            prepare_batch=prepare_batch,
         )
         ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
 
         train_loader, val_loader = get_train_val_dataloaders(
-            DATASET_NAME, batch_size=config.batch_size, val_ratio=VAL_RATIO, data_path=DATA_PATH
+            DATASET_NAME,
+            batch_size=config.batch_size,
+            val_ratio=VAL_RATIO,
+            data_path=DATA_PATH,
         )
 
         # Performance tracking with wandb

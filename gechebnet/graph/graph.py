@@ -71,7 +71,7 @@ class Graph:
             (ndarray): Laplacian eigen values.
             (ndarray): Laplacian eigen vectors.
         """
-        return get_fourier_basis(self.laplacian)
+        return get_fourier_basis(self.laplacian())
 
     def diff_kernel(self, kernel: Callable) -> ndarray:
         """

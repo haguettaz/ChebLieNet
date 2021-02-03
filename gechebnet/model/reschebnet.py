@@ -3,7 +3,7 @@ from typing import Optional, Tuple
 import torch
 from torch import FloatTensor
 from torch import device as Device
-from torch.nn import AvgPool1d, BatchNorm1d, LogSoftmax, MaxPool1d, Module, ReLU
+from torch.nn import AvgPool1d, BatchNorm1d, Identity, LogSoftmax, MaxPool1d, Module, ReLU
 from torch.sparse import FloatTensor as SparseFloatTensor
 
 from ..graph.graph import Graph
@@ -11,9 +11,53 @@ from ..utils import sparse_tensor_diag
 from .convolution import ChebConv
 
 
-class GEChebNet(Module):
+class ResidualBlock(Module):
     """
-    Group equivariant ChebNet.
+    Base class for residual blocks.
+    """
+
+    def __init__(self, in_channels: int, hidden_channels: int, out_channels: int, K: int):
+        """
+        Inits the residual block with 2 chebyschev convolutional layers, relu activation function
+        and batch normalization.
+
+        Args:
+            channels (int): channels.
+            K (int): Chebschev's polynomials' order.
+        """
+        super().__init__()
+        self.conv1 = ChebConv(in_channels, hidden_channels, K)
+        self.relu1 = ReLU()
+        self.bn2 = BatchNorm1d(hidden_channels)
+        self.conv2 = ChebConv(hidden_channels, out_channels, K)
+        self.relu2 = ReLU()
+
+        if in_channels == out_channels:
+            self.resizer = Identity()
+        else:
+            self.resizer = ChebConv(in_channels, out_channels, 1)
+
+    def forward(self, x: FloatTensor, laplacian: SparseFloatTensor) -> FloatTensor:
+        """
+        Forward pass.
+
+        Args:
+            x (FloatTensor): input.
+            laplacian (SparseFloatTensor): graph laplacian.
+
+        Returns:
+            FloatTensor: output.
+        """
+        out = self.conv1(x, laplacian)  # (B, C, V)
+        out = self.relu1(out)  # (B, C, V)
+        out = self.bn2(out)  # (B, C, V)
+        out = self.conv2(out, laplacian)  # (B, C, V)
+        return self.relu2(out + self.resizer(x))  # (B, C, V)
+
+
+class ResGEChebNet(Module):
+    """
+    Residual group equivariant ChebNet.
     """
 
     def __init__(
@@ -27,14 +71,14 @@ class GEChebNet(Module):
         device: Optional[Device] = None,
     ):
         """
-        Inits a chebnet with 4 convolutional layers, relu activation functions, batch normalization global pooling
+        Inits a residual group equivariant chebnet 3 residual's blocks, batch normalization, global pooling
         and predictive logsoftmax activation function.
 
         Args:
             graph (Graph): graph.
             K (int): degree of the Chebyschev polynomials, the sum goes from indices 0 to K-1.
             in_channels (int): number of dimensions of the input layer.
-            hidden_channels (int, optional): number of dimensions of the hidden layers. Defaults to 20.
+            hidden_channels (int): number of dimensions of the hidden layers.
             out_channels (int): number of dimensions of the output layer.
             pooling (str, optional): global pooling function. Defaults to 'max'.
             device (Device, optional): computation device. Defaults to None.
@@ -42,7 +86,7 @@ class GEChebNet(Module):
         Raises:
             ValueError: pooling must be 'avg' or 'max'
         """
-        super(GEChebNet, self).__init__()
+        super(ResGEChebNet, self).__init__()
 
         self.laplacian = self._normlaplacian(
             graph.laplacian(device), lmax=2.0, num_nodes=graph.num_nodes
@@ -54,17 +98,15 @@ class GEChebNet(Module):
             )
 
         self.conv1 = ChebConv(in_channels, hidden_channels, K)
-        self.relu1 = ReLU()
 
         self.bn2 = BatchNorm1d(hidden_channels)
-        self.conv2 = ChebConv(hidden_channels, hidden_channels, K)
-        self.relu2 = ReLU()
+        self.resblock2 = ResidualBlock(hidden_channels, hidden_channels, hidden_channels, K)
+
         self.bn3 = BatchNorm1d(hidden_channels)
-        self.conv3 = ChebConv(hidden_channels, hidden_channels, K)
-        self.relu3 = ReLU()
+        self.resblock3 = ResidualBlock(hidden_channels, hidden_channels, hidden_channels, K)
+
         self.bn4 = BatchNorm1d(hidden_channels)
         self.conv4 = ChebConv(hidden_channels, out_channels, K)
-        self.relu4 = ReLU()
 
         if pooling == "avg":
             self.pool = AvgPool1d(graph.num_nodes)  # theoretical equivariance
@@ -87,20 +129,16 @@ class GEChebNet(Module):
         """
         # Input layer
         out = self.conv1(x, self.laplacian)  # (B, C, V)
-        out = self.relu1(out)  # (B, C, V)
 
         # Hidden layers
-        out = self.bn2(out)  # (B, C, V)
-        out = self.conv2(out, self.laplacian)  # (B, C, V)
-        out = self.relu2(out)  # (B, C, V)
-        out = self.bn3(out)  # (B, C, V)
-        out = self.conv3(out, self.laplacian)  # (B, C, V)
-        out = self.relu3(out)  # (B, C, V)
-        out = self.bn4(out)  # (B, C, V)
-        out = self.conv4(out, self.laplacian)  # (B, C, V)
-        out = self.relu4(out)  # (B, C, V)
+        out = self.bn2(out)
+        out = self.resblock2(out, self.laplacian)  # (B, C, V)
+        out = self.bn3(out)
+        out = self.resblock3(out, self.laplacian)  # (B, C, V)
 
         # Output layer
+        out = self.bn4(out)
+        out = self.conv4(out, self.laplacian)
         out = self.pool(out).squeeze()  # (B, C)
         return self.logsoftmax(out)  # (B, C)
 

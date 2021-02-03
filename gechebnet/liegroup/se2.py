@@ -49,12 +49,12 @@ def se2_log(Gg: LazyTensor) -> LazyTensor:
         (LazyTensor): output LazyTensor, i.e. tangent space coefficients.
     """
 
-    theta = Gg[0].atan2(Gg[3]).mod(math.pi, -math.pi / 2)
+    theta = Gg[3].atan2(Gg[0]).mod(math.pi, -math.pi / 2).round(5)
     x = Gg[2]
     y = Gg[5]
 
-    c1 = theta / 2 * y + x * (theta / 2).cos() / ((theta / 2).sinxdivx())
-    c2 = -theta / 2 * x + y * (theta / 2).cos() / ((theta / 2).sinxdivx())
+    c1 = theta / 2 * y + x * (theta / 2).cos() / ((theta / 2).sinc())
+    c2 = -theta / 2 * x + y * (theta / 2).cos() / ((theta / 2).sinc())
     c3 = theta
 
     return LazyTensor.cat((c1, c2, c3), dim=-1)

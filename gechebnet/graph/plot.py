@@ -16,6 +16,7 @@ from .signal_processing import get_fourier_basis
 def visualize_graph(
     graph: Graph,
     signal: Optional[FloatTensor] = None,
+    norm: Optional[bool] = False,
     view_init: Optional[Tuple[float, float]] = None,
     show_axis: Optional[bool] = True,
 ) -> Figure:
@@ -57,7 +58,7 @@ def visualize_graph(
             y[graph.node_index],
             z[graph.node_index],
             s=10,
-            c=rescale(signal, 0.0, 1.0),
+            c=rescale(signal, 0.0, 1.0) if norm else signal,
             alpha=0.5,
         )
 
