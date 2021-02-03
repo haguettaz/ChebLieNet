@@ -1,3 +1,4 @@
+import argparse
 import math
 import os
 
@@ -6,166 +7,189 @@ import wandb
 from gechebnet.data.dataloader import get_train_val_dataloaders
 from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engine.utils import prepare_batch, wandb_log
-from gechebnet.graph.graph import SE2GEGraph, SO3GEGraph
+from gechebnet.graph.graph import Graph, SE2GEGraph, SO3GEGraph
 from gechebnet.model.chebnet import GEChebNet
-from gechebnet.model.optimizer import get_optimizer
 from gechebnet.model.reschebnet import ResGEChebNet
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
 from ignite.metrics import Accuracy, Loss
+from torch import device as Device
+from torch.nn import Module
 from torch.nn.functional import nll_loss
+from torch.optim import Adam, Optimizer
 
 DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
 DEVICE = torch.device("cuda")
 
-DATASET_NAME = "mnist"  # "stl10"
-VAL_RATIO = 0.1
 
-IN_CHANNELS = 1 if DATASET_NAME == "mnist" else 3
-OUT_CHANNELS = 10
-HIDDEN_CHANNELS = 20
+def build_sweep_config(anisotropic: bool, coupled_sym: bool, resnet: bool, dataset: str) -> dict:
+    """
+    [summary]
 
-EPOCHS = 20 if DATASET_NAME == "mnist" else 100
-OPTIMIZER = "adam"
+    Args:
+        anisotropic (bool): [description]
+        linked (bool): [description]
+        resnet (bool): [description]
+        dataset (str): [description]
 
-NUM_EXPERIMENTS = 50
-
-LIE_GROUP = "se2"  # "so3"
-MODEL = "gechebnet"  # "gechebnet" "gechebnet_"
-
-
-def build_sweep_config():
+    Returns:
+        dict: [description]
+    """
     sweep_config = {
         "method": "bayes",
         "metric": {"name": "validation_accuracy", "goal": "maximize"},
     }
 
-    if not MODEL in {"gechebnet", "chebnet", "gechebnet_"}:
-        raise ValueError(
-            f"{MODEL} is not a valid value for MODEL: must be 'gechebnet' or 'chebnet', 'gechebnet_'"
-        )
+    parameters = {
+        "batch_size": {
+            "distribution": "q_log_uniform",
+            "min": math.log(8),
+            "max": math.log(256) if dataset == "mnist" else math.log(64),
+        },
+        "K": {
+            "distribution": "q_log_uniform",
+            "min": math.log(2),
+            "max": math.log(16) if dataset == "mnist" else math.log(32),
+        },
+        "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
+        "learning_rate": {
+            "distribution": "log_uniform",
+            "min": math.log(1e-5),
+            "max": math.log(0.1),
+        },
+        "pooling": {"distribution": "categorical", "values": ["avg", "max"]},
+        "weight_decay": {
+            "distribution": "log_uniform",
+            "min": math.log(1e-6),
+            "max": math.log(1e-3),
+        },
+    }
 
-    if MODEL == "gechebnet":
-        sweep_config["parameters"] = {
-            "batch_size": {
-                "distribution": "q_log_uniform",
-                "min": math.log(8),
-                "max": math.log(256) if DATASET_NAME == "mnist" else math.log(64),
-            },
-            "eps": {"distribution": "constant", "value": 0.1},
-            "K": {
-                "distribution": "q_log_uniform",
-                "min": math.log(2),
-                "max": math.log(16) if DATASET_NAME == "mnist" else math.log(32),
-            },
-            "kappa": {"distribution": "constant", "value": 0.0},
-            "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
-            "learning_rate": {
+    if anisotropic:
+        if coupled_sym:
+            parameters["xi"] = {
                 "distribution": "log_uniform",
-                "min": math.log(1e-5),
-                "max": math.log(0.1),
-            },
-            "nsym": {"distribution": "int_uniform", "min": 3, "max": 12},
-            "pooling": {"distribution": "categorical", "values": ["avg", "max"]},
-            "weight_decay": {
-                "distribution": "log_uniform",
-                "min": math.log(1e-6),
-                "max": math.log(1e-3),
-            },
-            "xi": {"distribution": "log_uniform", "min": math.log(1e-2), "max": math.log(1.0)},
-        }
-    elif MODEL == "gechebnet_":
-        sweep_config["parameters"] = {
-            "batch_size": {
-                "distribution": "q_log_uniform",
-                "min": math.log(8),
-                "max": math.log(256),
-            },
-            "eps": {"distribution": "constant", "value": 0.1},
-            "K": {
-                "distribution": "q_log_uniform",
-                "min": math.log(2),
-                "max": math.log(16) if DATASET_NAME == "mnist" else math.log(32),
-            },
-            "kappa": {"distribution": "constant", "value": 0.0},
-            "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
-            "learning_rate": {
-                "distribution": "log_uniform",
-                "min": math.log(1e-5),
-                "max": math.log(0.1),
-            },
-            "nsym": {"distribution": "int_uniform", "min": 3, "max": 12},
-            "pooling": {"distribution": "categorical", "values": ["avg", "max"]},
-            "weight_decay": {
-                "distribution": "log_uniform",
-                "min": math.log(1e-6),
-                "max": math.log(1e-3),
-            },
-            "xi": {"distribution": "constant", "value": 1e-4},  # independent symmetry layers
-        }
+                "min": math.log(1e-2),
+                "max": math.log(1.0),
+            }
+        else:
+            parameters["xi"] = {"distribution": "constant", "value": 1e-4}
+        parameters["nsym"] = {"distribution": "int_uniform", "min": 3, "max": 12}
+        parameters["eps"] = {"distribution": "constant", "value": 0.1}
 
-    elif MODEL == "chebnet":
-        sweep_config["parameters"] = {
-            "batch_size": {
-                "distribution": "q_log_uniform",
-                "min": math.log(8),
-                "max": math.log(256),
-            },
-            "eps": {"distribution": "constant", "value": 1.0},
-            "K": {
-                "distribution": "q_log_uniform",
-                "min": math.log(2),
-                "max": math.log(16) if DATASET_NAME == "mnist" else math.log(32),
-            },
-            "kappa": {"distribution": "constant", "value": 0.0},
-            "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
-            "learning_rate": {
-                "distribution": "log_uniform",
-                "min": math.log(1e-5),
-                "max": math.log(0.1),
-            },
-            "nsym": {"distribution": "constant", "value": 1},
-            "pooling": {"distribution": "categorical", "values": ["avg", "max"]},
-            "weight_decay": {
-                "distribution": "log_uniform",
-                "min": math.log(1e-6),
-                "max": math.log(1e-3),
-            },
-            "xi": {"distribution": "constant", "value": 1.0},
-        }
+    else:
+        parameters["xi"] = {"distribution": "constant", "value": 1.0}
+        parameters["nsym"] = {"distribution": "constant", "value": 1}
+        parameters["eps"] = {"distribution": "constant", "value": 1.0}
+
+    sweep_config["parameters"] = parameters
 
     return sweep_config
 
 
-def get_graph(nsym, knn, eps, xi, kappa):
-    if LIE_GROUP == "se2":
+def get_graph(lie_group: str, dataset: str, nsym: int, knn: int, eps: float, xi: float) -> Graph:
+    """
+    [summary]
+
+    Args:
+        lie_group (str): [description]
+        dataset (str): [description]
+        nsym (int): [description]
+        knn (int): [description]
+        eps (float): [description]
+        xi (float): [description]
+
+    Raises:
+        ValueError: [description]
+
+    Returns:
+        Graph: [description]
+    """
+    if lie_group == "se2":
         graph = SE2GEGraph(
-            nx=28 if DATASET_NAME == "mnist" else 96,
-            ny=28 if DATASET_NAME == "mnist" else 96,
+            nx=28 if dataset == "mnist" else 96,
+            ny=28 if dataset == "mnist" else 96,
             ntheta=nsym,
             knn=knn,
             sigmas=(xi / eps, xi, 1.0),
             weight_kernel=lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac),
-            kappa=kappa,
             device=DEVICE,
         )
 
-    elif LIE_GROUP == "so3":
+    elif lie_group == "so3":
         graph = SO3GEGraph(
-            nsamples=28 * 28 if DATASET_NAME == "mnist" else 96 * 96,
+            nsamples=28 * 28 if dataset == "mnist" else 96 * 96,
             nalpha=nsym,
             knn=knn,
             sigmas=(xi / eps, xi, 1.0),
             weight_kernel=lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac),
-            kappa=kappa,
             device=DEVICE,
         )
 
-    if graph.num_nodes > graph.num_edges:
-        raise ValueError(f"An error occured during the computation of the graph")
-    wandb.log({f"num_nodes": graph.num_nodes, f"num_edges": graph.num_edges})
-
     return graph
+
+
+def get_model(
+    graph: Graph,
+    in_channels: int,
+    hidden_channels: list,
+    out_channels: int,
+    K: int,
+    pooling: str,
+    resnet: bool = False,
+    device: Device = None,
+) -> Module:
+    """
+    [summary]
+
+    Args:
+        in_channels (int): [description]
+        hidden_channels (list): [description]
+        out_channels (int): [description]
+        K (int): [description]
+        pooling (str): [description]
+        resnet (bool, optional): [description]. Defaults to False.
+        device (Device, optional): [description]. Defaults to None.
+
+    Returns:
+        Module: [description]
+    """
+    if resnet:
+        model = ResGEChebNet(
+            graph,
+            K,
+            in_channels,
+            [[hc, hc, hc] for hc in hidden_channels],
+            out_channels,
+            pooling,
+            device,
+        )
+    else:
+        model = GEChebNet(
+            graph,
+            K,
+            in_channels,
+            hidden_channels,
+            out_channels,
+            pooling,
+            device,
+        )
+    return model.to(device)
+
+
+def get_optimizer(model: Module, learning_rate: float, weight_decay: float) -> Optimizer:
+    """
+    Get model's parameters' optimizer.
+
+    Args:
+        model (Module): model.
+        learning_rate (float): learning rate.
+        weight_decay (float): weight decay.
+
+    Returns:
+        Optimizer: [description]
+    """
+    return Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
 
 def train(config=None):
@@ -173,31 +197,31 @@ def train(config=None):
     with wandb.init(config=config):
         config = wandb.config
 
-        graph = get_graph(config.nsym, config.knn, config.eps, config.xi, config.kappa)
+        graph = get_graph(
+            lie_group=args.lie_group,
+            dataset=args.dataset,
+            nsym=config.nsym,
+            knn=config.knn,
+            eps=config.eps,
+            xi=config.xi,
+        )
+        wandb.log({f"num_nodes": graph.num_nodes, f"num_edges": graph.num_edges})
 
-        if DATASET_NAME == "mnist":
-            model = GEChebNet(
-                graph,
-                config.K,
-                IN_CHANNELS,
-                HIDDEN_CHANNELS,
-                OUT_CHANNELS,
-                config.pooling,
-                DEVICE,
-            )
-        elif DATASET_NAME == "stl10":
-            model = ResGEChebNet(
-                graph,
-                config.K,
-                IN_CHANNELS,
-                HIDDEN_CHANNELS,
-                OUT_CHANNELS,
-                config.pooling,
-                DEVICE,
-            )
-        model = model.to(DEVICE)
-        optimizer = get_optimizer(model, OPTIMIZER, config.learning_rate, config.weight_decay)
+        model = get_model(
+            graph=graph,
+            in_channels=1 if args.dataset == "mnist" else 3,
+            hidden_channels=args.hidden_channels,
+            out_channels=10,
+            K=config.K,
+            pooling=config.pooling,
+            resnet=args.model[0] == "resnet",
+            device=DEVICE,
+        )
+        wandb.log({"resnet": args.model[0] == "resnet"})
+        wandb.log({"model_type": args.model[1]})
         wandb.log({"capacity": model.capacity})
+
+        optimizer = get_optimizer(model, config.learning_rate, config.weight_decay)
 
         # Trainer and evaluator(s) engines
         trainer = create_supervised_trainer(
@@ -222,19 +246,39 @@ def train(config=None):
         ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
 
         train_loader, val_loader = get_train_val_dataloaders(
-            DATASET_NAME,
+            args.dataset,
             batch_size=config.batch_size,
-            val_ratio=VAL_RATIO,
+            val_ratio=0.1,
             data_path=DATA_PATH,
         )
 
         # Performance tracking with wandb
         trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, evaluator, val_loader)
 
-        trainer.run(train_loader, max_epochs=EPOCHS)
+        trainer.run(train_loader, max_epochs=args.max_epochs)
 
 
 if __name__ == "__main__":
-    sweep_config = build_sweep_config()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--num_experiments", type=int)
+    parser.add_argument("--max_epochs", type=int)
+    parser.add_argument("--dataset", type=str)
+    parser.add_argument(
+        "--model_type",
+        nargs="+",
+        type=str,
+        help="Type of model: 1) isotropic or anisotropic 2) coupled_sym or uncoupled_sym 3) resnet or classicnet",
+    )
+    parser.add_argument("--hidden_channels", nargs="+", type=int)
+    parser.add_argument("--lie_group", type=str)
+    args = parser.parse_args()
+
+    sweep_config = build_sweep_config(
+        anisotropic=args.model_type[0] == "anisotropic",
+        coupled_sym=args.model_type[1] == "coupled_sym",
+        resnet=args.model_type[2] == "resnet",
+        dataset=args.dataset,
+    )
+
     sweep_id = wandb.sweep(sweep_config, project="gechebnet")
-    wandb.agent(sweep_id, train, count=NUM_EXPERIMENTS)
+    wandb.agent(sweep_id, train, count=args.num_experiments)

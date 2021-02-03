@@ -1,9 +1,18 @@
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import torch
 from torch import FloatTensor
 from torch import device as Device
-from torch.nn import AvgPool1d, BatchNorm1d, Identity, LogSoftmax, MaxPool1d, Module, ReLU
+from torch.nn import (
+    AvgPool1d,
+    BatchNorm1d,
+    Identity,
+    LogSoftmax,
+    MaxPool1d,
+    Module,
+    ModuleList,
+    ReLU,
+)
 from torch.sparse import FloatTensor as SparseFloatTensor
 
 from ..graph.graph import Graph
@@ -16,7 +25,7 @@ class ResidualBlock(Module):
     Base class for residual blocks.
     """
 
-    def __init__(self, in_channels: int, hidden_channels: int, out_channels: int, K: int):
+    def __init__(self, in_channels: int, hidden_channels: list, out_channels: int, K: int):
         """
         Inits the residual block with 2 chebyschev convolutional layers, relu activation function
         and batch normalization.
@@ -26,16 +35,37 @@ class ResidualBlock(Module):
             K (int): Chebschev's polynomials' order.
         """
         super().__init__()
-        self.conv1 = ChebConv(in_channels, hidden_channels, K)
-        self.relu1 = ReLU()
-        self.bn2 = BatchNorm1d(hidden_channels)
-        self.conv2 = ChebConv(hidden_channels, out_channels, K)
-        self.relu2 = ReLU()
+
+        self.in_channels = in_channels
+        self.hidden_channels = hidden_channels
+        self.out_channels = out_channels
+        self.K = K
+
+        hidden_in_channels = hidden_channels
+        hidden_out_channels = hidden_channels[1:] + [out_channels]
+
+        self.hidden_layers = len(hidden_channels)
+
+        self.in_bn = BatchNorm1d(in_channels)
+        self.in_conv = ChebConv(in_channels, hidden_in_channels[0], K)
+
+        self.hidden_relu = ModuleList([ReLU()] * self.hidden_layers)
+        self.hidden_bn = ModuleList(
+            [BatchNorm1d(hidden_in_channels[l]) for l in range(self.hidden_layers)]
+        )
+        self.hidden_conv = ModuleList(
+            [
+                ChebConv(hidden_in_channels[l], hidden_out_channels[l], K)
+                for l in range(self.hidden_layers)
+            ]
+        )
+
+        self.out_relu = ReLU()
 
         if in_channels == out_channels:
-            self.resizer = Identity()
+            self.shortcut = Identity()
         else:
-            self.resizer = ChebConv(in_channels, out_channels, 1)
+            self.shortcut = ChebConv(in_channels, out_channels, 1, bias=False)
 
     def forward(self, x: FloatTensor, laplacian: SparseFloatTensor) -> FloatTensor:
         """
@@ -48,11 +78,21 @@ class ResidualBlock(Module):
         Returns:
             FloatTensor: output.
         """
-        out = self.conv1(x, laplacian)  # (B, C, V)
-        out = self.relu1(out)  # (B, C, V)
-        out = self.bn2(out)  # (B, C, V)
-        out = self.conv2(out, laplacian)  # (B, C, V)
-        return self.relu2(out + self.resizer(x))  # (B, C, V)
+        x = self.in_bn(x)
+        out = self.in_conv(x, laplacian)  # (B, C, V)
+
+        for l in range(self.hidden_layers):
+            out = self.hidden_relu[l](out)
+            out = self.hidden_bn[l](out)
+            out = self.hidden_conv[l](out, laplacian)
+
+        return self.out_relu(out + self.shortcut(x, laplacian))  # (B, C, V)
+
+    def extra_repr(self) -> str:
+        return (
+            "in_channels={in_channels}, hidden_channels={hidden_channels}, out_channels={out_channels}, "
+            "K={K}".format(**self.__dict__)
+        )
 
 
 class ResGEChebNet(Module):
@@ -65,7 +105,7 @@ class ResGEChebNet(Module):
         graph: Graph,
         K: int,
         in_channels: int,
-        hidden_channels: int,
+        hidden_res_channels: list,
         out_channels: int,
         pooling: Optional[str] = "max",
         device: Optional[Device] = None,
@@ -92,31 +132,34 @@ class ResGEChebNet(Module):
             graph.laplacian(device), lmax=2.0, num_nodes=graph.num_nodes
         )
 
+        self.hidden_res_layers = len(hidden_res_channels)
+
         if pooling not in {"avg", "max"}:
-            raise ValueError(
-                f"{pooling} is not a valid value for pooling: must be 'avg' or 'max'"
-            )
+            raise ValueError(f"{pooling} is not a valid value for pooling: must be 'avg' or 'max'")
 
-        self.conv1 = ChebConv(in_channels, hidden_channels, K)
-        self.relu1 = ReLU()
+        self.in_conv = ChebConv(in_channels, hidden_res_channels[0][0], K)
+        self.in_relu = ReLU()
 
-        self.bn2 = BatchNorm1d(hidden_channels)
-        self.resblock2 = ResidualBlock(hidden_channels, hidden_channels, hidden_channels, K)
+        self.hidden_resblock = ModuleList(
+            [
+                ResidualBlock(
+                    hidden_res_channels[l][0],
+                    hidden_res_channels[l][1:-1],
+                    hidden_res_channels[l][-1],
+                    K,
+                )
+                for l in range(self.hidden_res_layers)
+            ]
+        )
 
-        self.bn3 = BatchNorm1d(hidden_channels)
-        self.resblock3 = ResidualBlock(hidden_channels, hidden_channels, hidden_channels, K)
-
-        self.bn4 = BatchNorm1d(hidden_channels)
-        self.resblock4 = ResidualBlock(hidden_channels, hidden_channels, hidden_channels, K)
-
-        self.bn5 = BatchNorm1d(hidden_channels)
-        self.conv5 = ChebConv(hidden_channels, out_channels, K)
-        self.relu5 = ReLU()
+        self.out_bn = BatchNorm1d(hidden_res_channels[-1][-1])
+        self.out_conv = ChebConv(hidden_res_channels[-1][-1], out_channels, K)
+        self.out_relu = ReLU()
 
         if pooling == "avg":
-            self.pool = AvgPool1d(graph.num_nodes)  # theoretical equivariance
+            self.global_pooling = AvgPool1d(graph.num_nodes)  # theoretical equivariance
         else:
-            self.pool = MaxPool1d(
+            self.global_pooling = MaxPool1d(
                 graph.num_nodes
             )  # adds some non linearities, better in practice
 
@@ -133,22 +176,18 @@ class ResGEChebNet(Module):
             (FloatTensor): the predictions on the batch.
         """
         # Input layer
-        out = self.conv1(x, self.laplacian)  # (B, C, V)
-        out = self.relu1(out)
+        out = self.in_conv(x, self.laplacian)  # (B, C, V)
+        out = self.in_relu(out)
 
         # Hidden layers
-        out = self.bn2(out)
-        out = self.resblock2(out, self.laplacian)  # (B, C, V)
-        out = self.bn3(out)
-        out = self.resblock3(out, self.laplacian)  # (B, C, V)
-        out = self.bn4(out)
-        out = self.resblock4(out, self.laplacian)  # (B, C, V)
+        for l in range(self.hidden_res_layers):
+            out = self.hidden_resblock[l](out, self.laplacian)
 
         # Output layer
-        out = self.bn5(out)
-        out = self.conv5(out, self.laplacian)
-        out = self.relu5(out)
-        out = self.pool(out).squeeze()  # (B, C)
+        out = self.out_bn(out)
+        out = self.out_conv(out, self.laplacian)
+        out = self.out_relu(out)
+        out = self.global_pooling(out).squeeze()  # (B, C)
         return self.logsoftmax(out)  # (B, C)
 
     def _normlaplacian(

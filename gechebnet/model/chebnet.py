@@ -1,9 +1,9 @@
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import torch
 from torch import FloatTensor
 from torch import device as Device
-from torch.nn import AvgPool1d, BatchNorm1d, LogSoftmax, MaxPool1d, Module, ReLU
+from torch.nn import AvgPool1d, BatchNorm1d, LogSoftmax, MaxPool1d, Module, ModuleList, ReLU
 from torch.sparse import FloatTensor as SparseFloatTensor
 
 from ..graph.graph import Graph
@@ -21,7 +21,7 @@ class GEChebNet(Module):
         graph: Graph,
         K: int,
         in_channels: int,
-        hidden_channels: int,
+        hidden_channels: list,
         out_channels: int,
         pooling: Optional[str] = "max",
         device: Optional[Device] = None,
@@ -44,32 +44,39 @@ class GEChebNet(Module):
         """
         super(GEChebNet, self).__init__()
 
-        self.laplacian = self._normlaplacian(
-            graph.laplacian(device), lmax=2.0, num_nodes=graph.num_nodes
-        )
-
         if pooling not in {"avg", "max"}:
             raise ValueError(
                 f"{pooling} is not a valid value for pooling: must be 'avg' or 'max'"
             )
 
-        self.conv1 = ChebConv(in_channels, hidden_channels, K)
-        self.relu1 = ReLU()
+        self.laplacian = self._norm_laplacian(
+            graph.laplacian(device), lmax=2.0, num_nodes=graph.num_nodes
+        )
+        self.in_conv = ChebConv(in_channels, hidden_channels[0], K)
+        self.in_relu = ReLU()
 
-        self.bn2 = BatchNorm1d(hidden_channels)
-        self.conv2 = ChebConv(hidden_channels, hidden_channels, K)
-        self.relu2 = ReLU()
-        self.bn3 = BatchNorm1d(hidden_channels)
-        self.conv3 = ChebConv(hidden_channels, hidden_channels, K)
-        self.relu3 = ReLU()
-        self.bn4 = BatchNorm1d(hidden_channels)
-        self.conv4 = ChebConv(hidden_channels, out_channels, K)
-        self.relu4 = ReLU()
+        self.hidden_layers = len(hidden_channels) - 1
+
+        if self.hidden_layers:
+            self.hidden_bn = ModuleList(
+                [BatchNorm1d(hidden_channels[l]) for l in range(self.hidden_layers)]
+            )
+            self.hidden_conv = ModuleList(
+                [
+                    ChebConv(hidden_channels[l], hidden_channels[l+1], K)
+                    for l in range(self.hidden_layers)
+                ]
+            )
+            self.hidden_relu = ModuleList([ReLU()] * self.hidden_layers)
+
+        self.out_bn = BatchNorm1d(hidden_channels[-1])
+        self.out_conv = ChebConv(hidden_channels[-1], out_channels, K)
+        self.out_relu = ReLU()
 
         if pooling == "avg":
-            self.pool = AvgPool1d(graph.num_nodes)  # theoretical equivariance
+            self.global_pooling = AvgPool1d(graph.num_nodes)  # theoretical equivariance
         else:
-            self.pool = MaxPool1d(
+            self.global_pooling = MaxPool1d(
                 graph.num_nodes
             )  # adds some non linearities, better in practice
 
@@ -86,25 +93,23 @@ class GEChebNet(Module):
             (FloatTensor): the predictions on the batch.
         """
         # Input layer
-        out = self.conv1(x, self.laplacian)  # (B, C, V)
-        out = self.relu1(out)  # (B, C, V)
+        out = self.in_conv(x, self.laplacian)  # (B, C, V)
+        out = self.in_relu(out)  # (B, C, V)
 
         # Hidden layers
-        out = self.bn2(out)  # (B, C, V)
-        out = self.conv2(out, self.laplacian)  # (B, C, V)
-        out = self.relu2(out)  # (B, C, V)
-        out = self.bn3(out)  # (B, C, V)
-        out = self.conv3(out, self.laplacian)  # (B, C, V)
-        out = self.relu3(out)  # (B, C, V)
-        out = self.bn4(out)  # (B, C, V)
-        out = self.conv4(out, self.laplacian)  # (B, C, V)
-        out = self.relu4(out)  # (B, C, V)
+        for l in range(self.hidden_layers):
+            out = self.hidden_bn[l](out)
+            out = self.hidden_conv[l](out, self.laplacian)
+            out = self.hidden_relu[l](out)
 
         # Output layer
-        out = self.pool(out).squeeze()  # (B, C)
+        out = self.out_bn(out)
+        out = self.out_conv(out, self.laplacian)
+        out = self.out_relu(out)
+        out = self.global_pooling(out).squeeze()  # (B, C)
         return self.logsoftmax(out)  # (B, C)
 
-    def _normlaplacian(
+    def _norm_laplacian(
         self, laplacian: SparseFloatTensor, lmax: float, num_nodes: int
     ) -> SparseFloatTensor:
         """Scale the eigenvalues from [0, lmax] to [-1, 1]."""

@@ -65,11 +65,10 @@ def so3_log(Gg: LazyTensor, Gg_t: LazyTensor):
     Returns:
         (LazyTensor): output LazyTensor, i.e. tangent space coefficients.
     """
-    theta = (
-        (((Gg[0] + Gg[4] + Gg[8]) - 1) / 2).acos().round(5)
-    )  # always return number in [0.00000, 3.14159]
+    # theta is a rounded to 5 decimal places's angle in the range [0.00000, 3.14159]
+    theta = (((Gg[0] + Gg[4] + Gg[8]) - 1) / 2).acos().round(5)
 
-    A = 0.5 * (Gg - Gg_t) / theta.sinc()
+    A = 0.5 * (Gg - Gg_t) / theta.sinc() # implement transpose on PyKeops??
 
     # mimic if theta == pi then (0, 0, theta) else (a02, a10, a32) with step function
     c1 = 0.0 * (theta - ROUND_PI).step() + A[2] * (1.0 - (theta - ROUND_PI).step())

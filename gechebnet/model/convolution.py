@@ -1,4 +1,4 @@
-"""Chebyshev convolution layer. For the moment taking as-is from Michaël Defferrard's implementation. For v0.15 we will rewrite parts of this layer.
+"""Chebyshev convolution layer.
 """
 
 import math
@@ -56,7 +56,7 @@ class ChebConv(Module):
         self,
         in_channels: int,
         out_channels: int,
-        kernel_size: int,
+        K: int,
         bias=True,
     ):
         """
@@ -65,37 +65,35 @@ class ChebConv(Module):
         Args:
             in_channels (int): number of channels in the input graph.
             out_channels (int): number of channels in the output graph.
-            kernel_size (int): number of trainable parameters per filter, which is also the size of the convolutional kernel.
-                                The order of the Chebyshev polynomials is kernel_size - 1.
+            K (int): order of the Chebyshev polynomials.
             bias (bool, optional): whether to add a bias term. Defaults to True.
         """
         super().__init__()
 
-        if kernel_size < 1:
-            raise ValueError(
-                f"{kernel_size} is not a valid value for kernel_size: must be strictly positive"
-            )
+        if K < 1:
+            raise ValueError(f"{K} is not a valid value for K: must be strictly positive")
 
         self.in_channels = in_channels
         self.out_channels = out_channels
-        self.kernel_size = kernel_size
+        self.K = K
+        self.bias = bias
 
-        shape = (kernel_size, in_channels, out_channels)
-        self.weight = Parameter(torch.Tensor(*shape))
+        shape = (K, in_channels, out_channels)
+        self.weights = Parameter(FloatTensor(*shape))
 
         if bias:
-            self.bias = Parameter(torch.Tensor(out_channels))
+            self.biases = Parameter(FloatTensor(out_channels))
         else:
-            self.register_parameter("bias", None)
+            self.register_parameter("biases", None)
 
         self._kaiming_initialization()
 
     def _kaiming_initialization(self):
         """Initialize weights and bias."""
-        std = math.sqrt(2 / (self.in_channels * self.kernel_size))
-        self.weight.data.normal_(0, std)
-        if self.bias is not None:
-            self.bias.data.fill_(0.01)
+        std = math.sqrt(2 / (self.in_channels * self.K))
+        self.weights.data.normal_(0, std)
+        if self.bias:
+            self.biases.data.fill_(0.01)
 
     def forward(self, x: FloatTensor, laplacian: SparseFloatTensor):
         """Forward graph convolution.
@@ -106,10 +104,16 @@ class ChebConv(Module):
         Returns:
             (FloatTensor): convolved input data.
         """
-        x = cheb_conv(x, laplacian, self.weight)  # (B, V, Cin) -> (V, B, Cout)
+        x = cheb_conv(x, laplacian, self.weights)  # (B, V, Cin) -> (V, B, Cout)
 
-        if self.bias is not None:
-            x += self.bias  # (V, B, Cout) -> (V, B, Cout)
+        if self.bias:
+            x += self.biases  # (V, B, Cout) -> (V, B, Cout)
 
         x = x.permute(1, 2, 0).contiguous()  # (B, Cout, V)
         return x
+
+    def extra_repr(self) -> str:
+        return (
+            "in_channels={in_channels}, out_channels={out_channels}, K={K}, "
+            "bias={bias}".format(**self.__dict__)
+        )
