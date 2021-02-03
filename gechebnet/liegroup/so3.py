@@ -6,6 +6,8 @@ from torch import device as Device
 
 from ..utils import mod
 
+ROUND_PI = 3.14159
+
 
 def so3_matrix(alpha, beta, gamma, device=None):
     """
@@ -63,13 +65,16 @@ def so3_log(Gg: LazyTensor, Gg_t: LazyTensor):
     Returns:
         (LazyTensor): output LazyTensor, i.e. tangent space coefficients.
     """
-    theta = (((Gg[0] + Gg[4] + Gg[8]) - 1) / 2).acos()  # always return number in (-pi, pi]
+    theta = (
+        (((Gg[0] + Gg[4] + Gg[8]) - 1) / 2).acos().round(5)
+    )  # always return number in [0.00000, 3.14159]
 
-    A = 0.5 * (Gg - Gg_t) / theta.sinxdivx()  # problem with theta == +/- pi !!!!!!!!
+    A = 0.5 * (Gg - Gg_t) / theta.sinc()
 
-    c1 = A[2] * (math.pi - 1e-5 - theta).step() + 0 * (theta - math.pi).step()
-    c2 = A[3] * (math.pi - 1e-5 - theta).step() + 0 * (theta - math.pi).step()
-    c3 = A[7] * (math.pi - 1e-5 - theta).step() + theta * (theta - math.pi).step()
+    # mimic if theta == pi then (0, 0, theta) else (a02, a10, a32) with step function
+    c1 = 0.0 * (theta - ROUND_PI).step() + A[2] * (1.0 - (theta - ROUND_PI).step())
+    c2 = 0.0 * (theta - ROUND_PI).step() + A[3] * (1.0 - (theta - ROUND_PI).step())
+    c3 = theta * (theta - ROUND_PI).step() + A[7] * (1.0 - (theta - ROUND_PI).step())
 
     return LazyTensor.cat((c1, c2, c3), dim=-1)
 

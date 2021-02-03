@@ -98,6 +98,7 @@ class ResGEChebNet(Module):
             )
 
         self.conv1 = ChebConv(in_channels, hidden_channels, K)
+        self.relu1 = ReLU()
 
         self.bn2 = BatchNorm1d(hidden_channels)
         self.resblock2 = ResidualBlock(hidden_channels, hidden_channels, hidden_channels, K)
@@ -110,6 +111,7 @@ class ResGEChebNet(Module):
 
         self.bn5 = BatchNorm1d(hidden_channels)
         self.conv5 = ChebConv(hidden_channels, out_channels, K)
+        self.relu5 = ReLU()
 
         if pooling == "avg":
             self.pool = AvgPool1d(graph.num_nodes)  # theoretical equivariance
@@ -132,6 +134,7 @@ class ResGEChebNet(Module):
         """
         # Input layer
         out = self.conv1(x, self.laplacian)  # (B, C, V)
+        out = self.relu1(out)
 
         # Hidden layers
         out = self.bn2(out)
@@ -140,9 +143,11 @@ class ResGEChebNet(Module):
         out = self.resblock3(out, self.laplacian)  # (B, C, V)
         out = self.bn4(out)
         out = self.resblock4(out, self.laplacian)  # (B, C, V)
+
         # Output layer
         out = self.bn5(out)
         out = self.conv5(out, self.laplacian)
+        out = self.relu5(out)
         out = self.pool(out).squeeze()  # (B, C)
         return self.logsoftmax(out)  # (B, C)
 
