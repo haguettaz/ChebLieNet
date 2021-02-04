@@ -1,0 +1,37 @@
+wandb_version: 1
+
+K:
+  desc: null
+  value: 8
+_wandb:
+  desc: null
+  value:
+    cli_version: 0.10.12
+    framework: torch
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    python_version: 3.6.12
+batch_size:
+  desc: null
+  value: 9
+eps:
+  desc: null
+  value: 0.1
+knn:
+  desc: null
+  value: 32
+learning_rate:
+  desc: null
+  value: 0.000178031765267375
+nsym:
+  desc: null
+  value: 3
+pooling:
+  desc: null
+  value: max
+weight_decay:
+  desc: null
+  value: 0.0009111057767392064
+xi:
+  desc: null
+  value: 0.5770004060683223

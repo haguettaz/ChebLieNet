@@ -546,3 +546,5 @@ class SE2GEGraph(Graph):
             (FloatTensor): output tensor with shape (..., L, H, W).
         """
         return signal
+
+
