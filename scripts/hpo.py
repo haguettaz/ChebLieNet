@@ -14,7 +14,7 @@ from torch.nn.functional import nll_loss
 
 from .utils import get_graph, get_model, get_optimizer
 
-# DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
+DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
 DEVICE = torch.device("cuda")
 
 
