@@ -1,3 +1,4 @@
+import torch
 from gechebnet.graph.graph import Graph, SE2GEGraph, SO3GEGraph
 from gechebnet.model.chebnet import GEChebNet
 from gechebnet.model.reschebnet import ResGEChebNet
