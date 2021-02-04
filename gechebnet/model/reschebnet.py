@@ -86,7 +86,7 @@ class ResidualBlock(Module):
             out = self.hidden_bn[l](out)
             out = self.hidden_conv[l](out, laplacian)
 
-        return self.out_relu(out + self.shortcut(x, laplacian))  # (B, C, V)
+        return self.out_relu(out + self.shortcut(x))  # (B, C, V)
 
     def extra_repr(self) -> str:
         return (

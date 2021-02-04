@@ -2,6 +2,7 @@
 """
 
 import math
+from typing import Optional
 
 import torch
 from torch import FloatTensor
@@ -14,7 +15,7 @@ from ..utils import sparse_tensor_diag
 
 
 def cheb_conv(
-    x: FloatTensor, laplacian: SparseFloatTensor, weight: FloatTensor
+    x: FloatTensor, weights: FloatTensor, laplacian: Optional[SparseFloatTensor] = None
 ) -> FloatTensor:
     """
     Chebyshev convolution.
@@ -22,14 +23,17 @@ def cheb_conv(
     Args:
         x (FloatTensor): data input in format (B, Cin, V).
         laplacian (SparseFloatTensor): symmetric normalized laplacian.
-        weight (FloatTensor): layer's weights in format (K, Cin, Cout).
+        weights (FloatTensor): layer's weights in format (K, Cin, Cout).
 
     Returns:
         (FloatTensor): convolved data input in format (V, B, Cout).
     """
 
     B, Cin, V = x.shape  # (B, Cin, V)
-    K, _, _ = weight.shape  # (K, Cin, Cout)
+    K, _, _ = weights.shape  # (K, Cin, Cout)
+
+    if laplacian is None and K > 1:
+        raise ValueError(f"Can't perform Chebyschev convolution without laplacian if K > 1")
 
     x0 = x.permute(2, 0, 1).contiguous().view(V, B * Cin)  # (B, Cin, V) -> (V, B*Cin)
     x = x0.unsqueeze(0)  # (V, B*Cin) -> (1, V, B*Cin)
@@ -44,7 +48,7 @@ def cheb_conv(
             x0, x1 = x1, x2  # (V, B*Cin), (V, B*Cin)
 
     x = x.contiguous().view(K, V, B, Cin)  # (K, V, B*Cin) -> (K, V, B, Cin)
-    x = torch.tensordot(x, weight, dims=([0, 3], [0, 1]))  # (V, B, Cout)
+    x = torch.tensordot(x, weights, dims=([0, 3], [0, 1]))  # (V, B, Cout)
 
     return x
 
@@ -95,7 +99,7 @@ class ChebConv(Module):
         if self.bias:
             self.biases.data.fill_(0.01)
 
-    def forward(self, x: FloatTensor, laplacian: SparseFloatTensor):
+    def forward(self, x: FloatTensor, laplacian: Optional[SparseFloatTensor] = None):
         """Forward graph convolution.
 
         Args:
@@ -104,7 +108,7 @@ class ChebConv(Module):
         Returns:
             (FloatTensor): convolved input data.
         """
-        x = cheb_conv(x, laplacian, self.weights)  # (B, V, Cin) -> (V, B, Cout)
+        x = cheb_conv(x, self.weights, laplacian)  # (B, V, Cin) -> (V, B, Cout)
 
         if self.bias:
             x += self.biases  # (V, B, Cout) -> (V, B, Cout)
