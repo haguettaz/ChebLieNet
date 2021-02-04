@@ -23,7 +23,7 @@ def multinomial_compression(
         (LongTensor): the compressed edge's indices.
         (FloatTensor): the compressed edge's weights.
     """
-    num_samples = int((1 - kappa) * edge_index.shape[1])
+    num_samples = int((1 - kappa) * edge_index.shape[1]) # num edges to keep
     mask = torch.multinomial(edge_weight, num_samples)
     return edge_index[:, mask], edge_weight[mask]
 

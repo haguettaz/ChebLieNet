@@ -28,7 +28,7 @@ def rescale(input: Tensor, low: Union[int, float] = 0.0, up: Union[int, float] =
     max_, _ = torch.max(input, dim=-1)
     min_, _ = torch.min(input, dim=-1)
 
-    if max_ == min_:
+    if torch.allclose(max_, min_):
         return (input - min_) + low
 
     return (up - low) * torch.divide(input - min_, max_ - min_) + low

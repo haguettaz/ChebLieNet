@@ -7,16 +7,12 @@ import wandb
 from gechebnet.data.dataloader import get_train_val_dataloaders
 from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engine.utils import prepare_batch, wandb_log
-from gechebnet.graph.graph import Graph, SE2GEGraph, SO3GEGraph
-from gechebnet.model.chebnet import GEChebNet
-from gechebnet.model.reschebnet import ResGEChebNet
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
 from ignite.metrics import Accuracy, Loss
-from torch import device as Device
-from torch.nn import Module
 from torch.nn.functional import nll_loss
-from torch.optim import Adam, Optimizer
+
+from .utils import get_graph, get_model, get_optimizer
 
 DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
 DEVICE = torch.device("cuda")
@@ -28,7 +24,7 @@ def build_sweep_config(anisotropic: bool, coupled_sym: bool, resnet: bool, datas
 
     Args:
         anisotropic (bool): [description]
-        linked (bool): [description]
+        coupled_sym (bool): [description]
         resnet (bool): [description]
         dataset (str): [description]
 
@@ -44,7 +40,7 @@ def build_sweep_config(anisotropic: bool, coupled_sym: bool, resnet: bool, datas
         "batch_size": {
             "distribution": "q_log_uniform",
             "min": math.log(8),
-            "max": math.log(256) if dataset == "mnist" else math.log(64),
+            "max": math.log(64) if dataset == "mnist" else math.log(32),
         },
         "K": {
             "distribution": "q_log_uniform",
@@ -87,114 +83,10 @@ def build_sweep_config(anisotropic: bool, coupled_sym: bool, resnet: bool, datas
     return sweep_config
 
 
-def get_graph(lie_group: str, dataset: str, nsym: int, knn: int, eps: float, xi: float) -> Graph:
-    """
-    [summary]
-
-    Args:
-        lie_group (str): [description]
-        dataset (str): [description]
-        nsym (int): [description]
-        knn (int): [description]
-        eps (float): [description]
-        xi (float): [description]
-
-    Raises:
-        ValueError: [description]
-
-    Returns:
-        Graph: [description]
-    """
-    if lie_group == "se2":
-        graph = SE2GEGraph(
-            nx=28 if dataset == "mnist" else 96,
-            ny=28 if dataset == "mnist" else 96,
-            ntheta=nsym,
-            knn=knn,
-            sigmas=(xi / eps, xi, 1.0),
-            weight_kernel=lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac),
-            device=DEVICE,
-        )
-
-    elif lie_group == "so3":
-        graph = SO3GEGraph(
-            nsamples=28 * 28 if dataset == "mnist" else 96 * 96,
-            nalpha=nsym,
-            knn=knn,
-            sigmas=(xi / eps, xi, 1.0),
-            weight_kernel=lambda sqdistc, sigmac: torch.exp(-sqdistc / sigmac),
-            device=DEVICE,
-        )
-
-    return graph
-
-
-def get_model(
-    graph: Graph,
-    in_channels: int,
-    hidden_channels: list,
-    out_channels: int,
-    K: int,
-    pooling: str,
-    resnet: bool = False,
-    device: Device = None,
-) -> Module:
-    """
-    [summary]
-
-    Args:
-        in_channels (int): [description]
-        hidden_channels (list): [description]
-        out_channels (int): [description]
-        K (int): [description]
-        pooling (str): [description]
-        resnet (bool, optional): [description]. Defaults to False.
-        device (Device, optional): [description]. Defaults to None.
-
-    Returns:
-        Module: [description]
-    """
-    if resnet:
-        model = ResGEChebNet(
-            graph,
-            K,
-            in_channels,
-            [[hc, hc, hc] for hc in hidden_channels],
-            out_channels,
-            pooling,
-            device,
-        )
-    else:
-        model = GEChebNet(
-            graph,
-            K,
-            in_channels,
-            hidden_channels,
-            out_channels,
-            pooling,
-            device,
-        )
-    return model.to(device)
-
-
-def get_optimizer(model: Module, learning_rate: float, weight_decay: float) -> Optimizer:
-    """
-    Get model's parameters' optimizer.
-
-    Args:
-        model (Module): model.
-        learning_rate (float): learning rate.
-        weight_decay (float): weight decay.
-
-    Returns:
-        Optimizer: [description]
-    """
-    return Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-
-
 def train(config=None):
     # Initialize a new wandb run
     with wandb.init(config=config):
+        torch.cuda.empty_cache()
         config = wandb.config
 
         graph = get_graph(
@@ -204,6 +96,7 @@ def train(config=None):
             knn=config.knn,
             eps=config.eps,
             xi=config.xi,
+            device=DEVICE,
         )
         wandb.log({f"num_nodes": graph.num_nodes, f"num_edges": graph.num_edges})
 
@@ -264,20 +157,17 @@ if __name__ == "__main__":
     parser.add_argument("--num_experiments", type=int)
     parser.add_argument("--max_epochs", type=int)
     parser.add_argument("--dataset", type=str)
-    parser.add_argument(
-        "--model_type",
-        nargs="+",
-        type=str,
-        help="Type of model: 1) isotropic or anisotropic 2) coupled_sym or uncoupled_sym 3) resnet or classicnet",
-    )
+    parser.add_argument("--anisotropic", type=int)  # 0: false 1: true
+    parser.add_argument("--coupled_sym", type=int)  # 0: false 1: true
+    parser.add_argument("--resnet", type=int)  # 0: false 1: true
     parser.add_argument("--hidden_channels", nargs="+", type=int)
     parser.add_argument("--lie_group", type=str)
     args = parser.parse_args()
 
     sweep_config = build_sweep_config(
-        anisotropic=args.model_type[0] == "anisotropic",
-        coupled_sym=args.model_type[1] == "coupled_sym",
-        resnet=args.model_type[2] == "resnet",
+        anisotropic=args.anisotropic > 0,
+        coupled_sym=args.coupled_sym > 0,
+        resnet=args.resnet > 0,
         dataset=args.dataset,
     )
 
