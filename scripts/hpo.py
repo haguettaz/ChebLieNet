@@ -14,7 +14,7 @@ from ignite.engine import Events
 from ignite.metrics import Accuracy, Loss
 from torch.nn.functional import nll_loss
 
-# DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
+DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
 DEVICE = torch.device("cuda")
 
 
@@ -171,5 +171,5 @@ if __name__ == "__main__":
         dataset=args.dataset,
     )
 
-    # sweep_id = wandb.sweep(sweep_config, project="gechebnet")
-    # wandb.agent(sweep_id, train, count=args.num_experiments)
+    sweep_id = wandb.sweep(sweep_config, project="gechebnet")
+    wandb.agent(sweep_id, train, count=args.num_experiments)
