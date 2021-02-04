@@ -7,13 +7,14 @@ import wandb
 from gechebnet.data.dataloader import get_train_val_dataloaders
 from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engine.utils import prepare_batch, wandb_log
-from gechebnet.scripts.utils import get_graph, get_model, get_optimizer
+from gechebnet.graph.utils import get_graph
+from gechebnet.model.utils import get_model, get_optimizer
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
 from ignite.metrics import Accuracy, Loss
 from torch.nn.functional import nll_loss
 
-DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
+# DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
 DEVICE = torch.device("cuda")
 
 
@@ -170,5 +171,5 @@ if __name__ == "__main__":
         dataset=args.dataset,
     )
 
-    sweep_id = wandb.sweep(sweep_config, project="gechebnet")
-    wandb.agent(sweep_id, train, count=args.num_experiments)
+    # sweep_id = wandb.sweep(sweep_config, project="gechebnet")
+    # wandb.agent(sweep_id, train, count=args.num_experiments)
