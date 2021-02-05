@@ -184,7 +184,7 @@ class SO3GEGraph(Graph):
         self.nalpha = nalpha  # alpha
 
         self._initnodes(nsamples * nalpha, device)
-        self._initedges(sigmas, knn, weight_kernel, kappa, device)
+        self._initedges(sigmas, knn, weight_kernel, device)
         self._initprojection()
 
     def _initnodes(self, num_nodes: int, device: Device):

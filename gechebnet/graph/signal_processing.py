@@ -42,7 +42,7 @@ def get_laplacian(
     index = torch.cat((diag_index[:, mask], edge_index), dim=1)
     weight = torch.cat((diag_weight[mask], edge_weight))
 
-    return torch.sparse.FloatTensor(index, weight, torch.Size((num_nodes, num_nodes))).to(device)
+    return SparseFloatTensor(index, weight, torch.Size((num_nodes, num_nodes))).to(device)
 
 
 def get_fourier_basis(laplacian: SparseFloatTensor) -> Tuple[ndarray, ndarray]:
