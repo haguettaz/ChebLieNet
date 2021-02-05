@@ -37,7 +37,7 @@ def get_edges_sparse_laplacian(edge_index, edge_weight, num_nodes, num_edges, ka
     unique = edge_code.unique(return_inverse=True)
 
     num_samples = math.ceil((1 - kappa) * unique.size(0))  # num edges to keep
-    probabilities = unique - unique.floor()
+    probabilities = unique - unique.floor() # weight corresponds to the decimal part of the edge coding
     random_sampling = torch.multinomial(probabilities, num_samples)
 
     mask = torch.tensor([False] * num_edges)

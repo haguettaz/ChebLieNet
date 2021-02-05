@@ -52,5 +52,5 @@ def wandb_log(trainer: Engine, evaluator: Engine, data_loader: DataLoader):
         wandb.log({k: metrics[k], "epoch": trainer.state.epoch})
 
 
-def sparsify_laplacian(trainer: Engine, model: Module, kappa: float):
+def sparsify_laplacian(trainer: Engine, model: Module):
     model.sparsify_laplacian()

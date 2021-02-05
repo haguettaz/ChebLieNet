@@ -139,7 +139,7 @@ def train(config=None):
         ProgressBar(persist=False, desc="Training").attach(trainer)
 
         if args.sparsification_rate:
-            trainer.add_event_handler(Events.EPOCH_COMPLETED, sparsify_laplacian)
+            trainer.add_event_handler(Events.EPOCH_STARTED, sparsify_laplacian, model)
 
         metrics = {"validation_accuracy": Accuracy(), "validation_loss": Loss(nll_loss)}
 
