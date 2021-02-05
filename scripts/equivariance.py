@@ -14,8 +14,7 @@ from ignite.engine import Events
 from ignite.metrics import Accuracy, Loss
 from torch.nn.functional import nll_loss
 
-DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
-DEVICE = torch.device("cuda")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def build_config(anisotropic: bool, coupled_sym: bool, resnet: bool, dataset: str) -> dict:

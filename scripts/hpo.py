@@ -14,8 +14,7 @@ from torch.nn.functional import nll_loss
 
 from .utils import get_graph, get_model, get_optimizer
 
-DATA_PATH = os.path.join(os.environ["TMPDIR"], "data")
-DEVICE = torch.device("cuda")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def build_sweep_config(anisotropic: bool, coupled_sym: bool, resnet: bool, dataset: str) -> dict:
@@ -143,7 +142,7 @@ def train(config=None):
             args.dataset,
             batch_size=config.batch_size,
             val_ratio=0.1,
-            data_path=DATA_PATH,
+            data_path=args.data_path,
         )
 
         # Performance tracking with wandb
@@ -154,14 +153,15 @@ def train(config=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--num_experiments", type=int)
-    parser.add_argument("--max_epochs", type=int)
-    parser.add_argument("--dataset", type=str)
-    parser.add_argument("--anisotropic", type=int)  # 0: false 1: true
-    parser.add_argument("--coupled_sym", type=int)  # 0: false 1: true
-    parser.add_argument("--resnet", type=int)  # 0: false 1: true
-    parser.add_argument("--hidden_channels", nargs="+", type=int)
-    parser.add_argument("--lie_group", type=str)
+    parser.add_argument("-p", "--data_path", type=str)
+    parser.add_argument("-n", "--num_experiments", type=int)
+    parser.add_argument("-m", "--max_epochs", type=int)
+    parser.add_argument("-d", "--dataset", type=str)
+    parser.add_argument("-a", "--anisotropic", type=int)  # 0: false 1: true
+    parser.add_argument("-s", "--coupled_sym", type=int)  # 0: false 1: true
+    parser.add_argument("-r", "--resnet", type=int)  # 0: false 1: true
+    parser.add_argument("-c", "--hidden_channels", nargs="+", type=int, action="append")
+    parser.add_argument("-g", "--lie_group", type=str)
     args = parser.parse_args()
 
     sweep_config = build_sweep_config(
