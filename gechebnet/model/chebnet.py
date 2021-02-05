@@ -7,6 +7,7 @@ from torch.nn import AvgPool1d, BatchNorm1d, LogSoftmax, MaxPool1d, Module, Modu
 from torch.sparse import FloatTensor as SparseFloatTensor
 
 from ..graph.graph import Graph
+from ..graph.sparsification import get_sparse_laplacian
 from ..utils import sparse_tensor_diag
 from .convolution import ChebConv
 
@@ -24,6 +25,8 @@ class GEChebNet(Module):
         hidden_channels: list,
         out_channels: int,
         pooling: Optional[str] = "max",
+        sparsification_rate: Optional[float] = None,
+        sparsify_on: Optional[str] = None,
         device: Optional[Device] = None,
     ):
         """
@@ -45,9 +48,18 @@ class GEChebNet(Module):
         super(GEChebNet, self).__init__()
 
         if pooling not in {"avg", "max"}:
+            raise ValueError(f"{pooling} is not a valid value for pooling: must be 'avg' or 'max'!")
+
+        if sparsify_on is not None and sparsify_on not in {"edges", "nodes"}:
             raise ValueError(
-                f"{pooling} is not a valid value for pooling: must be 'avg' or 'max'"
+                f"{sparsify_on} is not a valid value for sparsify_on: must be 'edges' or 'nodes'!"
             )
+
+        if sparsification_rate is not None and sparsify_on is None:
+            raise ValueError(f"sparsify_on must be specified!")
+
+        self.sparsify_on = sparsify_on
+        self.sparsification_rate = sparsification_rate or 0.0
 
         self.laplacian = self._norm_laplacian(
             graph.laplacian(device), lmax=2.0, num_nodes=graph.num_nodes
@@ -63,7 +75,7 @@ class GEChebNet(Module):
             )
             self.hidden_conv = ModuleList(
                 [
-                    ChebConv(hidden_channels[l], hidden_channels[l+1], K)
+                    ChebConv(hidden_channels[l], hidden_channels[l + 1], K)
                     for l in range(self.hidden_layers)
                 ]
             )
@@ -93,18 +105,24 @@ class GEChebNet(Module):
             (FloatTensor): the predictions on the batch.
         """
         # Input layer
-        out = self.in_conv(x, self.laplacian)  # (B, C, V)
+        out = self.in_conv(
+            x, self.sparse_laplacian if self.sparsification_rate else self.laplacian
+        )  # (B, C, V)
         out = self.in_relu(out)  # (B, C, V)
 
         # Hidden layers
         for l in range(self.hidden_layers):
             out = self.hidden_bn[l](out)
-            out = self.hidden_conv[l](out, self.laplacian)
+            out = self.hidden_conv[l](
+                out, self.sparse_laplacian if self.sparsification_rate else self.laplacian
+            )
             out = self.hidden_relu[l](out)
 
         # Output layer
         out = self.out_bn(out)
-        out = self.out_conv(out, self.laplacian)
+        out = self.out_conv(
+            out, self.sparse_laplacian if self.sparsification_rate else self.laplacian
+        )
         out = self.out_relu(out)
         out = self.global_pooling(out).squeeze()  # (B, C)
         return self.logsoftmax(out)  # (B, C)
@@ -114,6 +132,11 @@ class GEChebNet(Module):
     ) -> SparseFloatTensor:
         """Scale the eigenvalues from [0, lmax] to [-1, 1]."""
         return 2 * laplacian / lmax - sparse_tensor_diag(num_nodes, device=laplacian.device)
+
+    def sparsify_laplacian(self):
+        self.sparse_laplacian = get_sparse_laplacian(
+            self.laplacian, on=self.sparsify_on, sparsification_rate=self.sparsification_rate
+        )
 
     @property
     def capacity(self) -> int:

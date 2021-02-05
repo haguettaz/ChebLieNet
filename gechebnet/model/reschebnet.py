@@ -16,6 +16,7 @@ from torch.nn import (
 from torch.sparse import FloatTensor as SparseFloatTensor
 
 from ..graph.graph import Graph
+from ..graph.sparsification import get_sparse_laplacian
 from ..utils import sparse_tensor_diag
 from .convolution import ChebConv
 
@@ -108,6 +109,8 @@ class ResGEChebNet(Module):
         hidden_res_channels: list,
         out_channels: int,
         pooling: Optional[str] = "max",
+        sparsification_rate: Optional[float] = None,
+        sparsify_on: Optional[str] = None,
         device: Optional[Device] = None,
     ):
         """
@@ -136,6 +139,17 @@ class ResGEChebNet(Module):
 
         if pooling not in {"avg", "max"}:
             raise ValueError(f"{pooling} is not a valid value for pooling: must be 'avg' or 'max'")
+
+        if sparsify_on is not None and sparsify_on not in {"edges", "nodes"}:
+            raise ValueError(
+                f"{sparsify_on} is not a valid value for sparsify_on: must be 'edges' or 'nodes'!"
+            )
+
+        if sparsification_rate is not None and sparsify_on is None:
+            raise ValueError(f"sparsify_on must be specified!")
+
+        self.sparsify_on = sparsify_on
+        self.sparsification_rate = sparsification_rate or 0.0
 
         self.in_conv = ChebConv(in_channels, hidden_res_channels[0][0], K)
         self.in_relu = ReLU()
@@ -176,16 +190,22 @@ class ResGEChebNet(Module):
             (FloatTensor): the predictions on the batch.
         """
         # Input layer
-        out = self.in_conv(x, self.laplacian)  # (B, C, V)
+        out = self.in_conv(
+            x, self.sparse_laplacian if self.sparsification_rate else self.laplacian
+        )  # (B, C, V)
         out = self.in_relu(out)
 
         # Hidden layers
         for l in range(self.hidden_res_layers):
-            out = self.hidden_resblock[l](out, self.laplacian)
+            out = self.hidden_resblock[l](
+                out, self.sparse_laplacian if self.sparsification_rate else self.laplacian
+            )
 
         # Output layer
         out = self.out_bn(out)
-        out = self.out_conv(out, self.laplacian)
+        out = self.out_conv(
+            out, self.sparse_laplacian if self.sparsification_rate else self.laplacian
+        )
         out = self.out_relu(out)
         out = self.global_pooling(out).squeeze()  # (B, C)
         return self.logsoftmax(out)  # (B, C)
@@ -195,6 +215,11 @@ class ResGEChebNet(Module):
     ) -> SparseFloatTensor:
         """Scale the eigenvalues from [0, lmax] to [-1, 1]."""
         return 2 * laplacian / lmax - sparse_tensor_diag(num_nodes, device=laplacian.device)
+
+    def sparsify_laplacian(self):
+        self.sparse_laplacian = get_sparse_laplacian(
+            self.laplacian, on=self.sparsify_on, sparsification_rate=self.sparsification_rate
+        )
 
     @property
     def capacity(self) -> int:

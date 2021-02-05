@@ -13,7 +13,6 @@ from ..liegroup.se2 import se2_anisotropic_square_riemannanian_distance, se2_log
 from ..liegroup.so3 import so3_anisotropic_square_riemannanian_distance, so3_log, so3_matrix
 from ..liegroup.utils import alphabetagamma2xyz, xyz2alphabetagamma
 from ..utils import rescale, sparse_tensor_to_sparse_array
-from .compression import multinomial_compression
 from .optimization import repulsive_loss, repulsive_sampling
 from .signal_processing import get_fourier_basis, get_laplacian
 from .utils import remove_directed_edges, remove_duplicated_edges, remove_self_loops
@@ -131,6 +130,13 @@ class Graph:
         f[node_idx] = 1.0
         return f
 
+    # can possibily crash for graph with too high number of vertices and edges
+    @property
+    def contains_isolated_node(self):
+        return (self.node_index.repeat(1, self.num_edges) == self.edge_index[0]).sum(
+            dim=1
+        ).min() < 1
+
 
 class SO3GEGraph(Graph):
     """
@@ -149,7 +155,6 @@ class SO3GEGraph(Graph):
         knn: Optional[int] = 16,
         sigmas: Optional[Tuple[float, float, float]] = (1.0, 1.0, 1.0),
         weight_kernel: Optional[Callable] = None,
-        kappa: Optional[float] = 0.0,
         device: Device = None,
     ):
         """
@@ -220,7 +225,6 @@ class SO3GEGraph(Graph):
         sigmas: Tuple[float, float, float],
         knn: int,
         weight_kernel: Callable,
-        kappa: float,
         device: Device,
     ):
         """
@@ -238,10 +242,6 @@ class SO3GEGraph(Graph):
         Raises:
             ValueError: kappa must be in [0, 1).
         """
-
-        if not 0.0 <= kappa < 1.0:
-            raise ValueError(f"{kappa} is not a valid value for kappa, must be in [0,1).")
-
         Gg = self.node_Gg(device).reshape(self.num_nodes, -1)
         Gh = self.node_Gg(device).inverse().reshape(self.num_nodes, -1)
 
@@ -272,11 +272,6 @@ class SO3GEGraph(Graph):
 
         # remove directed edges
         edge_index, edge_weight = remove_directed_edges(edge_index, edge_weight, self.num_nodes)
-
-        # compress graph
-        if kappa > 0.0:
-            edge_index, edge_weight = multinomial_compression(edge_index, edge_weight, kappa)
-            edge_index, edge_weight = remove_directed_edges(edge_index, edge_weight, self.num_nodes)
 
         self.edge_index, self.edge_weight = edge_index, edge_weight
 
@@ -369,7 +364,6 @@ class SE2GEGraph(Graph):
         knn: Optional[int] = 16,
         sigmas: Optional[Tuple[float, float, float]] = (1.0, 1.0, 1.0),
         weight_kernel: Optional[Callable] = None,
-        kappa: Optional[float] = 0.0,
         device=None,
     ):
         """
@@ -399,7 +393,7 @@ class SE2GEGraph(Graph):
         self.nx, self.ny, self.ntheta = nx, ny, ntheta
 
         self._initnodes(nx * ny * ntheta)
-        self._initedges(sigmas, knn, weight_kernel, kappa, device)
+        self._initedges(sigmas, knn, weight_kernel, device)
 
     def _initnodes(self, num_nodes: int):
         """
@@ -432,7 +426,6 @@ class SE2GEGraph(Graph):
         sigmas: Tuple[float, float, float],
         knn: int,
         weight_kernel: Callable,
-        kappa: float,
         device: Device,
     ):
         """
@@ -450,10 +443,6 @@ class SE2GEGraph(Graph):
         Raises:
             ValueError: kappa must be in [0, 1).
         """
-
-        if not 0.0 <= kappa < 1.0:
-            raise ValueError(f"{kappa} is not a valid value for kappa, must be in [0,1).")
-
         xi = Vi(torch.inverse(self.node_Gg(device)).reshape(self.num_nodes, -1))  # sources
         xj = Vj(self.node_Gg(device).reshape(self.num_nodes, -1))  # targets
 
@@ -476,11 +465,6 @@ class SE2GEGraph(Graph):
 
         # remove directed edges
         edge_index, edge_weight = remove_directed_edges(edge_index, edge_weight, self.num_nodes)
-
-        # compress graph
-        if kappa > 0.0:
-            edge_index, edge_weight = multinomial_compression(edge_index, edge_weight, kappa)
-            edge_index, edge_weight = remove_directed_edges(edge_index, edge_weight, self.num_nodes)
 
         self.edge_index, self.edge_weight = edge_index, edge_weight
 
@@ -546,5 +530,3 @@ class SE2GEGraph(Graph):
             (FloatTensor): output tensor with shape (..., L, H, W).
         """
         return signal
-
-

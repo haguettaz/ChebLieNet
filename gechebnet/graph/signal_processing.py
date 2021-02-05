@@ -29,11 +29,20 @@ def get_laplacian(
         SparseFloatTensor: symmetric normalized laplacian.
     """
 
-    deg = torch.zeros(num_nodes).scatter_add(0, edge_index[1], edge_weight).pow(-0.5)
-    edge_weight = edge_weight * deg[edge_index[0]] * deg[edge_index[1]]
-    W_norm = torch.sparse.FloatTensor(edge_index, edge_weight, torch.Size((num_nodes, num_nodes)))
-    I = sparse_tensor_diag(num_nodes)
-    return (I - W_norm).to(device)
+    node_degree = torch.zeros(num_nodes).scatter_add(0, edge_index[1], edge_weight)
+    inv_sqrt_node_degree = node_degree.pow(-0.5)
+    edge_weight = -(
+        edge_weight * inv_sqrt_node_degree[edge_index[0]] * inv_sqrt_node_degree[edge_index[1]]
+    )
+
+    diag_index = torch.arange(num_nodes).unsqueeze(0).repeat(2, 1)
+    diag_weight = torch.ones(num_nodes)
+    mask = node_degree > 0
+
+    index = torch.cat((diag_index[:, mask], edge_index), dim=1)
+    weight = torch.cat((diag_weight[mask], edge_weight))
+
+    return torch.sparse.FloatTensor(index, weight, torch.Size((num_nodes, num_nodes))).to(device)
 
 
 def get_fourier_basis(laplacian: SparseFloatTensor) -> Tuple[ndarray, ndarray]:

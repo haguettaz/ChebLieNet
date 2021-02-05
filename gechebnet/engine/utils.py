@@ -5,6 +5,7 @@ import wandb
 from ignite.engine.engine import Engine
 from torch import FloatTensor, Tensor
 from torch import device as Device
+from torch.nn import Module
 from torch.utils.data import DataLoader
 
 from ..graph.graph import Graph
@@ -49,3 +50,7 @@ def wandb_log(trainer: Engine, evaluator: Engine, data_loader: DataLoader):
 
     for k in metrics:
         wandb.log({k: metrics[k], "epoch": trainer.state.epoch})
+
+
+def sparsify_laplacian(trainer: Engine, model: Module, kappa: float):
+    model.sparsify_laplacian()

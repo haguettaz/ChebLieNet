@@ -58,8 +58,10 @@ def get_model(
     out_channels: int,
     K: int,
     pooling: str,
+    resnet: bool,
+    sparsification_rate: float,
+    sparsify_on: str,
     device: Device,
-    resnet: bool = False,
 ) -> Module:
     """
     [summary]
@@ -84,6 +86,8 @@ def get_model(
             hidden_channels,
             out_channels,
             pooling,
+            sparsification_rate,
+            sparsify_on,
             device,
         )
     else:
@@ -94,6 +98,8 @@ def get_model(
             hidden_channels[0],
             out_channels,
             pooling,
+            sparsification_rate,
+            sparsify_on,
             device,
         )
     return model.to(device)

@@ -6,7 +6,7 @@ import torch
 import wandb
 from gechebnet.data.dataloader import get_train_val_dataloaders
 from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
-from gechebnet.engine.utils import prepare_batch, wandb_log
+from gechebnet.engine.utils import prepare_batch, sparsify_laplacian, wandb_log
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
 from ignite.metrics import Accuracy, Loss
@@ -107,14 +107,25 @@ def train(config=None):
             K=config.K,
             pooling=config.pooling,
             resnet=args.resnet > 0,
+            sparsification_rate=args.sparsification_rate,
+            sparsify_on=args.sparsify_on,
             device=DEVICE,
         )
         wandb.log({"anisotropic": args.anisotropic > 0})
         wandb.log({"coupled_sym": args.coupled_sym > 0})
         wandb.log({"resnet": args.resnet > 0})
+        wandb.log({"sparsification_rate": args.sparsification_rate})
+        wandb.log({"sparsify_on": args.sparsify_on})
         wandb.log({"capacity": model.capacity})
 
         optimizer = get_optimizer(model, config.learning_rate, config.weight_decay)
+
+        train_loader, val_loader = get_train_val_dataloaders(
+            args.dataset,
+            batch_size=config.batch_size,
+            val_ratio=0.1,
+            data_path=args.data_path,
+        )
 
         # Trainer and evaluator(s) engines
         trainer = create_supervised_trainer(
@@ -127,6 +138,9 @@ def train(config=None):
         )
         ProgressBar(persist=False, desc="Training").attach(trainer)
 
+        if args.sparsification_rate:
+            trainer.add_event_handler(Events.EPOCH_COMPLETED, sparsify_laplacian)
+
         metrics = {"validation_accuracy": Accuracy(), "validation_loss": Loss(nll_loss)}
 
         evaluator = create_supervised_evaluator(
@@ -137,13 +151,6 @@ def train(config=None):
             prepare_batch=prepare_batch,
         )
         ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
-
-        train_loader, val_loader = get_train_val_dataloaders(
-            args.dataset,
-            batch_size=config.batch_size,
-            val_ratio=0.1,
-            data_path=args.data_path,
-        )
 
         # Performance tracking with wandb
         trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, evaluator, val_loader)
@@ -162,6 +169,8 @@ if __name__ == "__main__":
     parser.add_argument("-r", "--resnet", type=int)  # 0: false 1: true
     parser.add_argument("-c", "--hidden_channels", nargs="+", type=int, action="append")
     parser.add_argument("-g", "--lie_group", type=str)
+    parser.add_argument("-k", "--sparsification_rate", type=float)
+    parser.add_argument("-o", "--sparsify_on", type=str)
     args = parser.parse_args()
 
     sweep_config = build_sweep_config(
