@@ -3,7 +3,7 @@ from typing import Tuple
 import torch
 from torch import BoolTensor, FloatTensor, LongTensor
 from torch import device as Device
-
+from torch.sparse import FloatTensor as SparseFloatTensor
 
 
 def code_edges(edge_index: LongTensor, edge_weight: FloatTensor, num_nodes: int) -> FloatTensor:
@@ -114,5 +114,4 @@ def remove_directed_edges(
         mask |= indices == c_i
 
     return edge_index[:, ~mask], edge_weight[~mask]
-
 

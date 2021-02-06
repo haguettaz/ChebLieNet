@@ -8,6 +8,7 @@ from torch import device as Device
 from torch.sparse import FloatTensor as SparseFloatTensor
 
 from ..utils import sparse_tensor_diag, sparse_tensor_to_sparse_array
+from .utils import remove_self_loops
 
 
 def get_laplacian(
@@ -43,6 +44,13 @@ def get_laplacian(
     weight = torch.cat((diag_weight[mask], edge_weight))
 
     return SparseFloatTensor(index, weight, torch.Size((num_nodes, num_nodes))).to(device)
+
+
+def get_norm_laplacian(
+    laplacian: SparseFloatTensor, device: Optional[Device] = None
+) -> SparseFloatTensor:
+    indices, values = remove_self_loops(laplacian._indices(), laplacian._values())
+    return SparseFloatTensor(indices, values, laplacian.size()).to(device)
 
 
 def get_fourier_basis(laplacian: SparseFloatTensor) -> Tuple[ndarray, ndarray]:

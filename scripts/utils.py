@@ -5,6 +5,7 @@ from gechebnet.model.reschebnet import ResGEChebNet
 from torch import device as Device
 from torch.nn import Module
 from torch.optim import Adam, Optimizer
+from torch.sparse import FloatTensor as SparseFloatTensor
 
 
 def get_graph(
@@ -52,15 +53,13 @@ def get_graph(
 
 
 def get_model(
-    graph: Graph,
+    laplacian: SparseFloatTensor,
     in_channels: int,
     hidden_channels: list,
     out_channels: int,
     K: int,
     pooling: str,
     resnet: bool,
-    sparsification_rate: float,
-    sparsify_on: str,
     device: Device,
 ) -> Module:
     """
@@ -80,26 +79,22 @@ def get_model(
     """
     if resnet:
         model = ResGEChebNet(
-            graph,
+            laplacian,
             K,
             in_channels,
             hidden_channels,
             out_channels,
             pooling,
-            sparsification_rate,
-            sparsify_on,
             device,
         )
     else:
         model = GEChebNet(
-            graph,
+            laplacian,
             K,
             in_channels,
             hidden_channels[0],
             out_channels,
             pooling,
-            sparsification_rate,
-            sparsify_on,
             device,
         )
     return model.to(device)

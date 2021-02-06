@@ -100,15 +100,13 @@ def train(config=None):
         wandb.log({f"num_nodes": graph.num_nodes, f"num_edges": graph.num_edges})
 
         model = get_model(
-            graph=graph,
+            laplacian=laplacian,
             in_channels=1 if args.dataset == "mnist" else 3,
             hidden_channels=args.hidden_channels,
             out_channels=10,
             K=config.K,
             pooling=config.pooling,
             resnet=args.resnet > 0,
-            sparsification_rate=args.sparsification_rate,
-            sparsify_on=args.sparsify_on,
             device=DEVICE,
         )
         wandb.log({"anisotropic": args.anisotropic > 0})
