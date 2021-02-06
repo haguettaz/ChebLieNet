@@ -136,11 +136,7 @@ def train(config=None):
         )
         ProgressBar(persist=False, desc="Training").attach(trainer)
 
-        if args.sparsification_rate:
-            trainer.add_event_handler(Events.EPOCH_STARTED, sparsify_laplacian, model)
-
         metrics = {"validation_accuracy": Accuracy(), "validation_loss": Loss(nll_loss)}
-
         evaluator = create_supervised_evaluator(
             graph=graph,
             model=model,
@@ -150,8 +146,15 @@ def train(config=None):
         )
         ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
 
-        # Performance tracking with wandb
         trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, evaluator, val_loader)
+        if args.sparsification_rate:
+            trainer.add_event_handler(
+                Events.EPOCH_STARTED,
+                sparsify_laplacian,
+                model,
+                args.sparsify_on,
+                args.sparsification_rate,
+            )
 
         trainer.run(train_loader, max_epochs=args.max_epochs)
 
