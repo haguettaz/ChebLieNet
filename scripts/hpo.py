@@ -100,7 +100,7 @@ def train(config=None):
         wandb.log({f"num_nodes": graph.num_nodes, f"num_edges": graph.num_edges})
 
         model = get_model(
-            laplacian=laplacian,
+            laplacian=graph.laplacian,
             in_channels=1 if args.dataset == "mnist" else 3,
             hidden_channels=args.hidden_channels,
             out_channels=10,
