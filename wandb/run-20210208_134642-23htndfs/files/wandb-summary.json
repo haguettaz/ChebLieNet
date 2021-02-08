@@ -1,1 +1,0 @@
-{"num_nodes": 784, "num_edges": 11194, "_step": 6, "_runtime": 3, "_timestamp": 1612788405, "anisotropic": false, "coupled_sym": true, "resnet": true, "sparsification_rate": 0.5, "sparsify_on": "nodes", "capacity": 19050}
