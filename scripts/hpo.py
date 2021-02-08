@@ -100,7 +100,7 @@ def train(config=None):
         wandb.log({f"num_nodes": graph.num_nodes, f"num_edges": graph.num_edges})
 
         model = get_model(
-            laplacian=graph.laplacian(),
+            graph=graph,
             in_channels=1 if args.dataset == "mnist" else 3,
             hidden_channels=args.hidden_channels,
             out_channels=10,
@@ -156,7 +156,7 @@ def train(config=None):
                 args.sparsification_rate,
             )
 
-        trainer.run(train_loader, max_epochs=args.max_epochs)
+        # trainer.run(train_loader, max_epochs=args.max_epochs)
 
 
 if __name__ == "__main__":
@@ -165,13 +165,13 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--num_experiments", type=int)
     parser.add_argument("-m", "--max_epochs", type=int)
     parser.add_argument("-d", "--dataset", type=str)
-    parser.add_argument("-a", "--anisotropic", type=int)  # 0: false 1: true
-    parser.add_argument("-s", "--coupled_sym", type=int)  # 0: false 1: true
-    parser.add_argument("-r", "--resnet", type=int)  # 0: false 1: true
+    parser.add_argument("-a", "--anisotropic", type=int, default=0)  # 0: false 1: true
+    parser.add_argument("-s", "--coupled_sym", type=int, default=1)  # 0: false 1: true
+    parser.add_argument("-r", "--resnet", type=int, default=0)  # 0: false 1: true
     parser.add_argument("-c", "--hidden_channels", nargs="+", type=int, action="append")
     parser.add_argument("-g", "--lie_group", type=str)
-    parser.add_argument("-k", "--sparsification_rate", type=float)
-    parser.add_argument("-o", "--sparsify_on", type=str)
+    parser.add_argument("-k", "--sparsification_rate", type=float, default=0.0)
+    parser.add_argument("-o", "--sparsify_on", type=str, default="edges")
     args = parser.parse_args()
 
     sweep_config = build_sweep_config(

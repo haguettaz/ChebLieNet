@@ -15,7 +15,7 @@ from ..liegroup.utils import alphabetagamma2xyz, xyz2alphabetagamma
 from ..utils import rescale, sparse_tensor_to_sparse_array
 from .optimization import repulsive_loss, repulsive_sampling
 from .signal_processing import get_fourier_basis, get_laplacian
-from .utils import remove_directed_edges, remove_duplicated_edges, remove_self_loops
+from .utils import remove_duplicated_edges, to_undirected
 
 
 class Graph:
@@ -393,7 +393,10 @@ class SE2GEGraph(Graph):
         self.nx, self.ny, self.ntheta = nx, ny, ntheta
 
         self._initnodes(nx * ny * ntheta)
-        self._initedges(sigmas, knn, weight_kernel, device)
+
+        self._initedges(
+            sigmas, knn if knn < self.num_nodes else self.num_nodes - 1, weight_kernel, device
+        )
 
     def _initnodes(self, num_nodes: int):
         """
@@ -454,19 +457,13 @@ class SE2GEGraph(Graph):
         )
         edge_sqdist = edge_sqdist.cpu().flatten()
 
-        # remove duplicated edges due to too high knn
-        edge_index, edge_sqdist = remove_duplicated_edges(edge_index, edge_sqdist, knn + 1)
-
-        # remove self loops
-        edge_index, edge_sqdist = remove_self_loops(edge_index, edge_sqdist)
+        # remove duplicated edges and self-loops
+        edge_index, edge_sqdist = remove_duplicated_edges(edge_index, edge_sqdist, self_loop=False)
 
         # as an heuristic, we choose sigma as the mean squared Riemannian distance
-        edge_weight = weight_kernel(edge_sqdist, edge_sqdist.mean())
+        edge_weight = weight_kernel(edge_sqdist, 0.5 * edge_sqdist.mean())
 
-        # remove directed edges
-        edge_index, edge_weight = remove_directed_edges(edge_index, edge_weight, self.num_nodes)
-
-        self.edge_index, self.edge_weight = edge_index, edge_weight
+        self.edge_index, self.edge_weight = to_undirected(edge_index, edge_weight)
 
     @property
     def nsym(self) -> int:

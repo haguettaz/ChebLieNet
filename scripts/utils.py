@@ -53,7 +53,7 @@ def get_graph(
 
 
 def get_model(
-    laplacian: SparseFloatTensor,
+    graph: Graph,
     in_channels: int,
     hidden_channels: list,
     out_channels: int,
@@ -79,7 +79,7 @@ def get_model(
     """
     if resnet:
         model = ResGEChebNet(
-            laplacian,
+            graph,
             K,
             in_channels,
             hidden_channels,
@@ -89,7 +89,7 @@ def get_model(
         )
     else:
         model = GEChebNet(
-            laplacian,
+            graph,
             K,
             in_channels,
             hidden_channels[0],

@@ -6,38 +6,8 @@ from torch import device as Device
 from torch.sparse import FloatTensor as SparseFloatTensor
 
 
-def code_edges(edge_index: LongTensor, edge_weight: FloatTensor, num_nodes: int) -> FloatTensor:
-    """
-    Generates a coded tensor corresponding to edges' indices and weights. Let s(e) (resp. t(e)) be the indices
-    of the source (resp. target) of the edge e with weight w(e) and let N be the total number of nodes. The code
-    is as follows:
-        c(e) = min (s(e), t(e)) + N * |s(e) - t(e)| + w(e)
-
-    Args:
-        edge_index (LongTensor): indices of edges.
-        edge_weight (FloatTensor): weights of edges.
-        num_nodes (int): number of nodes.
-
-    Raises:
-        ValueError: maximum weights must be strictly lower than 1, otherwise, the code is not uniquely decodable
-        (up to edge sens).
-
-    Returns:
-        FloatTensor: coded edges.
-    """
-    if edge_weight.max() >= 1:
-        raise ValueError(
-            f"Found at least one weight higher or equal to 1, the edge's code cannot work"
-        )
-
-    val_min, _ = edge_index.min(dim=0)
-    val_diff = (edge_index[1] - edge_index[0]).abs()
-
-    return val_min * num_nodes + val_diff + edge_weight
-
-
 def remove_duplicated_edges(
-    edge_index: LongTensor, edge_attr: FloatTensor, knn: int
+    edge_index: LongTensor, edge_attr: FloatTensor, self_loop=False
 ) -> Tuple[LongTensor, FloatTensor]:
     """
     Remove duplicated edges in the graph given by edge_index and edge_attr. Duplicated edges can appear if the
@@ -55,16 +25,30 @@ def remove_duplicated_edges(
         (LongTensor): indices of edges.
         (FloatTensor)]: attributes of edges
     """
-    num_nodes, num_edges = edge_index.max() + 1, edge_index.shape[1]
 
-    if knn * num_nodes != num_edges:
-        raise ValueError(
-            f"The number of edges {num_edges} does not coincide with the number of nodes {num_nodes} and knn {knn}"
-        )
+    if self_loop:
+        mask = edge_index[0] <= edge_index[1]
+    else:
+        mask = edge_index[0] < edge_index[1]
+    return edge_index[:, mask], edge_attr[mask]
 
-    indices = [idx for idx in range(num_edges) if idx % knn < num_nodes]
 
-    return edge_index[:, indices], edge_attr[indices]
+def to_undirected(edge_index: LongTensor, edge_attr: FloatTensor) -> Tuple[LongTensor, FloatTensor]:
+    """
+    [summary]
+
+    Args:
+        edge_index (LongTensor): [description]
+        edge_attr (FloatTensor): [description]
+
+    Returns:
+        (LongTensor): [description]
+        (FloatTensor): [description]
+    """
+    edge_index_inverse = torch.cat((edge_index[1, None], edge_index[0, None]), dim=0)
+    edge_index = torch.cat((edge_index, edge_index_inverse), dim=1)
+    edge_attr = torch.cat((edge_attr, edge_attr))
+    return edge_index, edge_attr
 
 
 def remove_self_loops(
@@ -82,36 +66,29 @@ def remove_self_loops(
         FloatTensor: attributes of edges.
     """
     mask = edge_index[0] != edge_index[1]
+
     return edge_index[:, mask], edge_attr[mask]
 
 
-def remove_directed_edges(
-    edge_index: LongTensor, edge_weight: FloatTensor, num_nodes: int
+def add_self_loops(
+    edge_index: LongTensor, edge_attr: FloatTensor, weight: float = 1.0
 ) -> Tuple[LongTensor, FloatTensor]:
     """
-    Removes every directed edges in the graph given by edge_index and edge_weight.
+    [summary]
 
     Args:
-        edge_index (LongTensor): indices of edges.
-        edge_weight (FloatTensor): weights of edges.
-        num_nodes (int): number of nodes.
+        edge_index (LongTensor): [description]
+        edge_attr (FloatTensor): [description]
+        weight (float, optional): [description]. Defaults to 1.0.
 
     Returns:
-        LongTensor: indices of edges.
-        FloatTensor: weights of edges.
+        Tuple[LongTensor, FloatTensor]: [description]
     """
 
-    # codes the edges to use unique function of pytorch
-    coded_edges = code_edges(edge_index, edge_weight, num_nodes)
+    self_loop_index = edge_index[0].unique().unsqueeze(0).repeat(2, 1)
+    self_loop_attr = weight * torch.ones(self_loop_index.shape[1])
 
-    num_edges = edge_index.shape[1]
+    edge_index = torch.cat((self_loop_index, edge_index), dim=1)
+    edge_attr = torch.cat((self_loop_attr, edge_attr))
 
-    _, indices, counts = torch.unique(coded_edges, return_inverse=True, return_counts=True)
-    counts_indices = torch.arange(counts.shape[0])
-
-    mask = BoolTensor([False] * num_edges)
-    for c_i in counts_indices[counts < 2]:  # directed edges
-        mask |= indices == c_i
-
-    return edge_index[:, ~mask], edge_weight[~mask]
-
+    return edge_index, edge_attr

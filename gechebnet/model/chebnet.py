@@ -3,13 +3,12 @@ from typing import Optional, Tuple, Union
 import torch
 from torch import FloatTensor
 from torch import device as Device
-from torch.nn import AvgPool1d, BatchNorm1d, LogSoftmax, MaxPool1d, Module, ModuleList, ReLU
+from torch.nn import AvgPool1d, BatchNorm1d, Linear, LogSoftmax, MaxPool1d, Module, ModuleList, ReLU
 from torch.sparse import FloatTensor as SparseFloatTensor
 
 from ..graph.graph import Graph
 from ..graph.signal_processing import get_norm_laplacian
-from ..graph.sparsification import get_sparse_laplacian
-from ..utils import sparse_tensor_diag
+from ..graph.sparsification import sparsify_on_edges, sparsify_on_nodes
 from .convolution import ChebConv
 
 
@@ -20,7 +19,7 @@ class GEChebNet(Module):
 
     def __init__(
         self,
-        laplacian: SparseFloatTensor,
+        graph: Graph,
         K: int,
         in_channels: int,
         hidden_channels: list,
@@ -52,8 +51,13 @@ class GEChebNet(Module):
             raise ValueError(f"{pooling} is not a valid value for pooling: must be 'avg' or 'max'!")
 
         self.device = device
-        self.laplacian = laplacian  # laplacian is stored on cpu
-        self.norm_laplacian = get_norm_laplacian(self.laplacian, device=self.device)
+        self.graph = graph  # laplacian is stored on cpu
+
+        self.norm_laplacian = get_norm_laplacian(
+            graph.edge_index, graph.edge_weight, graph.num_nodes, 2.0, self.device
+        )
+
+        # self.node_index = graph.node_index
 
         self.in_conv = ChebConv(in_channels, hidden_channels[0], K)
         self.in_relu = ReLU()
@@ -72,16 +76,17 @@ class GEChebNet(Module):
             )
             self.hidden_relu = ModuleList([ReLU()] * self.hidden_layers)
 
-        self.out_bn = BatchNorm1d(hidden_channels[-1])
-        self.out_conv = ChebConv(hidden_channels[-1], out_channels, K)
-        self.out_relu = ReLU()
-
         # theoretical equivariance
         if pooling == "avg":
-            self.global_pooling = AvgPool1d(self.laplacian.size(0))
+            self.global_pooling = AvgPool1d(graph.num_nodes)
         # adds some non linearities, better in practice
         else:
-            self.global_pooling = MaxPool1d(self.laplacian.size(0))
+            self.global_pooling = MaxPool1d(graph.num_nodes)
+
+        self.out_bn = BatchNorm1d(hidden_channels[-1])
+        self.out_lin = Linear(hidden_channels[-1], out_channels)
+        # self.out_conv = ChebConv(hidden_channels[-1], out_channels, K)
+        self.out_relu = ReLU()
 
         self.logsoftmax = LogSoftmax(dim=1)
 
@@ -101,20 +106,47 @@ class GEChebNet(Module):
 
         # Hidden layers
         for l in range(self.hidden_layers):
-            out = self.hidden_bn[l](out)
-            out = self.hidden_conv[l](out, self.norm_laplacian)
-            out = self.hidden_relu[l](out)
+            out = self.hidden_bn[l](out)  # (B, C, V)
+            out = self.hidden_conv[l](out, self.norm_laplacian)  # (B, C, V)
+            out = self.hidden_relu[l](out)  # (B, C, V)
 
         # Output layer
-        out = self.out_bn(out)
-        out = self.out_conv(out, self.norm_laplacian)
-        out = self.out_relu(out)
         out = self.global_pooling(out).squeeze()  # (B, C)
+        out = self.out_bn(out)  # (B, C)
+        # out = self.out_conv(out, self.norm_laplacian)
+        out = self.out_lin(out)  # (B, C)
+        # out = self.out_relu(out)
         return self.logsoftmax(out)  # (B, C)
 
-    def set_sparse_laplacian(self, on, rate):
-        self.sparse_laplacian = get_sparse_laplacian(self.laplacian, on=on, rate=rate)
-        self.norm_laplacian = get_norm_laplacian(self.sparse_laplacian, device=self.device)
+    def sparsify_laplacian(self, on, rate):
+        if rate == 0.0:
+            self.norm_laplacian = get_norm_laplacian(
+                self.graph.edge_index,
+                self.graph.edge_weight,
+                self.graph.num_nodes,
+                2.0,
+                self.device,
+            )
+            # self.node_index = self.graph.node_index
+            return
+
+        if on == "edges":
+            edge_index, edge_weight = sparsify_on_edges(
+                self.graph.edge_index, self.graph.edge_weight, rate
+            )
+        else:
+            edge_index, edge_weight = sparsify_on_nodes(
+                self.graph.edge_index,
+                self.graph.edge_weight,
+                self.graph.node_index,
+                self.graph.num_nodes,
+                rate,
+            )
+
+        # self.node_index = edge_index[0].unique()
+        self.norm_laplacian = get_norm_laplacian(
+            edge_index, edge_weight, self.graph.num_nodes, 2.0, self.device
+        )
 
     @property
     def capacity(self) -> int:
