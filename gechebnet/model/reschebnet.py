@@ -191,10 +191,11 @@ class ResGEChebNet(Module):
             out = self.hidden_resblock[l](out, self.norm_laplacian)
 
         # Output layer
-        out = self.out_bn(out)
-        out = self.out_conv(out, self.norm_laplacian)
-        out = self.out_relu(out)
         out = self.global_pooling(out).squeeze()  # (B, C)
+        out = self.out_bn(out)  # (B, C)
+        # out = self.out_conv(out, self.norm_laplacian)
+        out = self.out_lin(out)  # (B, C)
+        out = self.out_relu(out)
         return self.logsoftmax(out)  # (B, C)
 
     def sparsify_laplacian(self, on, rate):

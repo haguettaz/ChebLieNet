@@ -115,7 +115,7 @@ class GEChebNet(Module):
         out = self.out_bn(out)  # (B, C)
         # out = self.out_conv(out, self.norm_laplacian)
         out = self.out_lin(out)  # (B, C)
-        # out = self.out_relu(out)
+        out = self.out_relu(out)
         return self.logsoftmax(out)  # (B, C)
 
     def sparsify_laplacian(self, on, rate):
