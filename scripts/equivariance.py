@@ -49,7 +49,7 @@ def build_config(anisotropic: bool, coupled_sym: bool, resnet: bool, dataset: st
 def train(config=None):
 
     # Initialize a new wandb run
-    with wandb.init(config=config):
+    with wandb.init(config=config, project="gechebnet"):
         print(config)
         config = wandb.config
 
@@ -151,7 +151,7 @@ def train(config=None):
             Events.EPOCH_COMPLETED, wandb_log, flipped_evaluator, flipped_test_loader
         )
 
-        # trainer.run(train_loader, max_epochs=args.max_epochs)
+        trainer.run(train_loader, max_epochs=args.max_epochs)
 
 
 if __name__ == "__main__":
