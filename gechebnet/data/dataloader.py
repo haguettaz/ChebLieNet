@@ -92,18 +92,18 @@ def get_test_equivariance_dataloaders(
 
 
     Raises:
-        ValueError: dataset_name has to be 'MNIST' or 'STL10',
+        ValueError: dataset_name has to be 'mnist' or 'stl10',
 
     Returns:
         Tuple[DataLoader, DataLoader]: classic, rotated and flipped dataloaders.
     """
 
-    if dataset_name not in {"MNIST", "STL10"}:
+    if dataset_name not in {"mnist", "stl10"}:
         raise ValueError(
-            f"{dataset_name} is not a valid value for dataset_name: must be in 'MNIST', 'STL10'"
+            f"{dataset_name} is not a valid value for dataset_name: must be in 'mnist', 'stl10'"
         )
 
-    if dataset_name == "MNIST":
+    if dataset_name == "mnist":
 
         classic_dataset = MNIST(
             data_path,
@@ -135,7 +135,7 @@ def get_test_equivariance_dataloaders(
             ),
         )
 
-    elif dataset_name == "STL10":
+    elif dataset_name == "stl10":
 
         classic_dataset = STL10(
             data_path,

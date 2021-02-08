@@ -30,50 +30,27 @@ def build_config(anisotropic: bool, coupled_sym: bool, resnet: bool, dataset: st
         dict: [description]
     """
 
-    if anisotropic and coupled_sym and not resnet and dataset == "mnist":
-        return {
-            "batch_size": {"value": 64},
-            "eps": {"value": 0.1},
-            "K": {"value": 6},
-            "knn": {"value": 32},
-            "learning_rate": {"value": 5e-3},
-            "nsym": {"value": 9},
-            "pooling": {"value": "max"},
-            "weight_decay": {"value": 5e-4},
-            "xi": {"value": 5e-2},
-        }
+    config = {
+        "batch_size": 64,
+        "K": 6,
+        "learning_rate": 5e-3,
+        "pooling": "max",
+        "weight_decay": 5e-4,
+    }
 
-    elif anisotropic and not coupled_sym and not resnet and dataset == "mnist":
-        return {
-            "batch_size": {"value": 64},
-            "eps": {"value": 0.1},
-            "K": {"value": 6},
-            "knn": {"value": 32},
-            "learning_rate": {"value": 5e-3},
-            "nsym": {"value": 9},
-            "pooling": {"value": "max"},
-            "weight_decay": {"value": 5e-4},
-            "xi": {"value": 1e-4},
-        }
+    config["eps"] = 0.1 if anisotropic else 1.0
+    config["knn"] = 32 if anisotropic else 16
+    config["nsym"] = 9 if anisotropic else 1
+    config["xi"] = 0.05 if coupled_sym else 1e-4
 
-    elif not anisotropic and not resnet and dataset == "mnist":
-        return {
-            "batch_size": {"value": 64},
-            "eps": {"value": 1.0},
-            "K": {"value": 6},
-            "knn": {"value": 16},
-            "learning_rate": {"value": 5e-3},
-            "nsym": {"value": 1},
-            "pooling": {"value": "max"},
-            "weight_decay": {"value": 5e-4},
-            "xi": {"value": 1.0},
-        }
+    return config
 
 
 def train(config=None):
 
     # Initialize a new wandb run
     with wandb.init(config=config):
+        print(config)
         config = wandb.config
 
         graph = get_graph(
@@ -174,7 +151,7 @@ def train(config=None):
             Events.EPOCH_COMPLETED, wandb_log, flipped_evaluator, flipped_test_loader
         )
 
-        trainer.run(train_loader, max_epochs=args.max_epochs)
+        # trainer.run(train_loader, max_epochs=args.max_epochs)
 
 
 if __name__ == "__main__":
@@ -200,4 +177,5 @@ if __name__ == "__main__":
     )
 
     for _ in range(args.num_experiments):
+        print(config)
         train(config)
