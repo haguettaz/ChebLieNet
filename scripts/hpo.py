@@ -1,6 +1,5 @@
 import argparse
 import math
-import os
 
 import torch
 import wandb
@@ -44,7 +43,7 @@ def build_sweep_config(anisotropic: bool, coupled_sym: bool, resnet: bool, datas
         "K": {
             "distribution": "q_log_uniform",
             "min": math.log(2),
-            "max": math.log(16) if dataset == "mnist" else math.log(32),
+            "max": math.log(8) if dataset == "mnist" else math.log(16),
         },
         "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
         "learning_rate": {
@@ -85,7 +84,7 @@ def build_sweep_config(anisotropic: bool, coupled_sym: bool, resnet: bool, datas
 def train(config=None):
     # Initialize a new wandb run
     with wandb.init(config=config):
-        torch.cuda.empty_cache()
+
         config = wandb.config
 
         graph = get_graph(
