@@ -156,7 +156,7 @@ def train(config=None):
                 args.sparsification_rate,
             )
 
-        # trainer.run(train_loader, max_epochs=args.max_epochs)
+        trainer.run(train_loader, max_epochs=args.max_epochs)
 
 
 if __name__ == "__main__":
