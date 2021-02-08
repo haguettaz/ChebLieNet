@@ -49,14 +49,14 @@ def build_sweep_config(anisotropic: bool, coupled_sym: bool, resnet: bool, datas
         "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
         "learning_rate": {
             "distribution": "log_uniform",
-            "min": math.log(1e-5),
-            "max": math.log(0.1),
+            "min": math.log(1e-4),
+            "max": math.log(1e-2),
         },
         "pooling": {"distribution": "categorical", "values": ["avg", "max"]},
         "weight_decay": {
             "distribution": "log_uniform",
             "min": math.log(1e-6),
-            "max": math.log(1e-3),
+            "max": math.log(1e-4),
         },
     }
 
