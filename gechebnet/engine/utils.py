@@ -53,5 +53,5 @@ def wandb_log(trainer: Engine, evaluator: Engine, data_loader: DataLoader):
 
 
 def sparsify_laplacian(trainer: Engine, model: Module, on: str, rate: float):
-    model.set_sparse_laplacian(on, rate)
+    model.sparsify_laplacian(on, rate)  # set the new sparse laplacian for chebconv
     wandb.log({f"{on} sparsification": rate, "epoch": trainer.state.epoch})
