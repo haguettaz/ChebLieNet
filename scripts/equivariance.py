@@ -68,7 +68,7 @@ def train(config=None):
             ...
 
         if args.sparsification_rate == 0.0:
-            graph.set_laplacian(norm=True, device=DEVICE)
+            graph.set_laplacian(norm=True)
 
         wandb.log({f"num_nodes": graph.num_nodes, f"num_edges": graph.num_edges})
 
@@ -81,7 +81,7 @@ def train(config=None):
                 graph=graph,
                 depth=args.depth,
                 widen_factor=args.widen_factor,
-            )
+            ).to(DEVICE)
 
         else:
             model = WideGEChebNet(
@@ -91,7 +91,7 @@ def train(config=None):
                 graph=graph,
                 depth=args.depth,
                 widen_factor=args.widen_factor,
-            )
+            ).to(DEVICE)
 
         optimizer = Adam(
             model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay

@@ -44,18 +44,22 @@ class WideGEChebNet(Module):
         )
 
         # global average pooling and classifier
-        self.global_pooling = AdaptiveMaxPool1d(1)
+        self.globalmaxpool = AdaptiveMaxPool1d(1)
         self.fc = Linear(hidden_channels[3], out_channels)
         self.logsoftmax = LogSoftmax(dim=1)
 
     def forward(self, x):
-        out = self.conv(x, self.graph.laplacian)
 
-        out = self.block1(out, self.graph.laplacian)
-        out = self.block2(out, self.graph.laplacian)
-        out = self.block3(out, self.graph.laplacian)
+        laplacian = self.graph.laplacian.to(x.device)
+        B, C, _ = x.shape
 
-        out = self.global_pooling(out).squeeze()
+        out = self.conv(x, laplacian)
+
+        out = self.block1(out, laplacian)
+        out = self.block2(out, laplacian)
+        out = self.block3(out, laplacian)
+
+        out = self.globalmaxpool(out).contiguous().view(B, C)
         out = self.fc(out)
         out = self.logsoftmax(out)
 

@@ -51,6 +51,6 @@ def wandb_log(trainer: Engine, evaluator: Engine, data_loader: DataLoader):
         wandb.log({k: metrics[k], "epoch": trainer.state.epoch})
 
 
-def set_sparse_laplacian(trainer: Engine, graph: Graph, on: str, rate: float, device: Device):
-    graph.set_sparse_laplacian(on, rate, norm=True, device=device)
+def set_sparse_laplacian(trainer: Engine, graph: Graph, on: str, rate: float):
+    graph.set_sparse_laplacian(on, rate, norm=True)
     wandb.log({f"{on} sparsification": rate, "epoch": trainer.state.epoch})
