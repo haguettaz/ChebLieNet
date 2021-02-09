@@ -10,23 +10,21 @@ from gechebnet.graph.graph import SE2GEGraph
 from gechebnet.model.chebnet import WideGEChebNet
 from gechebnet.model.reschebnet import WideResGEChebNet
 from ignite.contrib.handlers import ProgressBar
+from ignite.contrib.handlers.param_scheduler import LRScheduler
 from ignite.engine import Events
 from ignite.metrics import Accuracy, Loss
 from torch.nn.functional import nll_loss
-from torch.optim import Adam
+from torch.optim import SGD, Adam
+from torch.optim.lr_scheduler import MultiStepLR
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
-def build_sweep_config(anisotropic: bool, coupled_sym: bool, resnet: bool, dataset: str) -> dict:
+def build_sweep_config(anisotropic: bool, coupled_sym: bool) -> dict:
     """
     [summary]
 
     Args:
         anisotropic (bool): [description]
         coupled_sym (bool): [description]
-        resnet (bool): [description]
-        dataset (str): [description]
 
     Returns:
         dict: [description]
@@ -37,27 +35,9 @@ def build_sweep_config(anisotropic: bool, coupled_sym: bool, resnet: bool, datas
     }
 
     parameters = {
-        "batch_size": {
-            "distribution": "q_log_uniform",
-            "min": math.log(8),
-            "max": math.log(64) if dataset == "mnist" else math.log(32),
-        },
-        "K": {
-            "distribution": "int_uniform",
-            "min": 2,
-            "max": 6 if dataset == "mnist" else 10,
-        },
+        "batch_size": {"distribution": "categorical", "values": [8, 16, 32, 64]},
+        "K": {"distribution": "categorical", "values": [2, 4, 8, 16]},
         "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
-        "learning_rate": {
-            "distribution": "log_uniform",
-            "min": math.log(1e-4),
-            "max": math.log(1e-2),
-        },
-        "weight_decay": {
-            "distribution": "log_uniform",
-            "min": math.log(1e-6),
-            "max": math.log(1e-4),
-        },
     }
 
     if anisotropic:
@@ -69,6 +49,7 @@ def build_sweep_config(anisotropic: bool, coupled_sym: bool, resnet: bool, datas
             }
         else:
             parameters["xi"] = {"distribution": "constant", "value": 1e-4}
+
         parameters["nsym"] = {"distribution": "int_uniform", "min": 3, "max": 12}
         parameters["eps"] = {"distribution": "constant", "value": 0.1}
 
@@ -87,6 +68,9 @@ def train(config=None):
     with wandb.init(config=config):
 
         config = wandb.config
+        wandb.log(vars(args))
+
+        device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
         # Loads graph manifold and set normalized laplacian
         if args.lie_group == "se2":
@@ -98,14 +82,12 @@ def train(config=None):
                 sigmas=(config.xi / config.eps, config.xi, 1.0),
                 weight_kernel=lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac),
             )
-
         elif args.lie_group == "so3":
             ...
 
-        if args.sparsification_rate == 0.0:
-            graph.set_laplacian(norm=True)
+        wandb.log({"num_nodes": graph.num_nodes, "num_edges": graph.num_edges})
 
-        wandb.log({f"num_nodes": graph.num_nodes, f"num_edges": graph.num_edges})
+        graph.set_laplacian(norm=True)
 
         # Loads group equivariant Chebnet and optimizer
         if args.resnet:
@@ -116,7 +98,7 @@ def train(config=None):
                 graph=graph,
                 depth=args.depth,
                 widen_factor=args.widen_factor,
-            ).to(DEVICE)
+            ).to(device)
 
         else:
             model = WideGEChebNet(
@@ -126,23 +108,28 @@ def train(config=None):
                 graph=graph,
                 depth=args.depth,
                 widen_factor=args.widen_factor,
-            ).to(DEVICE)
+            ).to(device)
 
-        optimizer = Adam(
-            model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay
-        )
-
-        wandb.log({"anisotropic": args.anisotropic > 0})
-        wandb.log({"coupled_sym": args.coupled_sym > 0})
-        wandb.log({"resnet": args.resnet > 0})
-        wandb.log({"sparsification_rate": args.sparsification_rate})
-        wandb.log({"sparsify_on": args.sparsify_on})
         wandb.log({"capacity": model.capacity})
+
+        if args.optim == "adam":
+            optimizer = Adam(model.parameters(), lr=args.lr)
+        elif args.optim == "sgd":
+            optimizer = SGD(
+                model.parameters(),
+                lr=args.lr,
+                momentum=args.momentum,
+                weight_decay=args.decay,
+                nesterov=args.nesterov,
+            )
+
+        step_scheduler = MultiStepLR(optimizer, milestones=args.lr_steps, gamma=args.lr_gamma)
+        scheduler = LRScheduler(step_scheduler)
 
         # Loads data loaders
         train_loader, val_loader = get_train_val_dataloaders(
             args.dataset,
-            batch_size=config.batch_size,
+            batch_size=args.batch_size,
             val_ratio=0.1,
             data_path=args.data_path,
         )
@@ -153,29 +140,38 @@ def train(config=None):
             model=model,
             optimizer=optimizer,
             loss_fn=nll_loss,
-            device=DEVICE,
+            device=device,
             prepare_batch=prepare_batch,
         )
         ProgressBar(persist=False, desc="Training").attach(trainer)
+        trainer.add_event_handler(Events.ITERATION_COMPLETED, scheduler)
+        if args.sparse:
+            trainer.add_event_handler(
+                Events.EPOCH_STARTED,
+                set_sparse_laplacian,
+                graph,
+                args.sparse_on,
+                args.sparse_rate,
+            )
 
         metrics = {"validation_accuracy": Accuracy(), "validation_loss": Loss(nll_loss)}
         evaluator = create_supervised_evaluator(
             graph=graph,
             model=model,
             metrics=metrics,
-            device=DEVICE,
+            device=device,
             prepare_batch=prepare_batch,
         )
         ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
 
         trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, evaluator, val_loader)
-        if args.sparsification_rate > 0.0:
+        if args.sparse:
             trainer.add_event_handler(
                 Events.EPOCH_STARTED,
                 set_sparse_laplacian,
                 graph,
-                args.sparsify_on,
-                args.sparsification_rate,
+                args.sparse_on,
+                args.sparse_rate,
             )
 
         # Launchs training
@@ -187,22 +183,32 @@ if __name__ == "__main__":
     parser.add_argument("-f", "--data_path", type=str)
     parser.add_argument("-N", "--num_experiments", type=int)
     parser.add_argument("-E", "--max_epochs", type=int)
-    parser.add_argument("-D", "--dataset", type=str)
-    parser.add_argument("-a", "--anisotropic", type=int, default=0)  # 0: false 1: true
-    parser.add_argument("-s", "--coupled_sym", type=int, default=1)  # 0: false 1: true
-    parser.add_argument("-r", "--resnet", type=int, default=0)  # 0: false 1: true
-    parser.add_argument("-d", "--depth", type=int)
-    parser.add_argument("-w", "--widen_factor", type=int)
-    parser.add_argument("-g", "--lie_group", type=str)
-    parser.add_argument("-k", "--sparsification_rate", type=float, default=0.0)
-    parser.add_argument("-o", "--sparsify_on", type=str, default="edges")
+    parser.add_argument("-D", "--dataset", type=str, choices=["mnist", "stl10"])
+    parser.add_argument("-G", "--lie_group", type=str, choices=["se2", "so3"])
+    parser.add_argument("--in_channels", type=int, default=1)
+    parser.add_argument("--out_channels", type=int, default=10)
+    parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--anisotropic", action="store_true", default=False)
+    parser.add_argument("--coupled_sym", action="store_true", default=False)
+    parser.add_argument("--resnet", action="store_true", default=False)
+    parser.add_argument("--depth", type=int, default=8)
+    parser.add_argument("--widen_factor", type=int, default=2)
+    parser.add_argument("--sparse", action="store_true", default=False)
+    parser.add_argument("--sparse_rate", type=float, default=0.8)
+    parser.add_argument("--sparse_on", type=str, default="edges", choices=["edges", "nodes"])
+    parser.add_argument("--optim", type=str, default="adam", choices=["sgd", "adam"])
+    parser.add_argument("--momentum", type=float, default=0.9)
+    parser.add_argument("--nesterov", action="store_true", default=False)
+    parser.add_argument("--decay", type=float, default=1e-4)
+    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--lr_steps", type=int, nargs="+", default=[100, 150])
+    parser.add_argument("--lr_gamma", type=float, default=0.1)
+    parser.add_argument("--cuda", action="store_true", default=False)
     args = parser.parse_args()
 
     sweep_config = build_sweep_config(
-        anisotropic=args.anisotropic > 0,
-        coupled_sym=args.coupled_sym > 0,
-        resnet=args.resnet > 0,
-        dataset=args.dataset,
+        anisotropic=args.anisotropic,
+        coupled_sym=args.coupled_sym,
     )
 
     sweep_id = wandb.sweep(sweep_config, project="gechebnet")
