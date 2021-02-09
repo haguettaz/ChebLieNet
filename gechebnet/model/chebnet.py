@@ -51,7 +51,7 @@ class WideGEChebNet(Module):
     def forward(self, x):
 
         laplacian = self.graph.laplacian.to(x.device)
-        B, C, _ = x.shape
+        B, _, _ = x.shape
 
         out = self.conv(x, laplacian)
 
@@ -59,7 +59,7 @@ class WideGEChebNet(Module):
         out = self.block2(out, laplacian)
         out = self.block3(out, laplacian)
 
-        out = self.globalmaxpool(out).contiguous().view(B, C)
+        out = self.globalmaxpool(out).contiguous().view(B, -1)
         out = self.fc(out)
         out = self.logsoftmax(out)
 
