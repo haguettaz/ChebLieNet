@@ -5,13 +5,15 @@ import torch
 import wandb
 from gechebnet.data.dataloader import get_train_val_dataloaders
 from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
-from gechebnet.engine.utils import prepare_batch, sparsify_laplacian, wandb_log
+from gechebnet.engine.utils import prepare_batch, set_sparse_laplacian, wandb_log
+from gechebnet.graph.graph import SE2GEGraph
+from gechebnet.model.chebnet import WideGEChebNet
+from gechebnet.model.reschebnet import WideResGEChebNet
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
 from ignite.metrics import Accuracy, Loss
 from torch.nn.functional import nll_loss
-
-from .utils import get_graph, get_model, get_optimizer
+from torch.optim import Adam
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -41,9 +43,9 @@ def build_sweep_config(anisotropic: bool, coupled_sym: bool, resnet: bool, datas
             "max": math.log(64) if dataset == "mnist" else math.log(32),
         },
         "K": {
-            "distribution": "q_log_uniform",
-            "min": math.log(2),
-            "max": math.log(8) if dataset == "mnist" else math.log(16),
+            "distribution": "int_uniform",
+            "min": 2,
+            "max": 6 if dataset == "mnist" else 10,
         },
         "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
         "learning_rate": {
@@ -51,7 +53,6 @@ def build_sweep_config(anisotropic: bool, coupled_sym: bool, resnet: bool, datas
             "min": math.log(1e-4),
             "max": math.log(1e-2),
         },
-        "pooling": {"distribution": "categorical", "values": ["avg", "max"]},
         "weight_decay": {
             "distribution": "log_uniform",
             "min": math.log(1e-6),
@@ -87,27 +88,50 @@ def train(config=None):
 
         config = wandb.config
 
-        graph = get_graph(
-            lie_group=args.lie_group,
-            dataset=args.dataset,
-            nsym=config.nsym,
-            knn=config.knn,
-            eps=config.eps,
-            xi=config.xi,
-            device=DEVICE,
-        )
+        # Loads graph manifold and set normalized laplacian
+        if args.lie_group == "se2":
+            graph = SE2GEGraph(
+                nx=28 if args.dataset == "mnist" else 96,
+                ny=28 if args.dataset == "mnist" else 96,
+                ntheta=config.nsym,
+                knn=config.knn,
+                sigmas=(config.xi / config.eps, config.xi, 1.0),
+                weight_kernel=lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac),
+            )
+
+        elif args.lie_group == "so3":
+            ...
+
+        if args.sparsification_rate == 0.0:
+            graph.set_laplacian(norm=True, device=DEVICE)
+
         wandb.log({f"num_nodes": graph.num_nodes, f"num_edges": graph.num_edges})
 
-        model = get_model(
-            graph=graph,
-            in_channels=1 if args.dataset == "mnist" else 3,
-            hidden_channels=args.hidden_channels,
-            out_channels=10,
-            K=config.K,
-            pooling=config.pooling,
-            resnet=args.resnet > 0,
-            device=DEVICE,
+        # Loads group equivariant Chebnet and optimizer
+        if args.resnet:
+            model = WideResGEChebNet(
+                in_channels=1 if args.dataset == "mnist" else 3,
+                out_channels=10,
+                K=config.K,
+                graph=graph,
+                depth=args.depth,
+                widen_factor=args.widen_factor,
+            )
+
+        else:
+            model = WideGEChebNet(
+                in_channels=1 if args.dataset == "mnist" else 3,
+                out_channels=10,
+                K=config.K,
+                graph=graph,
+                depth=args.depth,
+                widen_factor=args.widen_factor,
+            )
+
+        optimizer = Adam(
+            model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay
         )
+
         wandb.log({"anisotropic": args.anisotropic > 0})
         wandb.log({"coupled_sym": args.coupled_sym > 0})
         wandb.log({"resnet": args.resnet > 0})
@@ -115,8 +139,7 @@ def train(config=None):
         wandb.log({"sparsify_on": args.sparsify_on})
         wandb.log({"capacity": model.capacity})
 
-        optimizer = get_optimizer(model, config.learning_rate, config.weight_decay)
-
+        # Loads data loaders
         train_loader, val_loader = get_train_val_dataloaders(
             args.dataset,
             batch_size=config.batch_size,
@@ -124,7 +147,7 @@ def train(config=None):
             data_path=args.data_path,
         )
 
-        # Trainer and evaluator(s) engines
+        # Loads engines and adds handlers
         trainer = create_supervised_trainer(
             graph=graph,
             model=model,
@@ -146,28 +169,31 @@ def train(config=None):
         ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
 
         trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, evaluator, val_loader)
-        if args.sparsification_rate:
+        if args.sparsification_rate > 0.0:
             trainer.add_event_handler(
                 Events.EPOCH_STARTED,
-                sparsify_laplacian,
-                model,
+                set_sparse_laplacian,
+                graph,
                 args.sparsify_on,
                 args.sparsification_rate,
+                DEVICE,
             )
 
+        # Launchs training
         trainer.run(train_loader, max_epochs=args.max_epochs)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--data_path", type=str)
-    parser.add_argument("-n", "--num_experiments", type=int)
-    parser.add_argument("-m", "--max_epochs", type=int)
-    parser.add_argument("-d", "--dataset", type=str)
+    parser.add_argument("-f", "--data_path", type=str)
+    parser.add_argument("-N", "--num_experiments", type=int)
+    parser.add_argument("-E", "--max_epochs", type=int)
+    parser.add_argument("-D", "--dataset", type=str)
     parser.add_argument("-a", "--anisotropic", type=int, default=0)  # 0: false 1: true
     parser.add_argument("-s", "--coupled_sym", type=int, default=1)  # 0: false 1: true
     parser.add_argument("-r", "--resnet", type=int, default=0)  # 0: false 1: true
-    parser.add_argument("-c", "--hidden_channels", nargs="+", type=int, action="append")
+    parser.add_argument("-d", "--depth", type=int)
+    parser.add_argument("-w", "--widen_factor", type=int)
     parser.add_argument("-g", "--lie_group", type=str)
     parser.add_argument("-k", "--sparsification_rate", type=float, default=0.0)
     parser.add_argument("-o", "--sparsify_on", type=str, default="edges")

@@ -14,7 +14,8 @@ from ..liegroup.so3 import so3_anisotropic_square_riemannanian_distance, so3_log
 from ..liegroup.utils import alphabetagamma2xyz, xyz2alphabetagamma
 from ..utils import rescale, sparse_tensor_to_sparse_array
 from .optimization import repulsive_loss, repulsive_sampling
-from .signal_processing import get_fourier_basis, get_laplacian
+from .signal_processing import get_fourier_basis, get_laplacian, get_norm_laplacian
+from .sparsification import sparsify_on_edges, sparsify_on_nodes
 from .utils import remove_duplicated_edges, to_undirected
 
 
@@ -49,7 +50,7 @@ class Graph:
         weights = self.edge_weight[mask]
         return neighbors, weights
 
-    def laplacian(self, device: Optional[Device] = None):
+    def set_laplacian(self, norm=True, device: Optional[Device] = None):
         """
         Returns symmetric normalized graph laplacian
 
@@ -59,7 +60,35 @@ class Graph:
         Returns:
             (SparseFloatTensor): laplacian.
         """
-        return get_laplacian(self.edge_index, self.edge_weight, self.num_nodes, device=device)
+        if norm:
+            self.laplacian = get_norm_laplacian(
+                self.edge_index, self.edge_weight, self.num_nodes, 2.0, device
+            )
+        else:
+            self.laplacian = get_laplacian(
+                self.edge_index, self.edge_weight, self.num_nodes, device=device
+            )
+
+    def set_sparse_laplacian(
+        self, on: str, rate: float, norm=True, device: Optional[Device] = None
+    ):
+        if on == "edges":
+            edge_index, edge_weight = sparsify_on_edges(self.edge_index, self.edge_weight, rate)
+        else:
+            edge_index, edge_weight = sparsify_on_nodes(
+                self.edge_index,
+                self.edge_weight,
+                self.node_index,
+                self.num_nodes,
+                rate,
+            )
+
+        if norm:
+            self.laplacian = get_norm_laplacian(
+                edge_index, edge_weight, self.num_nodes, 2.0, device
+            )
+        else:
+            self.laplacian = get_laplacian(edge_index, edge_weight, self.num_nodes, device)
 
     @property
     def eigen_space(self) -> Tuple[ndarray, ndarray]:
@@ -364,7 +393,6 @@ class SE2GEGraph(Graph):
         knn: Optional[int] = 16,
         sigmas: Optional[Tuple[float, float, float]] = (1.0, 1.0, 1.0),
         weight_kernel: Optional[Callable] = None,
-        device=None,
     ):
         """
         Inits a SE(2) group equivariant graph.
@@ -394,9 +422,7 @@ class SE2GEGraph(Graph):
 
         self._initnodes(nx * ny * ntheta)
 
-        self._initedges(
-            sigmas, knn if knn < self.num_nodes else self.num_nodes - 1, weight_kernel, device
-        )
+        self._initedges(sigmas, knn if knn < self.num_nodes else self.num_nodes - 1, weight_kernel)
 
     def _initnodes(self, num_nodes: int):
         """
@@ -429,7 +455,6 @@ class SE2GEGraph(Graph):
         sigmas: Tuple[float, float, float],
         knn: int,
         weight_kernel: Callable,
-        device: Device,
     ):
         """
         Init edge indices and attributes (weights). The stored attributes are:
@@ -446,10 +471,14 @@ class SE2GEGraph(Graph):
         Raises:
             ValueError: kappa must be in [0, 1).
         """
-        xi = Vi(torch.inverse(self.node_Gg(device)).reshape(self.num_nodes, -1))  # sources
-        xj = Vj(self.node_Gg(device).reshape(self.num_nodes, -1))  # targets
+        xi = Vi(torch.inverse(self.node_Gg()).reshape(self.num_nodes, -1))  # sources
+        xj = Vj(self.node_Gg().reshape(self.num_nodes, -1))  # targets
 
-        sqdist = se2_anisotropic_square_riemannanian_distance(xi, xj, sigmas, device)
+        sqdist = se2_anisotropic_square_riemannanian_distance(
+            xi,
+            xj,
+            sigmas,
+        )
         edge_sqdist, neighbors = sqdist.Kmin_argKmin(knn + 1, dim=1)
 
         edge_index = torch.stack(
@@ -475,7 +504,7 @@ class SE2GEGraph(Graph):
         """
         return self.ntheta
 
-    def node_Gg(self, device) -> FloatTensor:
+    def node_Gg(self, device=None) -> FloatTensor:
         """
         Returns the matrix formulation of group elements.
 

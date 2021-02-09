@@ -9,7 +9,9 @@ from torch import device as Device
 from ..utils import mod
 
 
-def se2_matrix(x: FloatTensor, y: FloatTensor, theta: FloatTensor, device: Device) -> FloatTensor:
+def se2_matrix(
+    x: FloatTensor, y: FloatTensor, theta: FloatTensor, device: Optional[Device] = None
+) -> FloatTensor:
     """
     Returns a new tensor corresponding to matrix formulation of the given input tensors representing
     SE(2) group elements.
@@ -61,7 +63,10 @@ def se2_log(Gg: LazyTensor) -> LazyTensor:
 
 
 def se2_anisotropic_square_riemannanian_distance(
-    xi: LazyTensor, xj: LazyTensor, sigmas: Tuple[float, float, float], device: Device
+    xi: LazyTensor,
+    xj: LazyTensor,
+    sigmas: Tuple[float, float, float],
+    device: Optional[Device] = None,
 ) -> LazyTensor:
     """
     Returns the square anisotropic riemannian distances between xi and xj.

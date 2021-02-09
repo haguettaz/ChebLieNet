@@ -38,8 +38,9 @@ def get_laplacian(
     )
 
     edge_index, edge_weight = add_self_loops(edge_index, edge_weight)
-
-    return SparseFloatTensor(edge_index, edge_weight, torch.Size((num_nodes, num_nodes))).to(device)
+    laplacian = SparseFloatTensor(edge_index, edge_weight, torch.Size((num_nodes, num_nodes)))
+    laplacian = laplacian.to(device)
+    return laplacian
 
 
 def get_norm_laplacian(
@@ -59,7 +60,9 @@ def get_norm_laplacian(
         * (edge_weight * node_degree_norm[edge_index[0]] * node_degree_norm[edge_index[1]])
     )
 
-    return SparseFloatTensor(edge_index, edge_weight, torch.Size((num_nodes, num_nodes))).to(device)
+    laplacian = SparseFloatTensor(edge_index, edge_weight, torch.Size((num_nodes, num_nodes)))
+    laplacian = laplacian.to(device)
+    return laplacian
 
 
 def get_fourier_basis(laplacian: SparseFloatTensor) -> Tuple[ndarray, ndarray]:

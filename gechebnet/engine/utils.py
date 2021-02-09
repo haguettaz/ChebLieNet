@@ -5,7 +5,6 @@ import wandb
 from ignite.engine.engine import Engine
 from torch import FloatTensor, Tensor
 from torch import device as Device
-from torch.nn import Module
 from torch.utils.data import DataLoader
 
 from ..graph.graph import Graph
@@ -26,14 +25,14 @@ def prepare_batch(
         (Tensor): batch input.
         (Tensor): batch target.
     """
-    x, y = batch
-    B, C, H, W = x.shape
+    input, target = batch
+    B, C, H, W = input.shape
 
-    x = x.unsqueeze(2).expand(B, C, graph.nsym, H, W)
-    x = graph.project(x)
-    x = x.reshape(B, C, -1)  # (B, C, L*H*W)
+    input = input.unsqueeze(2).expand(B, C, graph.nsym, H, W)
+    # input = graph.project(input)
+    input = input.reshape(B, C, -1)  # (B, C, L*H*W)
 
-    return x.to(device), y.to(device)
+    return input.to(device), target.to(device)
 
 
 def wandb_log(trainer: Engine, evaluator: Engine, data_loader: DataLoader):
@@ -52,6 +51,6 @@ def wandb_log(trainer: Engine, evaluator: Engine, data_loader: DataLoader):
         wandb.log({k: metrics[k], "epoch": trainer.state.epoch})
 
 
-def sparsify_laplacian(trainer: Engine, model: Module, on: str, rate: float):
-    model.sparsify_laplacian(on, rate)  # set the new sparse laplacian for chebconv
+def set_sparse_laplacian(trainer: Engine, graph: Graph, on: str, rate: float, device: Device):
+    graph.set_sparse_laplacian(on, rate, norm=True, device=device)
     wandb.log({f"{on} sparsification": rate, "epoch": trainer.state.epoch})

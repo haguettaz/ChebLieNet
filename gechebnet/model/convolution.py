@@ -8,6 +8,7 @@ import torch
 from torch import FloatTensor
 from torch import device as Device
 from torch.nn import Module, Parameter
+from torch.nn.init import constant_, kaiming_normal_
 from torch.sparse import FloatTensor as SparseFloatTensor
 
 from ..graph.graph import Graph
@@ -39,7 +40,7 @@ def cheb_conv(
     x = x0.unsqueeze(0)  # (V, B*Cin) -> (1, V, B*Cin)
 
     if K > 1:
-        x1 = torch.mm(laplacian, x0)  # (V, B*Cin)
+        x1 = torch.mm(laplacian, x0)  # (V, B*Cin) sparse operation are faster if sparsity > 98.5%
         x = torch.cat((x, x1.unsqueeze(0)), 0)  # (1, V, B*Cin) -> (2, V, B*Cin)
 
         for _ in range(2, K):
@@ -80,24 +81,15 @@ class ChebConv(Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.K = K
-        self.bias = bias
 
-        shape = (K, in_channels, out_channels)
-        self.weights = Parameter(FloatTensor(*shape))
+        self.weight = Parameter(FloatTensor(K, in_channels, out_channels))
+        kaiming_normal_(self.weight, mode="fan_in")
 
         if bias:
-            self.biases = Parameter(FloatTensor(out_channels))
+            self.bias = Parameter(FloatTensor(out_channels))
+            constant_(self.bias, 0.01)
         else:
-            self.register_parameter("biases", None)
-
-        self._kaiming_initialization()
-
-    def _kaiming_initialization(self):
-        """Initialize weights and bias."""
-        std = math.sqrt(2 / (self.in_channels * self.K))
-        self.weights.data.normal_(0, std)
-        if self.bias:
-            self.biases.data.fill_(0.01)
+            self.register_parameter("bias", None)
 
     def forward(self, x: FloatTensor, laplacian: Optional[SparseFloatTensor] = None):
         """Forward graph convolution.
@@ -108,16 +100,19 @@ class ChebConv(Module):
         Returns:
             (FloatTensor): convolved input data.
         """
-        x = cheb_conv(x, self.weights, laplacian)  # (B, V, Cin) -> (V, B, Cout)
+        x = cheb_conv(x, self.weight, laplacian)  # (B, V, Cin) -> (V, B, Cout)
 
-        if self.bias:
-            x += self.biases  # (V, B, Cout) -> (V, B, Cout)
+        if self.bias is not None:
+            x += self.bias  # (V, B, Cout) -> (V, B, Cout)
 
         x = x.permute(1, 2, 0).contiguous()  # (B, Cout, V)
         return x
 
     def extra_repr(self) -> str:
-        return (
-            "in_channels={in_channels}, out_channels={out_channels}, K={K}, "
-            "bias={bias}".format(**self.__dict__)
-        )
+        s = "in_channels={in_channels}, out_channels={out_channels}, K={K}"
+        if self.bias is None:
+            s += ", bias=False"
+        else:
+            s += ", bias=True"
+
+        return s.format(**self.__dict__)
