@@ -39,7 +39,7 @@ class ResidualBlock(nn.Module):
 
         self.equalInOut = in_channels == out_channels
 
-        if not self.equalInOzut:
+        if not self.equalInOut:
             self.convShortcut = ChebConv(graph, in_channels, out_channels, K=1, bias=False)
 
     def forward(self, x):
