@@ -2,9 +2,7 @@ import math
 from typing import Optional, Tuple, Union
 
 import torch
-from torch import FloatTensor
-from torch import device as Device
-from torch.nn import AdaptiveMaxPool1d, BatchNorm1d, Linear, LogSoftmax, Module, ReLU, Sequential
+from torch import FloatTensor, nn
 from torch.sparse import FloatTensor as SparseFloatTensor
 
 from ..graph.graph import Graph
@@ -12,7 +10,7 @@ from .convolution import ChebConv
 from .utils import NetworkBlock, ResidualBlock
 
 
-class WideResGEChebNet(Module):
+class WideResGEChebNet(nn.Module):
     def __init__(self, in_channels, out_channels, K, graph, depth, widen_factor=1):
         super(WideResGEChebNet, self).__init__()
 
@@ -25,31 +23,29 @@ class WideResGEChebNet(Module):
 
         num_layers = (depth - 2) // 6
 
-        # 1st conv before any network block
-        self.conv = ChebConv(in_channels, hidden_channels[0], K)
+        # input layer : convolutional layer + relu
+        self.conv = ChebConv(graph, in_channels, hidden_channels[0], K)
+        self.relu = nn.ReLU(inplace=True)
 
-        # 1st block
-        self.block1 = NetworkBlock(hidden_channels[0], hidden_channels[1], num_layers, ResidualBlock, K)
-        # 2nd blockz
-        self.block2 = NetworkBlock(hidden_channels[1], hidden_channels[2], num_layers, ResidualBlock, K)
-        # 3rd block
-        self.block3 = NetworkBlock(hidden_channels[2], hidden_channels[3], num_layers, ResidualBlock, K)
+        # hidden layers : 3 convolutional blocks
+        self.block1 = NetworkBlock(graph, hidden_channels[0], hidden_channels[1], num_layers, ResidualBlock, K)
+        self.block2 = NetworkBlock(graph, hidden_channels[1], hidden_channels[2], num_layers, ResidualBlock, K)
+        self.block3 = NetworkBlock(graph, hidden_channels[2], hidden_channels[3], num_layers, ResidualBlock, K)
 
-        # global average pooling and classifier
-        self.globalmaxpool = AdaptiveMaxPool1d(1)
-        self.fc = Linear(hidden_channels[3], out_channels)
-        self.logsoftmax = LogSoftmax(dim=1)
+        # output layer : global average pooling + fc
+        self.globalmaxpool = nn.AdaptiveMaxPool1d(1)
+        self.fc = nn.Linear(hidden_channels[3], out_channels)
+        self.logsoftmax = nn.LogSoftmax(dim=1)
 
     def forward(self, x):
 
-        laplacian = self.graph.laplacian.to(x.device)
         B, _, _ = x.shape
 
-        out = self.conv(x, laplacian)
+        out = self.conv(x)
 
-        out = self.block1(out, laplacian)
-        out = self.block2(out, laplacian)
-        out = self.block3(out, laplacian)
+        out = self.block1(out)
+        out = self.block2(out)
+        out = self.block3(out)
 
         out = self.globalmaxpool(out).contiguous().view(B, -1)
         out = self.fc(out)
@@ -68,13 +64,13 @@ class WideResGEChebNet(Module):
         return sum(p.numel() for p in self.parameters())
 
 
-def wide_res_gechebnet_8_2(in_channels, out_channels, K, graph):
-    return WideResGEChebNet(in_channels, out_channels, K, graph, depth=8, widen_factor=2)
+def wide_res_gechebnet_26_8(graph, in_channels, out_channels, K):
+    return WideResGEChebNet(graph, in_channels, out_channels, K, depth=26, widen_factor=8)
 
 
-def wide_res_gechebnet_14_2(in_channels, out_channels, K, graph):
-    return WideResGEChebNet(in_channels, out_channels, K, graph, depth=14, widen_factor=2)
+def wide_res_gechebnet_20_4(graph, in_channels, out_channels, K):
+    return WideResGEChebNet(graph, in_channels, out_channels, K, depth=20, widen_factor=4)
 
 
-def wide_res_gechebnet_14_4(in_channels, out_channels, K, graph):
-    return WideResGEChebNet(in_channels, out_channels, K, graph, depth=14, widen_factor=4)
+def wide_res_gechebnet_14_2(graph, in_channels, out_channels, K):
+    return WideResGEChebNet(graph, in_channels, out_channels, K, depth=14, widen_factor=2)

@@ -5,14 +5,10 @@ import math
 from typing import Optional
 
 import torch
-from torch import FloatTensor
-from torch import device as Device
-from torch.nn import Module, Parameter
-from torch.nn.init import constant_, kaiming_normal_
+from torch import FloatTensor, nn
 from torch.sparse import FloatTensor as SparseFloatTensor
 
 from ..graph.graph import Graph
-from ..utils import sparse_tensor_diag
 
 
 def cheb_conv(x: FloatTensor, weights: FloatTensor, laplacian: Optional[SparseFloatTensor] = None) -> FloatTensor:
@@ -52,11 +48,12 @@ def cheb_conv(x: FloatTensor, weights: FloatTensor, laplacian: Optional[SparseFl
     return x
 
 
-class ChebConv(Module):
+class ChebConv(nn.Module):
     """Graph convolutional layer."""
 
     def __init__(
         self,
+        graph: Graph,
         in_channels: int,
         out_channels: int,
         K: int,
@@ -76,20 +73,21 @@ class ChebConv(Module):
         if K < 1:
             raise ValueError(f"{K} is not a valid value for K: must be strictly positive")
 
+        self.graph = graph
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.K = K
 
-        self.weight = Parameter(FloatTensor(K, in_channels, out_channels))
-        kaiming_normal_(self.weight, mode="fan_in")
+        self.weight = nn.Parameter(FloatTensor(K, in_channels, out_channels))
+        nn.init.kaiming_normal_(self.weight, mode="fan_in")
 
         if bias:
-            self.bias = Parameter(FloatTensor(out_channels))
-            constant_(self.bias, 0.01)
+            self.bias = nn.Parameter(FloatTensor(out_channels))
+            nn.init.constant_(self.bias, 0.01)
         else:
             self.register_parameter("bias", None)
 
-    def forward(self, x: FloatTensor, laplacian: Optional[SparseFloatTensor] = None):
+    def forward(self, x: FloatTensor):
         """Forward graph convolution.
 
         Args:
@@ -98,6 +96,7 @@ class ChebConv(Module):
         Returns:
             (FloatTensor): convolved input data.
         """
+        laplacian = self.graph.laplacian.to(x.device)
         x = cheb_conv(x, self.weight, laplacian)  # (B, V, Cin) -> (V, B, Cout)
 
         if self.bias is not None:

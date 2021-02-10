@@ -1,52 +1,47 @@
 import torch
-from torch.nn import BatchNorm1d, Module, ModuleList, ReLU
+from torch import nn
 
 from .convolution import ChebConv
 
 
-class NetworkBlock(Module):
-    def __init__(self, in_channels, out_channels, num_layers, block, K):
+class NetworkBlock(nn.Module):
+    def __init__(self, graph, in_channels, out_channels, num_layers, block, K):
         super(NetworkBlock, self).__init__()
-        self.layers = ModuleList(
-            [block(out_channels if i > 0 else in_channels, out_channels, K) for i in range(num_layers)]
+        self.layers = nn.Sequential(
+            *[block(graph, out_channels if i > 0 else in_channels, out_channels, K) for i in range(num_layers)]
         )
 
-    def forward(self, x, laplacian):
-        for layer in self.layers:
-            x = layer(x, laplacian)
-        return x
 
-
-class BasicBlock(Module):
-    def __init__(self, in_channels, out_channels, K):
+class BasicBlock(nn.Module):
+    def __init__(self, graph, in_channels, out_channels, K):
         super(BasicBlock, self).__init__()
-        self.bn = BatchNorm1d(in_channels)
-        self.conv = ChebConv(in_channels, out_channels, K, bias=True)
-        self.relu = ReLU()
+        self.bn = nn.BatchNorm1d(in_channels)
+        self.conv = ChebConv(graph, in_channels, out_channels, K, bias=True)
+        self.relu = nn.ReLU()
 
-    def forward(self, x, laplacian):
-        return self.relu(self.conv(self.bn(x), laplacian))
+    def forward(self, x):
+        return self.relu(self.conv(self.bn(x)))
 
 
-class ResidualBlock(Module):
-    def __init__(self, in_channels, out_channels, K):
+class ResidualBlock(nn.Module):
+    def __init__(self, graph, in_channels, out_channels, K):
         super(ResidualBlock, self).__init__()
 
-        self.bn1 = BatchNorm1d(in_channels)
-        self.relu1 = ReLU()
-        self.conv1 = ChebConv(in_channels, out_channels, K, bias=True)
-        self.bn2 = BatchNorm1d(out_channels)
-        self.relu2 = ReLU()
-        self.conv2 = ChebConv(out_channels, out_channels, K, bias=True)
+        self.bn1 = nn.BatchNorm1d(in_channels)
+        self.relu1 = nn.ReLU()
+        self.conv1 = ChebConv(graph, in_channels, out_channels, K, bias=True)
+        self.bn2 = nn.BatchNorm1d(out_channels)
+        self.relu2 = nn.ReLU()
+        self.conv2 = ChebConv(graph, out_channels, out_channels, K, bias=True)
 
         self.equalInOut = in_channels == out_channels
 
         if not self.equalInOzut:
-            self.convShortcut = ChebConv(in_channels, out_channels, K=1, bias=False)
+            self.convShortcut = ChebConv(graph, in_channels, out_channels, K=1, bias=False)
 
-    def forward(self, x, laplacian):
+    def forward(self, x):
         x = self.bn1(x)
-        out = self.relu1(self.conv1(x, laplacian))
+        out = self.relu1(self.conv1(x))
         if self.equalInOut:
-            return self.relu2(x + self.conv2(self.bn2(out), laplacian))
-        return self.relu2(self.convShortcut(x) + self.conv2(self.bn2(out), laplacian))
+            return self.relu2(x + self.conv2(self.bn2(out)))
+        return self.relu2(self.convShortcut(x) + self.conv2(self.bn2(out)))
