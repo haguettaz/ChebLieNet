@@ -35,9 +35,7 @@ def sparsify_on_edges(
 
     random_sampling = torch.multinomial(edge_weight, num_samples)
 
-    edge_index, edge_weight = to_undirected(
-        edge_index[:, random_sampling], edge_weight[random_sampling]
-    )
+    edge_index, edge_weight = to_undirected(edge_index[:, random_sampling], edge_weight[random_sampling])
 
     return edge_index, edge_weight
 

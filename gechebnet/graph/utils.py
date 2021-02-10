@@ -51,9 +51,7 @@ def to_undirected(edge_index: LongTensor, edge_attr: FloatTensor) -> Tuple[LongT
     return edge_index, edge_attr
 
 
-def remove_self_loops(
-    edge_index: LongTensor, edge_attr: FloatTensor
-) -> Tuple[LongTensor, FloatTensor]:
+def remove_self_loops(edge_index: LongTensor, edge_attr: FloatTensor) -> Tuple[LongTensor, FloatTensor]:
     """
     Removes every self-loop in the graph given by edge_index and edge_attr.
 

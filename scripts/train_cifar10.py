@@ -109,9 +109,7 @@ def train(config=None):
             classic_test_loader,
             rotated_test_loader,
             flipped_test_loader,
-        ) = get_test_equivariance_dataloaders(
-            "cifar10", batch_size=args.batch_size, data_path=args.data_path
-        )
+        ) = get_test_equivariance_dataloaders("cifar10", batch_size=args.batch_size, data_path=args.data_path)
 
         # Loads engines
         trainer = create_supervised_trainer(
@@ -164,15 +162,9 @@ def train(config=None):
         )
         ProgressBar(persist=False, desc="Evaluation").attach(flipped_evaluator)
 
-        _ = trainer.add_event_handler(
-            Events.EPOCH_COMPLETED, wandb_log, classic_evaluator, classic_test_loader
-        )
-        _ = trainer.add_event_handler(
-            Events.EPOCH_COMPLETED, wandb_log, rotated_evaluator, rotated_test_loader
-        )
-        _ = trainer.add_event_handler(
-            Events.EPOCH_COMPLETED, wandb_log, flipped_evaluator, flipped_test_loader
-        )
+        _ = trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, classic_evaluator, classic_test_loader)
+        _ = trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, rotated_evaluator, rotated_test_loader)
+        _ = trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, flipped_evaluator, flipped_test_loader)
 
         # Launchs training
         trainer.run(train_loader, max_epochs=args.max_epochs)

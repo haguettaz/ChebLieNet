@@ -9,9 +9,7 @@ from torch import device as Device
 from ..utils import mod
 
 
-def se2_matrix(
-    x: FloatTensor, y: FloatTensor, theta: FloatTensor, device: Optional[Device] = None
-) -> FloatTensor:
+def se2_matrix(x: FloatTensor, y: FloatTensor, theta: FloatTensor, device: Optional[Device] = None) -> FloatTensor:
     """
     Returns a new tensor corresponding to matrix formulation of the given input tensors representing
     SE(2) group elements.

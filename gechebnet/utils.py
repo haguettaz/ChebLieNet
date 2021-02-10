@@ -122,6 +122,4 @@ def sparse_tensor_diag(size: int, diag: Tensor = None, device: Device = None) ->
 
     diag = diag or torch.ones(size)
 
-    return SparseFloatTensor(
-        indices=torch.arange(size).expand(2, -1), values=diag, size=(size, size)
-    ).to(device)
+    return SparseFloatTensor(indices=torch.arange(size).expand(2, -1), values=diag, size=(size, size)).to(device)

@@ -84,7 +84,6 @@ def train(config=None):
         graph.set_laplacian(norm=True)
         wandb.log({"num_nodes": graph.num_nodes, "num_edges": graph.num_edges})
 
-
         # Loads group equivariant Chebnet
         if args.resnet:
             model = WideResGEChebNet(

@@ -45,9 +45,7 @@ def get_train_val_dataloaders(
     """
 
     if dataset not in {"mnist", "stl10", "cifar10"}:
-        raise ValueError(
-            f"{dataset} is not a valid value for dataset: must be 'mnist', 'stl10' or 'cifar10'."
-        )
+        raise ValueError(f"{dataset} is not a valid value for dataset: must be 'mnist', 'stl10' or 'cifar10'.")
 
     if dataset == "mnist":
         dataset = MNIST(
@@ -108,8 +106,8 @@ def get_test_equivariance_dataloaders(
         Tuple[DataLoader, DataLoader]: classic, rotated and flipped dataloaders.
     """
 
-    if dataset not in {"mnist", "stl10"}:
-        raise ValueError(f"{dataset} is not a valid value for dataset: must be in 'mnist', 'stl10'")
+    if dataset not in {"mnist", "stl10", "cifar10"}:
+        raise ValueError(f"{dataset} is not a valid value for dataset: must be 'mnist', 'stl10' or 'cifar10'.")
 
     if dataset == "mnist":
         classic_dataset = MNIST(
@@ -122,9 +120,7 @@ def get_test_equivariance_dataloaders(
             data_path,
             train=False,
             download=True,
-            transform=Compose(
-                [RandomRotation(degrees=180), ToTensor(), Normalize(MNIST_MEAN, MNIST_STD)]
-            ),
+            transform=Compose([RandomRotation(degrees=180), ToTensor(), Normalize(MNIST_MEAN, MNIST_STD)]),
         )
         flipped_dataset = MNIST(
             data_path,
@@ -151,9 +147,7 @@ def get_test_equivariance_dataloaders(
             data_path,
             train=False,
             download=True,
-            transform=Compose(
-                [RandomRotation(degrees=180), ToTensor(), Normalize(CIFAR10_MEAN, CIFAR10_STD)]
-            ),
+            transform=Compose([RandomRotation(degrees=180), ToTensor(), Normalize(CIFAR10_MEAN, CIFAR10_STD)]),
         )
         flipped_dataset = CIFAR10(
             data_path,

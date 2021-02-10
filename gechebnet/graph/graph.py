@@ -61,17 +61,11 @@ class Graph:
             (SparseFloatTensor): laplacian.
         """
         if norm:
-            self.laplacian = get_norm_laplacian(
-                self.edge_index, self.edge_weight, self.num_nodes, 2.0, device
-            )
+            self.laplacian = get_norm_laplacian(self.edge_index, self.edge_weight, self.num_nodes, 2.0, device)
         else:
-            self.laplacian = get_laplacian(
-                self.edge_index, self.edge_weight, self.num_nodes, device=device
-            )
+            self.laplacian = get_laplacian(self.edge_index, self.edge_weight, self.num_nodes, device=device)
 
-    def set_sparse_laplacian(
-        self, on: str, rate: float, norm=True, device: Optional[Device] = None
-    ):
+    def set_sparse_laplacian(self, on: str, rate: float, norm=True, device: Optional[Device] = None):
         if on == "edges":
             edge_index, edge_weight = sparsify_on_edges(self.edge_index, self.edge_weight, rate)
         else:
@@ -84,9 +78,7 @@ class Graph:
             )
 
         if norm:
-            self.laplacian = get_norm_laplacian(
-                edge_index, edge_weight, self.num_nodes, 2.0, device
-            )
+            self.laplacian = get_norm_laplacian(edge_index, edge_weight, self.num_nodes, 2.0, device)
         else:
             self.laplacian = get_laplacian(edge_index, edge_weight, self.num_nodes, device)
 
@@ -162,9 +154,7 @@ class Graph:
     # can possibily crash for graph with too high number of vertices and edges
     @property
     def contains_isolated_node(self):
-        return (self.node_index.repeat(1, self.num_edges) == self.edge_index[0]).sum(
-            dim=1
-        ).min() < 1
+        return (self.node_index.repeat(1, self.num_edges) == self.edge_index[0]).sum(dim=1).min() < 1
 
 
 class SO3GEGraph(Graph):
@@ -285,9 +275,7 @@ class SO3GEGraph(Graph):
 
         edge_sqdist, neighbors = sqdist.Kmin_argKmin(knn + 1, dim=1)
 
-        edge_index = torch.stack(
-            (self.node_index.repeat_interleave(knn + 1), neighbors.cpu().flatten()), dim=0
-        )
+        edge_index = torch.stack((self.node_index.repeat_interleave(knn + 1), neighbors.cpu().flatten()), dim=0)
         edge_sqdist = edge_sqdist.cpu().flatten()
 
         # remove duplicated edges due to too high knn
@@ -440,9 +428,7 @@ class SE2GEGraph(Graph):
 
         x_axis = torch.arange(0.0, self.nx, out=FloatTensor())
         y_axis = torch.arange(0.0, self.ny, out=FloatTensor())
-        theta_axis = torch.arange(
-            -math.pi / 2, math.pi / 2, math.pi / self.ntheta, out=FloatTensor()
-        )
+        theta_axis = torch.arange(-math.pi / 2, math.pi / 2, math.pi / self.ntheta, out=FloatTensor())
 
         theta, y, x = torch.meshgrid(theta_axis, y_axis, x_axis)
 
@@ -481,9 +467,7 @@ class SE2GEGraph(Graph):
         )
         edge_sqdist, neighbors = sqdist.Kmin_argKmin(knn + 1, dim=1)
 
-        edge_index = torch.stack(
-            (self.node_index.repeat_interleave(knn + 1), neighbors.cpu().flatten()), dim=0
-        )
+        edge_index = torch.stack((self.node_index.repeat_interleave(knn + 1), neighbors.cpu().flatten()), dim=0)
         edge_sqdist = edge_sqdist.cpu().flatten()
 
         # remove duplicated edges and self-loops

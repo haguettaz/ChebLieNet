@@ -8,10 +8,7 @@ class NetworkBlock(Module):
     def __init__(self, in_channels, out_channels, num_layers, block, K):
         super(NetworkBlock, self).__init__()
         self.layers = ModuleList(
-            [
-                block(out_channels if i > 0 else in_channels, out_channels, K)
-                for i in range(num_layers)
-            ]
+            [block(out_channels if i > 0 else in_channels, out_channels, K) for i in range(num_layers)]
         )
 
     def forward(self, x, laplacian):

@@ -10,9 +10,7 @@ from torch.utils.data import DataLoader
 from ..graph.graph import Graph
 
 
-def prepare_batch(
-    batch: Tuple[Tensor, Tensor], graph: Graph, device: Device
-) -> Tuple[Tensor, Tensor]:
+def prepare_batch(batch: Tuple[Tensor, Tensor], graph: Graph, device: Device) -> Tuple[Tensor, Tensor]:
     """
     Prepares a batch to directly feed a model with.
 

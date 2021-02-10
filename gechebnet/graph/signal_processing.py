@@ -33,9 +33,7 @@ def get_laplacian(
     node_degree = torch.zeros(num_nodes).scatter_add(0, edge_index[0], edge_weight)
 
     inv_sqrt_node_degree = node_degree.pow(-0.5)
-    edge_weight = -(
-        edge_weight * inv_sqrt_node_degree[edge_index[0]] * inv_sqrt_node_degree[edge_index[1]]
-    )
+    edge_weight = -(edge_weight * inv_sqrt_node_degree[edge_index[0]] * inv_sqrt_node_degree[edge_index[1]])
 
     edge_index, edge_weight = add_self_loops(edge_index, edge_weight)
     laplacian = SparseFloatTensor(edge_index, edge_weight, torch.Size((num_nodes, num_nodes)))
@@ -54,11 +52,7 @@ def get_norm_laplacian(
     node_degree = torch.zeros(num_nodes).scatter_add(0, edge_index[0], edge_weight)
 
     node_degree_norm = node_degree.pow(-0.5)
-    edge_weight = (
-        -2
-        / lmax
-        * (edge_weight * node_degree_norm[edge_index[0]] * node_degree_norm[edge_index[1]])
-    )
+    edge_weight = -2 / lmax * (edge_weight * node_degree_norm[edge_index[0]] * node_degree_norm[edge_index[1]])
 
     laplacian = SparseFloatTensor(edge_index, edge_weight, torch.Size((num_nodes, num_nodes)))
     laplacian = laplacian.to(device)

@@ -29,17 +29,11 @@ class WideResGEChebNet(Module):
         self.conv = ChebConv(in_channels, hidden_channels[0], K)
 
         # 1st block
-        self.block1 = NetworkBlock(
-            hidden_channels[0], hidden_channels[1], num_layers, ResidualBlock, K
-        )
+        self.block1 = NetworkBlock(hidden_channels[0], hidden_channels[1], num_layers, ResidualBlock, K)
         # 2nd block
-        self.block2 = NetworkBlock(
-            hidden_channels[1], hidden_channels[2], num_layers, ResidualBlock, K
-        )
+        self.block2 = NetworkBlock(hidden_channels[1], hidden_channels[2], num_layers, ResidualBlock, K)
         # 3rd block
-        self.block3 = NetworkBlock(
-            hidden_channels[2], hidden_channels[3], num_layers, ResidualBlock, K
-        )
+        self.block3 = NetworkBlock(hidden_channels[2], hidden_channels[3], num_layers, ResidualBlock, K)
 
         # global average pooling and classifier
         self.globalmaxpool = AdaptiveMaxPool1d(1)

@@ -7,9 +7,7 @@ from torch import FloatTensor
 from ..utils import mod
 
 
-def xyz2alphabetagamma(
-    x: FloatTensor, y: FloatTensor, z: FloatTensor
-) -> Tuple[FloatTensor, FloatTensor, FloatTensor]:
+def xyz2alphabetagamma(x: FloatTensor, y: FloatTensor, z: FloatTensor) -> Tuple[FloatTensor, FloatTensor, FloatTensor]:
     """
     Returns new tensors corresponding to angle representation from the cartesian representation.
 

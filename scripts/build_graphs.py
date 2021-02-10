@@ -14,9 +14,7 @@ def compile_graphs(knn):
     graph = SE2GEGraph(nx=10, ny=10, ntheta=10, knn=knn, device=DEVICE)
 
     if graph.num_edges < graph.num_nodes:
-        raise ValueError(
-            f"An error occured during the computation of the SE2 group equivariant {knn}-NN graph"
-        )
+        raise ValueError(f"An error occured during the computation of the SE2 group equivariant {knn}-NN graph")
 
     # graph = SO3GEGraph(nsamples=100, nalpha=10, knn=knn, device=DEVICE)
 

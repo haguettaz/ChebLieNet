@@ -6,9 +6,7 @@ from tqdm import tqdm
 def repulsive_loss(x, alpha=1.0, beta=1.0):
     N = x.shape[0]
 
-    dist = (x.unsqueeze(0) - x.unsqueeze(1)).pow(2).sum(dim=2) + 10000 * torch.eye(N, N).to(
-        x.device
-    )
+    dist = (x.unsqueeze(0) - x.unsqueeze(1)).pow(2).sum(dim=2) + 10000 * torch.eye(N, N).to(x.device)
 
     norm = x.norm(dim=1)
 

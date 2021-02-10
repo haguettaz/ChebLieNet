@@ -15,9 +15,7 @@ from ..graph.graph import Graph
 from ..utils import sparse_tensor_diag
 
 
-def cheb_conv(
-    x: FloatTensor, weights: FloatTensor, laplacian: Optional[SparseFloatTensor] = None
-) -> FloatTensor:
+def cheb_conv(x: FloatTensor, weights: FloatTensor, laplacian: Optional[SparseFloatTensor] = None) -> FloatTensor:
     """
     Chebyshev convolution.
 
