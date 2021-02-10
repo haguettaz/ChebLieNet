@@ -11,6 +11,9 @@ class NetworkBlock(nn.Module):
             *[block(graph, out_channels if i > 0 else in_channels, out_channels, K) for i in range(num_layers)]
         )
 
+    def forward(self, x):
+        return self.layers(x)
+
 
 class BasicBlock(nn.Module):
     def __init__(self, graph, in_channels, out_channels, K):

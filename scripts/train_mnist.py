@@ -66,20 +66,20 @@ def train(config=None):
         # Loads group equivariant Chebnet and optimizer
         if args.resnet:
             model = WideResGEChebNet(
+                graph=graph,
                 in_channels=1,
                 out_channels=10,
                 K=config.K,
-                graph=graph,
                 depth=args.depth,
                 widen_factor=args.widen_factor,
             ).to(device)
 
         else:
             model = WideGEChebNet(
+                graph=graph,
                 in_channels=1,
                 out_channels=10,
                 K=config.K,
-                graph=graph,
                 depth=args.depth,
                 widen_factor=args.widen_factor,
             ).to(device)
