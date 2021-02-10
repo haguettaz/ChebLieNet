@@ -40,7 +40,7 @@ def cheb_conv(
     x = x0.unsqueeze(0)  # (V, B*Cin) -> (1, V, B*Cin)
 
     if K > 1:
-        x1 = torch.mm(laplacian, x0)  # (V, B*Cin) sparse operation are faster if sparsity > 98.5%
+        x1 = torch.mm(laplacian, x0)  # (V, B*Cin)
         x = torch.cat((x, x1.unsqueeze(0)), 0)  # (1, V, B*Cin) -> (2, V, B*Cin)
 
         for _ in range(2, K):

@@ -490,7 +490,7 @@ class SE2GEGraph(Graph):
         edge_index, edge_sqdist = remove_duplicated_edges(edge_index, edge_sqdist, self_loop=False)
 
         # as an heuristic, we choose sigma as the mean squared Riemannian distance
-        edge_weight = weight_kernel(edge_sqdist, 0.5 * edge_sqdist.mean())
+        edge_weight = weight_kernel(edge_sqdist, 2 * edge_sqdist.mean())
 
         self.edge_index, self.edge_weight = to_undirected(edge_index, edge_weight)
 

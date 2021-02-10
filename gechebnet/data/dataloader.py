@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
-from torchvision.datasets import MNIST, STL10
+from torchvision.datasets import CIFAR10, MNIST, STL10
 from torchvision.transforms import (
     Compose,
     Normalize,
@@ -16,12 +16,14 @@ from torchvision.transforms import (
 
 from ..utils import shuffle_tensor
 
+# mean and std per channels on the training sets
 MNIST_MEAN, MNIST_STD = (0.1307,), (0.3081,)
-STL10_MEAN, STL10_STD = (0.4914, 0.4822, 0.4465), (0.2471, 0.2435, 0.2616)
+STL10_MEAN, STL10_STD = (0.4472, 0.4396, 0.4050), (0.2606, 0.2567, 0.2700)
+CIFAR10_MEAN, CIFAR10_STD = (0.4914, 0.4822, 0.4465), (0.2470, 0.2435, 0.2616)
 
 
 def get_train_val_dataloaders(
-    dataset_name: str,
+    dataset: str,
     batch_size: Optional[int] = 32,
     val_ratio: Optional[float] = 0.2,
     data_path: Optional[str] = "data",
@@ -30,37 +32,45 @@ def get_train_val_dataloaders(
     Gets train and validation dataloaders.
 
     Args:
-        dataset_name (str): name of the dataset.
+        dataset (str): name of the dataset.
         batch_size (int, optional): size of a batch. Defaults to 32.
         val_ratio (float, optional): ratio of validation samples. Defaults to 0.2.
         data_path (str, optional): path to data folder to download dataset into. Defaults to "data".
 
     Raises:
-        ValueError: dataset_name has to be 'mnist' or 'stl10',
+        ValueError: dataset has to be 'mnist' or 'stl10',
 
     Returns:
         Tuple[DataLoader, DataLoader]: train and validation dataloaders.
     """
 
-    if dataset_name not in {"mnist", "stl10"}:
+    if dataset not in {"mnist", "stl10", "cifar10"}:
         raise ValueError(
-            f"{dataset_name} is not a valid value for dataset_name: must be in 'mnist', 'stl10'"
+            f"{dataset} is not a valid value for dataset: must be 'mnist', 'stl10' or 'cifar10'."
         )
 
-    if dataset_name == "mnist":
+    if dataset == "mnist":
         dataset = MNIST(
             data_path,
             train=True,
             download=True,
-            transform=Compose([ToTensor(), Normalize(MNIST_MEAN, MNIST_STD)]),
+            transform=Compose([ToTensor()]),  # , Normalize(MNIST_MEAN, MNIST_STD)]),
         )
 
-    elif dataset_name == "stl10":
+    elif dataset == "cifar10":
+        dataset = CIFAR10(
+            data_path,
+            train=True,
+            download=True,
+            transform=Compose([ToTensor()]),  # , Normalize(CIFAR10_MEAN, CIFAR10_STD)]),
+        )
+
+    elif dataset == "stl10":
         dataset = STL10(
             data_path,
-            split="train",
+            split="test",
             download=True,
-            transform=Compose([ToTensor(), Normalize(STL10_MEAN, STL10_STD)]),
+            transform=Compose([ToTensor()]),  # , Normalize(STL10_MEAN, STL10_STD)]),
         )
 
     N = len(dataset)
@@ -80,38 +90,34 @@ def get_train_val_dataloaders(
 
 
 def get_test_equivariance_dataloaders(
-    dataset_name: str, batch_size: Optional[int] = 32, data_path: Optional[str] = "data"
+    dataset: str, batch_size: Optional[int] = 32, data_path: Optional[str] = "data"
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
     Gets test dataloaders to test equivariance under rotation and flip property of the network.
 
     Args:
-        dataset_name (str): name of the dataset.
+        dataset (str): name of the dataset.
         batch_size (Optional[int], optional): size of a batch. Defaults to 32.
         data_path (Optional[str], optional): path to data folder to download dataset into. Defaults to "data".
 
 
     Raises:
-        ValueError: dataset_name has to be 'mnist' or 'stl10',
+        ValueError: dataset has to be 'mnist' or 'stl10',
 
     Returns:
         Tuple[DataLoader, DataLoader]: classic, rotated and flipped dataloaders.
     """
 
-    if dataset_name not in {"mnist", "stl10"}:
-        raise ValueError(
-            f"{dataset_name} is not a valid value for dataset_name: must be in 'mnist', 'stl10'"
-        )
+    if dataset not in {"mnist", "stl10"}:
+        raise ValueError(f"{dataset} is not a valid value for dataset: must be in 'mnist', 'stl10'")
 
-    if dataset_name == "mnist":
-
+    if dataset == "mnist":
         classic_dataset = MNIST(
             data_path,
             train=False,
             download=True,
             transform=Compose([ToTensor(), Normalize(MNIST_MEAN, MNIST_STD)]),
         )
-
         rotated_dataset = MNIST(
             data_path,
             train=False,
@@ -120,7 +126,6 @@ def get_test_equivariance_dataloaders(
                 [RandomRotation(degrees=180), ToTensor(), Normalize(MNIST_MEAN, MNIST_STD)]
             ),
         )
-
         flipped_dataset = MNIST(
             data_path,
             train=False,
@@ -135,18 +140,44 @@ def get_test_equivariance_dataloaders(
             ),
         )
 
-    elif dataset_name == "stl10":
-
+    if dataset == "cifar10":
+        classic_dataset = CIFAR10(
+            data_path,
+            train=False,
+            download=True,
+            transform=Compose([ToTensor(), Normalize(CIFAR10_MEAN, CIFAR10_STD)]),
+        )
+        rotated_dataset = CIFAR10(
+            data_path,
+            train=False,
+            download=True,
+            transform=Compose(
+                [RandomRotation(degrees=180), ToTensor(), Normalize(CIFAR10_MEAN, CIFAR10_STD)]
+            ),
+        )
+        flipped_dataset = CIFAR10(
+            data_path,
+            train=False,
+            download=True,
+            transform=Compose(
+                [
+                    RandomHorizontalFlip(p=0.5),
+                    RandomVerticalFlip(p=0.5),
+                    ToTensor(),
+                    Normalize(CIFAR10_MEAN, CIFAR10_STD),
+                ]
+            ),
+        )
+    elif dataset == "stl10":
         classic_dataset = STL10(
             data_path,
-            split="test",
+            split="train",
             download=True,
             transform=Compose([ToTensor(), Normalize(STL10_MEAN, STL10_STD)]),
         )
-
         rotated_dataset = STL10(
             data_path,
-            split="test",
+            split="train",
             download=True,
             transform=Compose(
                 [
@@ -156,10 +187,9 @@ def get_test_equivariance_dataloaders(
                 ]
             ),
         )
-
         flipped_dataset = STL10(
             data_path,
-            split="test",
+            split="train",
             download=True,
             transform=Compose(
                 [

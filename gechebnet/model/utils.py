@@ -34,6 +34,7 @@ class BasicBlock(Module):
 class ResidualBlock(Module):
     def __init__(self, in_channels, out_channels, K):
         super(ResidualBlock, self).__init__()
+
         self.bn1 = BatchNorm1d(in_channels)
         self.relu1 = ReLU(inplace=True)
         self.conv1 = ChebConv(in_channels, out_channels, K, bias=True)
@@ -42,15 +43,13 @@ class ResidualBlock(Module):
         self.conv2 = ChebConv(out_channels, out_channels, K, bias=True)
 
         self.equalInOut = in_channels == out_channels
-        self.convShortcut = (
-            ChebConv(in_channels, out_channels, K=1, bias=False) if not self.equalInOut else None
-        )
+
+        if not self.equalInOut:
+            self.convShortcut = ChebConv(in_channels, out_channels, K=1, bias=False)
 
     def forward(self, x, laplacian):
         x = self.bn1(x)
         out = self.relu1(self.conv1(x, laplacian))
-        return self.relu2(
-            torch.add(
-                x if self.equalInOut else self.convShortcut(x), self.conv2(self.bn2(out), laplacian)
-            )
-        )
+        if self.equalInOut:
+            return self.relu2(x + self.conv2(self.bn2(out), laplacian))
+        return self.relu2(self.convShortcut(x) + self.conv2(self.bn2(out), laplacian))

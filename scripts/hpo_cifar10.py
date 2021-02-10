@@ -50,7 +50,7 @@ def build_sweep_config(anisotropic: bool, coupled_sym: bool) -> dict:
         else:
             parameters["xi"] = {"distribution": "constant", "value": 1e-4}
 
-        parameters["nsym"] = {"distribution": "int_uniform", "min": 3, "max": 12}
+        parameters["nsym"] = {"distribution": "int_uniform", "min": 3, "max": 9}
         parameters["eps"] = {"distribution": "constant", "value": 0.1}
 
     else:
@@ -73,26 +73,21 @@ def train(config=None):
         device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
         # Loads graph manifold and set normalized laplacian
-        if args.lie_group == "se2":
-            graph = SE2GEGraph(
-                nx=28 if args.dataset == "mnist" else 96,
-                ny=28 if args.dataset == "mnist" else 96,
-                ntheta=config.nsym,
-                knn=config.knn,
-                sigmas=(config.xi / config.eps, config.xi, 1.0),
-                weight_kernel=lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac),
-            )
-        elif args.lie_group == "so3":
-            ...
-
-        wandb.log({"num_nodes": graph.num_nodes, "num_edges": graph.num_edges})
-
+        graph = SE2GEGraph(
+            nx=32,
+            ny=32,
+            ntheta=config.nsym,
+            knn=config.knn,
+            sigmas=(config.xi / config.eps, config.xi, 1.0),
+            weight_kernel=lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac),
+        )
         graph.set_laplacian(norm=True)
+        wandb.log({"num_nodes": graph.num_nodes, "num_edges": graph.num_edges})
 
         # Loads group equivariant Chebnet and optimizer
         if args.resnet:
             model = WideResGEChebNet(
-                in_channels=1 if args.dataset == "mnist" else 3,
+                in_channels=3,
                 out_channels=10,
                 K=config.K,
                 graph=graph,
@@ -102,16 +97,16 @@ def train(config=None):
 
         else:
             model = WideGEChebNet(
-                in_channels=1 if args.dataset == "mnist" else 3,
+                in_channels=3,
                 out_channels=10,
                 K=config.K,
                 graph=graph,
                 depth=args.depth,
                 widen_factor=args.widen_factor,
             ).to(device)
-
         wandb.log({"capacity": model.capacity})
 
+        # Loads optimizer
         if args.optim == "adam":
             optimizer = Adam(model.parameters(), lr=args.lr)
         elif args.optim == "sgd":
@@ -122,19 +117,18 @@ def train(config=None):
                 weight_decay=args.decay,
                 nesterov=args.nesterov,
             )
-
         step_scheduler = MultiStepLR(optimizer, milestones=args.lr_steps, gamma=args.lr_gamma)
         scheduler = LRScheduler(step_scheduler)
 
         # Loads data loaders
         train_loader, val_loader = get_train_val_dataloaders(
-            args.dataset,
+            "cifar10",
             batch_size=args.batch_size,
-            val_ratio=0.1,
+            val_ratio=0.3,
             data_path=args.data_path,
         )
 
-        # Loads engines and adds handlers
+        # Loads engines
         trainer = create_supervised_trainer(
             graph=graph,
             model=model,
