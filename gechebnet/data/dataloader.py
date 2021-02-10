@@ -52,7 +52,7 @@ def get_train_val_dataloaders(
             data_path,
             train=True,
             download=True,
-            transform=Compose([ToTensor()]),  # , Normalize(MNIST_MEAN, MNIST_STD)]),
+            transform=Compose([ToTensor(), Normalize(MNIST_MEAN, MNIST_STD)]),
         )
 
     elif dataset == "cifar10":
@@ -60,7 +60,7 @@ def get_train_val_dataloaders(
             data_path,
             train=True,
             download=True,
-            transform=Compose([ToTensor()]),  # , Normalize(CIFAR10_MEAN, CIFAR10_STD)]),
+            transform=Compose([ToTensor(), Normalize(CIFAR10_MEAN, CIFAR10_STD)]),
         )
 
     elif dataset == "stl10":
@@ -68,7 +68,7 @@ def get_train_val_dataloaders(
             data_path,
             split="test",
             download=True,
-            transform=Compose([ToTensor()]),  # , Normalize(STL10_MEAN, STL10_STD)]),
+            transform=Compose([ToTensor(), Normalize(STL10_MEAN, STL10_STD)]),
         )
 
     N = len(dataset)

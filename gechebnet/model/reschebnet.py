@@ -30,7 +30,7 @@ class WideResGEChebNet(Module):
 
         # 1st block
         self.block1 = NetworkBlock(hidden_channels[0], hidden_channels[1], num_layers, ResidualBlock, K)
-        # 2nd block
+        # 2nd blockz
         self.block2 = NetworkBlock(hidden_channels[1], hidden_channels[2], num_layers, ResidualBlock, K)
         # 3rd block
         self.block3 = NetworkBlock(hidden_channels[2], hidden_channels[3], num_layers, ResidualBlock, K)

@@ -29,6 +29,7 @@ class WideGEChebNet(Module):
 
         # 1st conv before any network block
         self.conv = ChebConv(in_channels, hidden_channels[0], K)
+        self.relu = ReLU()
 
         # 1st block
         self.block1 = NetworkBlock(hidden_channels[0], hidden_channels[1], num_layers, BasicBlock, K)
@@ -43,11 +44,10 @@ class WideGEChebNet(Module):
         self.logsoftmax = LogSoftmax(dim=1)
 
     def forward(self, x):
-
         laplacian = self.graph.laplacian.to(x.device)
         B, _, _ = x.shape
 
-        out = self.conv(x, laplacian)
+        out = self.relu(self.conv(x, laplacian))
 
         out = self.block1(out, laplacian)
         out = self.block2(out, laplacian)

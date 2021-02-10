@@ -12,8 +12,8 @@ class NetworkBlock(Module):
         )
 
     def forward(self, x, laplacian):
-        for l in self.layers:
-            x = l(x, laplacian)
+        for layer in self.layers:
+            x = layer(x, laplacian)
         return x
 
 
@@ -22,7 +22,7 @@ class BasicBlock(Module):
         super(BasicBlock, self).__init__()
         self.bn = BatchNorm1d(in_channels)
         self.conv = ChebConv(in_channels, out_channels, K, bias=True)
-        self.relu = ReLU(inplace=True)
+        self.relu = ReLU()
 
     def forward(self, x, laplacian):
         return self.relu(self.conv(self.bn(x), laplacian))
@@ -33,15 +33,15 @@ class ResidualBlock(Module):
         super(ResidualBlock, self).__init__()
 
         self.bn1 = BatchNorm1d(in_channels)
-        self.relu1 = ReLU(inplace=True)
+        self.relu1 = ReLU()
         self.conv1 = ChebConv(in_channels, out_channels, K, bias=True)
         self.bn2 = BatchNorm1d(out_channels)
-        self.relu2 = ReLU(inplace=True)
+        self.relu2 = ReLU()
         self.conv2 = ChebConv(out_channels, out_channels, K, bias=True)
 
         self.equalInOut = in_channels == out_channels
 
-        if not self.equalInOut:
+        if not self.equalInOzut:
             self.convShortcut = ChebConv(in_channels, out_channels, K=1, bias=False)
 
     def forward(self, x, laplacian):
