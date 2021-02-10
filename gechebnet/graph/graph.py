@@ -2,6 +2,7 @@ import math
 from typing import Callable, Optional, Tuple, Union
 
 import numpy as np
+import pandas as pd
 import torch
 from numpy import ndarray
 from pykeops.torch import Vi, Vj
@@ -91,7 +92,7 @@ class Graph:
             (ndarray): Laplacian eigen values.
             (ndarray): Laplacian eigen vectors.
         """
-        return get_fourier_basis(self.laplacian())
+        return get_fourier_basis(self.laplacian)
 
     def diff_kernel(self, kernel: Callable) -> ndarray:
         """
@@ -125,6 +126,13 @@ class Graph:
             (int): number of edges.
         """
         return self.edge_index.shape[1]
+
+    def neighbors_signal(self, node_index):
+        mask = self.edge_index[0] == node_index
+        neighbors_index = self.edge_index[1, mask]
+        signal = torch.zeros(self.num_nodes)
+        signal[neighbors_index] = self.edge_weight[mask]
+        return signal
 
     def dirac(self, node_idx: int = 0, lib: str = "numpy") -> Union[ndarray, FloatTensor]:
         """
@@ -500,8 +508,7 @@ class SE2GEGraph(Graph):
         """
         return se2_matrix(self.node_x, self.node_y, self.node_theta, device=device)
 
-    @property
-    def node_pos(self) -> Tuple[FloatTensor, FloatTensor, FloatTensor]:
+    def node_pos(self, axis=None) -> Tuple[FloatTensor, FloatTensor, FloatTensor]:
         """
         Return the cartesian positions of the nodes of the graph.
 
@@ -510,7 +517,14 @@ class SE2GEGraph(Graph):
             (FloatTensor): y nodes' positions.
             (FloatTensor): z nodes' positions.
         """
-        return self.node_x, self.node_y, self.node_theta
+        if axis is None:
+            return self.node_x, self.node_y, self.node_theta
+        if axis == "x":
+            return self.node_x
+        if axis == "y":
+            return self.node_y
+        if axis == "z":
+            return self.node_theta
 
     @property
     def centroid_index(self) -> int:
@@ -528,15 +542,3 @@ class SE2GEGraph(Graph):
         )
 
         return self.node_index[mask]
-
-    def project(self, signal: FloatTensor) -> FloatTensor:
-        """
-        Projects a signal on the group equivariant graph.
-
-        Args:
-            signal (FloatTensor): input tensor with shape (..., L, H, W).
-
-        Returns:
-            (FloatTensor): output tensor with shape (..., L, H, W).
-        """
-        return signal
