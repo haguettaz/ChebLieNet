@@ -40,7 +40,7 @@ def xyz2alphabetagamma(x: FloatTensor, y: FloatTensor, z: FloatTensor) -> Tuple[
 
 
 def alphabetagamma2xyz(
-    alpha: FloatTensor, beta: FloatTensor, gamma: FloatTensor
+    alpha: FloatTensor, beta: FloatTensor, gamma: FloatTensor, axis=None
 ) -> Tuple[FloatTensor, FloatTensor, FloatTensor]:
     """
     Returns new tensors corresponding to angle representation from the cartesian representation.
@@ -55,6 +55,13 @@ def alphabetagamma2xyz(
         (FloatTensor): output tensor, i.e. y positions.
         (FloatTensor): output tensor, i.e. z positions.
     """
+    if axis == "x":
+        return (math.pi + alpha) * torch.cos(beta) * torch.cos(gamma)
+    if axis == "y":
+        return (math.pi + alpha) * torch.cos(beta) * torch.sin(gamma)
+    if axis == "z":
+        return -(math.pi + alpha) * torch.sin(beta)
+
     x = (math.pi + alpha) * torch.cos(beta) * torch.cos(gamma)
     y = (math.pi + alpha) * torch.cos(beta) * torch.sin(gamma)
     z = -(math.pi + alpha) * torch.sin(beta)

@@ -78,7 +78,7 @@ def so3_log(Gg: LazyTensor, Gg_t: LazyTensor):
     return LazyTensor.cat((c1, c2, c3), dim=-1)
 
 
-def so3_anisotropic_square_riemannanian_distance(xi, xj, xi_t, xj_t, sigmas, device):
+def so3_anisotropic_square_riemannanian_distance(xi, xj, xi_t, xj_t, sigmas):
     """
     Returns the square anisotropic riemannian distances between xi and xj.
 
@@ -93,7 +93,7 @@ def so3_anisotropic_square_riemannanian_distance(xi, xj, xi_t, xj_t, sigmas, dev
     Returns:
         (LazyTensor): output tensor, i.e. square anisotropic riemannian distances in format (N, N, 1).
     """
-    S = Pm(torch.tensor([*sigmas], device=device))
+    S = Pm(torch.tensor([*sigmas]))
 
     xixj = LazyTensor.keops_tensordot(xi, xj, (3, 3), (3, 3), (1,), (0,))  # Gg^{-1}.Gh
     xjxi_t = LazyTensor.keops_tensordot(xj_t, xi_t, (3, 3), (3, 3), (1,), (0,))  # Gh{-1}.Gg

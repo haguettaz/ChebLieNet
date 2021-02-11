@@ -64,7 +64,6 @@ def se2_anisotropic_square_riemannanian_distance(
     xi: LazyTensor,
     xj: LazyTensor,
     sigmas: Tuple[float, float, float],
-    device: Optional[Device] = None,
 ) -> LazyTensor:
     """
     Returns the square anisotropic riemannian distances between xi and xj.
@@ -78,7 +77,7 @@ def se2_anisotropic_square_riemannanian_distance(
     Returns:
         (LazyTensor): output tensor, i.e. square anisotropic riemannian distances in format (N, N, 1).
     """
-    S = Pm(torch.tensor([*sigmas], device=device))
+    S = Pm(torch.tensor([*sigmas]))
 
     xixj = LazyTensor.keops_tensordot(xi, xj, (3, 3), (3, 3), (1,), (0,))  # g^-1 * h
 
