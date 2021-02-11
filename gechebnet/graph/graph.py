@@ -34,23 +34,6 @@ class Graph:
         self.edge_index = LongTensor()
         self.edge_weight = FloatTensor()
 
-    def neighborhood(self, node_idx: int) -> Tuple[LongTensor, FloatTensor]:
-        """
-        Return neighborhood of a given node.
-
-        Args:
-            node_idx (int): node index.
-
-        Returns:
-            (LongTensor): neighbours index.
-            (FloatTensor): neighbours weight.
-        """
-        mask = self.edge_index[0] == node_idx
-        neighbors = self.edge_index[1, mask]
-
-        weights = self.edge_weight[mask]
-        return neighbors, weights
-
     def set_laplacian(self, norm=True, device: Optional[Device] = None):
         """
         Returns symmetric normalized graph laplacian

@@ -47,6 +47,7 @@ def train(config=None):
     with wandb.init(config=config, project="gechebnet"):
 
         config = wandb.config
+        wandb.log({"dataset": "mnist"})
         wandb.log(vars(args))
 
         device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
@@ -60,7 +61,7 @@ def train(config=None):
             sigmas=(config.xi / config.eps, config.xi, 1.0),
             weight_kernel=lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac),
         )
-        graph.set_laplacian(norm=True)
+        graph.set_laplacian(norm=True, device=device)
         wandb.log({"num_nodes": graph.num_nodes, "num_edges": graph.num_edges})
 
         # Loads group equivariant Chebnet and optimizer

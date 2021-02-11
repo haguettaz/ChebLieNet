@@ -50,7 +50,6 @@ def cheb_conv(x: FloatTensor, weights: FloatTensor, laplacian: Optional[SparseFl
 
 class ChebConv(nn.Module):
     """Graph convolutional layer."""
-
     def __init__(
         self,
         graph: Graph,
