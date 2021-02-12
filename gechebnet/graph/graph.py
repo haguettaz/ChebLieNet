@@ -279,7 +279,7 @@ class SE2GEGraph(Graph):
         Returns:
             int: number of symmetry's layers.
         """
-        return self.theta.unique().nelement()
+        return self.node_theta.unique().nelement()
 
     def node_Gg(self, device=None) -> FloatTensor:
         """
