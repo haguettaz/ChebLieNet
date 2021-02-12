@@ -7,7 +7,7 @@ from torch import FloatTensor
 from ..utils import mod
 
 
-def xyz2alphabetagamma(x: FloatTensor, y: FloatTensor, z: FloatTensor) -> Tuple[FloatTensor, FloatTensor, FloatTensor]:
+def xyz2betagamma(x: FloatTensor, y: FloatTensor, z: FloatTensor) -> Tuple[FloatTensor, FloatTensor]:
     """
     Returns new tensors corresponding to angle representation from the cartesian representation.
 
@@ -17,12 +17,9 @@ def xyz2alphabetagamma(x: FloatTensor, y: FloatTensor, z: FloatTensor) -> Tuple[
         z (FloatTensor): input tensor, i.e. z positions.
 
     Returns:
-        (FloatTensor): output tensor, i.e. alpha rotation about x axis.
         (FloatTensor): output tensor, i.e. beta rotation about y axis.
         (FloatTensor): output tensor, i.e. gamma rotation about z axis.
     """
-
-    alpha = torch.sqrt(x.pow(2) + y.pow(2) + z.pow(2)) - math.pi
 
     beta = torch.stack(
         (
@@ -34,9 +31,9 @@ def xyz2alphabetagamma(x: FloatTensor, y: FloatTensor, z: FloatTensor) -> Tuple[
 
     gamma = torch.stack((torch.atan2(-y, -x), torch.atan2(y, x)), dim=-1)
 
-    mask = (beta >= -math.pi / 2) & (beta < math.pi / 2) & (gamma >= -math.pi) & (gamma < math.pi)
+    mask = (beta >= -math.pi) & (beta < math.pi) & (gamma >= -math.pi / 2) & (gamma < math.pi / 2)
 
-    return alpha, beta[mask], gamma[mask]
+    return beta[mask], gamma[mask]
 
 
 def alphabetagamma2xyz(

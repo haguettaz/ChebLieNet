@@ -4,4 +4,4 @@ torch==1.7.1
 torchvision==0.8.2
 pytorch-ignite==0.4.2
 wandb==0.10.18
-plotly==14.4.3
+plotly==4.14.3

@@ -35,7 +35,7 @@ def prepare_batch(batch: Tuple[Tensor, Tensor], graph: Graph, device: Device) ->
 
 def wandb_log(trainer: Engine, evaluator: Engine, data_loader: DataLoader):
     """
-    Evaluate a model and add performance to wandb.
+    Evaluates a model and log information with wandb.
 
     Args:
         trainer (Engine): trainer engine.
@@ -50,5 +50,14 @@ def wandb_log(trainer: Engine, evaluator: Engine, data_loader: DataLoader):
 
 
 def set_sparse_laplacian(trainer: Engine, graph: Graph, on: str, rate: float):
+    """
+    Sets a randomly sparsified laplacian and log information with wandb.
+
+    Args:
+        trainer (Engine): trainer engine.
+        graph (Graph): graph.
+        on (str): graph's attribute to sparsify on, either nodes or edges.
+        rate (float): sparsification rate.
+    """
     graph.set_sparse_laplacian(on, rate, norm=True)
     wandb.log({f"{on} sparsification": rate, "epoch": trainer.state.epoch})

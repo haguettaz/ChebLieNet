@@ -12,9 +12,10 @@ from torch.sparse import FloatTensor as SparseFloatTensor
 
 from ..liegroup.se2 import se2_anisotropic_square_riemannanian_distance, se2_log, se2_matrix
 from ..liegroup.so3 import so3_anisotropic_square_riemannanian_distance, so3_log, so3_matrix
-from ..liegroup.utils import alphabetagamma2xyz, xyz2alphabetagamma
+from ..liegroup.utils import alphabetagamma2xyz, xyz2betagamma
 from ..utils import rescale, sparse_tensor_to_sparse_array
 from .optimization import repulsive_loss, repulsive_sampling
+from .polyhedron import polyhedron_division, polyhedron_init
 from .signal_processing import get_fourier_basis, get_laplacian, get_norm_laplacian
 from .sparsification import sparsify_on_edges, sparsify_on_nodes
 from .utils import remove_duplicated_edges, to_undirected
@@ -117,6 +118,13 @@ class Graph:
         weights[neighbors_index] = self.edge_weight[mask]
         return weights
 
+    def neighbors_sqdists(self, node_index):
+        mask = self.edge_index[0] == node_index
+        neighbors_index = self.edge_index[1, mask]
+        sqdists = torch.empty(self.num_nodes).fill_(math.nan)
+        sqdists[neighbors_index] = self.edge_sqdist[mask]
+        return sqdists
+
     def dirac(self, node_idx: int = 0, lib: str = "numpy") -> Union[ndarray, FloatTensor]:
         """
         Return a dirac function centered on a given node index.
@@ -191,13 +199,10 @@ class SE2GEGraph(Graph):
         if weight_kernel is None:
             weight_kernel = lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac)
 
-        self.nx, self.ny, self.ntheta = nx, ny, ntheta
-
-        self._initnodes(nx * ny * ntheta)
-
+        self._initnodes(nx, ny, ntheta)
         self._initedges(sigmas, knn if knn < self.num_nodes else self.num_nodes - 1, weight_kernel)
 
-    def _initnodes(self, num_nodes: int):
+    def _initnodes(self, nx, ny, ntheta):
         """
         Init node indices and positions (hypercube pose). The stored attributes are:
             - node_index (LongTensor): indices of nodes in format (num_nodes).
@@ -209,11 +214,15 @@ class SE2GEGraph(Graph):
             num_nodes (int): number of nodes to sample.
         """
 
-        self.node_index = torch.arange(num_nodes)
+        self.node_index = torch.arange(nx * ny * ntheta)
 
-        x_axis = torch.arange(0.0, self.nx)
-        y_axis = torch.arange(0.0, self.ny)
-        theta_axis = torch.arange(-math.pi / 2, math.pi / 2, math.pi / self.ntheta)
+        x_axis = torch.arange(0.0, nx)
+        y_axis = torch.arange(0.0, ny)
+
+        if ntheta == 1:
+            theta_axis = torch.zeros(1)
+        else:
+            theta_axis = torch.arange(-math.pi / 2, math.pi / 2, math.pi / ntheta)
 
         theta, y, x = torch.meshgrid(theta_axis, y_axis, x_axis)
 
@@ -236,7 +245,6 @@ class SE2GEGraph(Graph):
             sigmas (float,float,float): anisotropy's parameters to compute Riemannian distances.
             knn (int): maximum number of connections of a vertex.
             weight_kernel (callable): mapping from squared distance to weight value.
-            kappa (float): edges' compression rate.
             device (Device): computation device.
 
         Raises:
@@ -260,7 +268,8 @@ class SE2GEGraph(Graph):
         edge_index, edge_sqdist = to_undirected(edge_index, edge_sqdist)
 
         self.edge_index = edge_index
-        self.edge_weight = weight_kernel(edge_sqdist, 1.09136 * edge_sqdist.mean())  # mean(sq_dist) -> weight = 0.4
+        self.edge_sqdist = edge_sqdist
+        self.edge_weight = weight_kernel(edge_sqdist, 0.2 * edge_sqdist.mean())
 
     @property
     def nsym(self) -> int:
@@ -270,7 +279,7 @@ class SE2GEGraph(Graph):
         Returns:
             int: number of symmetry's layers.
         """
-        return self.ntheta
+        return self.theta.unique().nelement()
 
     def node_Gg(self, device=None) -> FloatTensor:
         """
@@ -336,7 +345,8 @@ class SO3GEGraph(Graph):
 
     def __init__(
         self,
-        nsamples: int,
+        polyhedron: str,
+        level: int,
         nalpha: Optional[int] = 6,
         knn: Optional[int] = 16,
         sigmas: Optional[Tuple[float, float, float]] = (1.0, 1.0, 1.0),
@@ -365,44 +375,63 @@ class SO3GEGraph(Graph):
         if weight_kernel is None:
             weight_kernel = lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac)
 
-        self.nsamples = nsamples
-        self.nalpha = nalpha  # alpha
+        # self.nsamples = nsamples
+        # self.nalpha = nalpha
+        self._initnodes(polyhedron, level, nalpha)
+        # self._initnodes(nsamples * nalpha)
+        self._initedges(sigmas, knn if knn < self.num_nodes else self.num_nodes - 1, weight_kernel)
 
-        self._initnodes(nsamples * nalpha)
-        self._initedges(sigmas, knn, weight_kernel)
+    def _initnodes(self, polyhedron, level, nalpha):
+        # uniformly samples on the sphere by polyhedron subdivisions -> uniformly sampled beta and gamma
+        vertices, faces = polyhedron_init(polyhedron)
+        x, y, z = polyhedron_division(vertices, faces, level)
+        beta, gamma = xyz2betagamma(x, y, z)
 
-    def _initnodes(self, num_nodes: int):
-        """
-        Init nodes on the SO(3) manifold. The stored attributes are:
-            - node_index (LongTensor): indices of nodes in format (num_nodes).
-            - alpha (FloatTensor): rotation about x axis in format (num_nodes) and in range [-pi/2, pi/2).
-            - beta (FloatTensor): rotation about y axis in format (num_nodes) and in range [-pi, pi).
-            - gamma (FloatTensor): rotation about z axis in format (num_nodes) and in range [-pi/2, pi/2).
+        # uniformly samples alpha
+        if nalpha == 1:
+            alpha = torch.zeros(1)
+        else:
+            alpha = torch.arange(-math.pi / 2, math.pi / 2, math.pi / nalpha)
 
-        Args:
-            num_nodes (int): number of nodes to sample.
-            device (Device): computation device.
-        """
+        # add nodes' positions attributes
+        self.node_alpha = alpha.unsqueeze(1).expand(nalpha, beta.shape[0]).flatten()
+        self.node_beta = beta.unsqueeze(0).expand(nalpha, beta.shape[0]).flatten()
+        self.node_gamma = gamma.unsqueeze(0).expand(nalpha, beta.shape[0]).flatten()
 
-        self.node_index = torch.arange(num_nodes)
+        self.node_index = torch.arange(self.node_alpha.shape[0])
 
-        # uniform sampling on the sphere using a repulsive model
-        x, y, z = repulsive_sampling(
-            self.nsamples,
-            loss_fn=lambda x_: repulsive_loss(x_, 1.0, 10.0),
-            radius=math.pi,
-            device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
-            max_iter=25000,
-        )
+    # def _initnodes(self, num_nodes: int):
+    #     """
+    #     Init nodes on the SO(3) manifold. The stored attributes are:
+    #         - node_index (LongTensor): indices of nodes in format (num_nodes).
+    #         - alpha (FloatTensor): rotation about x axis in format (num_nodes) and in range [-pi/2, pi/2).
+    #         - beta (FloatTensor): rotation about y axis in format (num_nodes) and in range [-pi, pi).
+    #         - gamma (FloatTensor): rotation about z axis in format (num_nodes) and in range [-pi/2, pi/2).
 
-        # convert cartesian positions of the nodes on the sphere to beta and gamma rotations
-        _, beta, gamma = xyz2alphabetagamma(x, y, z)
+    #     Args:
+    #         num_nodes (int): number of nodes to sample.
+    #         device (Device): computation device.
+    #     """
 
-        alpha = torch.arange(-math.pi / 2, math.pi / 2, math.pi / self.nalpha)
+    #     self.node_index = torch.arange(num_nodes)
 
-        self.node_alpha = alpha.unsqueeze(1).expand(self.nalpha, self.nsamples).flatten()
-        self.node_beta = beta.unsqueeze(0).expand(self.nalpha, self.nsamples).flatten()
-        self.node_gamma = gamma.unsqueeze(0).expand(self.nalpha, self.nsamples).flatten()
+    #     # uniform sampling on the sphere using a repulsive model
+    #     x, y, z = repulsive_sampling(
+    #         self.nsamples,
+    #         loss_fn=lambda x_: repulsive_loss(x_, 1.0, 10.0),
+    #         radius=math.pi,
+    #         device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+    #         max_iter=25000,
+    #     )
+
+    #     # convert cartesian positions of the nodes on the sphere to beta and gamma rotations
+    #     _, beta, gamma = xyz2alphabetagamma(x, y, z)
+
+    #     alpha = torch.arange(-math.pi / 2, math.pi / 2, math.pi / self.nalpha)
+
+    #     self.node_alpha = alpha.unsqueeze(1).expand(self.nalpha, self.nsamples).flatten()
+    #     self.node_beta = beta.unsqueeze(0).expand(self.nalpha, self.nsamples).flatten()
+    #     self.node_gamma = gamma.unsqueeze(0).expand(self.nalpha, self.nsamples).flatten()
 
     def _initedges(
         self,
@@ -442,7 +471,8 @@ class SO3GEGraph(Graph):
         edge_index, edge_sqdist = to_undirected(edge_index, edge_sqdist)
 
         self.edge_index = edge_index
-        self.edge_weight = weight_kernel(edge_sqdist, 1.09136 * edge_sqdist.mean())  # mean(sq_dist) -> weight = 0.4
+        self.edge_sqdist = edge_sqdist
+        self.edge_weight = weight_kernel(edge_sqdist, 0.2 * edge_sqdist.mean())  # mean(sq_dist) -> weight = 0.4
 
     @property
     def nsym(self) -> int:
@@ -452,7 +482,7 @@ class SO3GEGraph(Graph):
         Returns:
             int: number of symmetry's layers.
         """
-        return self.nalpha
+        return self.node_alpha.unique().nelement()
 
     def node_Gg(self, device=None) -> FloatTensor:
         """
@@ -485,6 +515,7 @@ class SO3GEGraph(Graph):
         Returns:
             (int): centroid node's index.
         """
+
         return 0
 
     @property

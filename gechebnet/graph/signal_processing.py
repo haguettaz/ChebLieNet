@@ -7,7 +7,7 @@ from torch import FloatTensor, LongTensor
 from torch import device as Device
 from torch.sparse import FloatTensor as SparseFloatTensor
 
-from ..utils import sparse_tensor_diag, sparse_tensor_to_sparse_array
+from ..utils import sparse_tensor_to_sparse_array
 from .utils import add_self_loops, remove_self_loops
 
 
@@ -18,7 +18,7 @@ def get_laplacian(
     device: Optional[Device] = None,
 ) -> SparseFloatTensor:
     """
-    Get symmetric normalized laplacian from edge indices and weights.
+    Get symmetric normalized laplacian from edge indices and weights. Eigenvalues are in the range [0, 2].
 
     Args:
         edge_index (LongTensor): edge indices.
@@ -48,7 +48,20 @@ def get_norm_laplacian(
     lmax: float = 2.0,
     device: Optional[Device] = None,
 ) -> SparseFloatTensor:
+    """
+    Get rescaled symmetric normalized laplacian from edge indices and weights. Eigenvalues are normalized in the
+    range [-1, 1].
 
+    Args:
+        edge_index (LongTensor): edge indices.
+        edge_weight (FloatTensor): edge weights.
+        num_nodes (int): number of nodes.
+        lmax (float): highest eigenvalue. Defaults to 2.0.
+        device (Device, optional): computation device. Defaults to None.
+
+    Returns:
+        SparseFloatTensor: symmetric normalized laplacian with rescaled eigenvalues.
+    """
     node_degree = torch.zeros(num_nodes).scatter_add(0, edge_index[0], edge_weight)
 
     node_degree_norm = node_degree.pow(-0.5)
@@ -67,8 +80,8 @@ def get_fourier_basis(laplacian: SparseFloatTensor) -> Tuple[ndarray, ndarray]:
         laplacian (SparseFloatTensor): graph laplacian.
 
     Returns:
-        (ndarray): Laplacian eigen values.
-        (ndarray): Laplacian eigen vectors.
+        (ndarray): Laplacian eigenvalues.
+        (ndarray): Laplacian eigenvectors.
     """
     lambdas, Phi = eigh(sparse_tensor_to_sparse_array(laplacian).toarray(), driver="ev")
 

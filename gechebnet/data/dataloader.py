@@ -38,10 +38,11 @@ def get_train_val_dataloaders(
         data_path (str, optional): path to data folder to download dataset into. Defaults to "data".
 
     Raises:
-        ValueError: dataset has to be 'mnist' or 'stl10',
+        ValueError: dataset has to be 'mnist', 'cifar10' or 'stl10',
 
     Returns:
-        Tuple[DataLoader, DataLoader]: train and validation dataloaders.
+        (DataLoader): training dataloader.
+        (DataLoader): validation dataloader.
     """
 
     if dataset not in {"mnist", "stl10", "cifar10"}:
@@ -66,7 +67,7 @@ def get_train_val_dataloaders(
     elif dataset == "stl10":
         dataset = STL10(
             data_path,
-            split="test",
+            split="test", # we use test set as training set since it has more samples
             download=True,
             transform=Compose([ToTensor(), Normalize(STL10_MEAN, STL10_STD)]),
         )
@@ -98,12 +99,13 @@ def get_test_equivariance_dataloaders(
         batch_size (Optional[int], optional): size of a batch. Defaults to 32.
         data_path (Optional[str], optional): path to data folder to download dataset into. Defaults to "data".
 
-
     Raises:
-        ValueError: dataset has to be 'mnist' or 'stl10',
+        ValueError: dataset has to be 'mnist', 'cifar10' or 'stl10',
 
     Returns:
-        Tuple[DataLoader, DataLoader]: classic, rotated and flipped dataloaders.
+        (DataLoader): test dataloader
+        (DataLoader): test dataloader with random rotations 
+        (DataLoader): test dataloader with random flips.
     """
 
     if dataset not in {"mnist", "stl10", "cifar10"}:

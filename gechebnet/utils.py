@@ -48,6 +48,18 @@ def mod(input: Tensor, n: float, d: float = 0.0) -> Tensor:
     """
     return (input - d) % n + d
 
+def round(input:Tensor, n_digits:int=0)->Tensor:
+    """
+    Returns a new tensor with the rounded to n decimal places version of the elements of input.
+
+    Args:
+        input (Tensor): input_tensor.
+        n_digits (int, optional): number of digits. Defaults to 0.
+
+    Returns:
+        Tensor: output tensor.
+    """
+    return torch.round(input * 10**n_digits) / (10**n_digits)    
 
 def shuffle_tensor(input: Tensor) -> Tensor:
     """
@@ -105,21 +117,3 @@ def sparse_tensor_to_sparse_array(input) -> coo_matrix:
 
     out = coo_matrix((value, (row, col)), input.size())
     return out
-
-
-def sparse_tensor_diag(size: int, diag: Tensor = None, device: Device = None) -> SparseFloatTensor:
-    """
-    Returns a diagonal sparse tensor.
-
-    Args:
-        size (int): number of diagonal elements.
-        diag (Tensor, optional): elements of the diagonal. Defaults to None.
-        device (Device, optional): computation device. Defaults to None.
-
-    Returns:
-        (SparseFloatTensor): output tensor.
-    """
-
-    diag = diag or torch.ones(size)
-
-    return SparseFloatTensor(indices=torch.arange(size).expand(2, -1), values=diag, size=(size, size)).to(device)

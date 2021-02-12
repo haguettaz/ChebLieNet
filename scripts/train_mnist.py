@@ -31,9 +31,9 @@ def build_config(anisotropic: bool, coupled_sym: bool) -> dict:
     """
 
     config = {
-        "K": 6,
+        "K": 4,
         "eps": 0.1 if anisotropic else 1.0,
-        "knn": 32 if anisotropic else 16,
+        "knn": 16 if anisotropic else 8,
         "nsym": 6 if anisotropic else 1,
         "xi": 1.0 if not anisotropic else 0.05 if coupled_sym else 1e-4,
     }
@@ -59,7 +59,7 @@ def train(config=None):
             ntheta=config.nsym,
             knn=config.knn,
             sigmas=(config.xi / config.eps, config.xi, 1.0),
-            weight_kernel=lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac),
+            weight_kernel=lambda sqdistc, tc: torch.exp(-sqdistc / 4*tc),
         )
         graph.set_laplacian(norm=True, device=device)
         wandb.log({"num_nodes": graph.num_nodes, "num_edges": graph.num_edges})
