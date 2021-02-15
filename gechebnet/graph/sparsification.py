@@ -60,7 +60,6 @@ def sparsify_on_nodes(
         SparseFloatTensor: [description]
     """
 
-    # better to use edges to remove
     num_samples = math.floor(rate * num_nodes)
     if num_samples < 1:
         return edge_index, edge_weight

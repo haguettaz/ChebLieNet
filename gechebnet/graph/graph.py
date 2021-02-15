@@ -32,10 +32,12 @@ class Graph:
         Init the graph attributes with empty tensors
         """
         self.node_index = LongTensor()
+
         self.edge_index = LongTensor()
         self.edge_weight = FloatTensor()
+        self.edge_sqdist = FloatTensor()
 
-    def set_laplacian(self, norm=True, device: Optional[Device] = None):
+    def get_laplacian(self, norm=True, device: Optional[Device] = None):
         """
         Returns symmetric normalized graph laplacian
 
@@ -45,30 +47,22 @@ class Graph:
         Returns:
             (SparseFloatTensor): laplacian.
         """
-        if norm:
-            self.laplacian = get_norm_laplacian(self.edge_index, self.edge_weight, self.num_nodes, 2.0, device)
-        else:
-            self.laplacian = get_laplacian(self.edge_index, self.edge_weight, self.num_nodes, device=device)
+        if not hasattr(self, "laplacian"):
+            if norm:
+                self.laplacian = get_norm_laplacian(self.edge_index, self.edge_weight, self.num_nodes, 2.0, device)
+            else:
+                self.laplacian = get_laplacian(self.edge_index, self.edge_weight, self.num_nodes, device=device)
 
-    def set_sparse_laplacian(self, on: str, rate: float, norm=True, device: Optional[Device] = None):
-        if on == "edges":
-            edge_index, edge_weight = sparsify_on_edges(self.edge_index, self.edge_weight, rate)
-        else:
-            edge_index, edge_weight = sparsify_on_nodes(
-                self.edge_index,
-                self.edge_weight,
-                self.node_index,
-                self.num_nodes,
-                rate,
-            )
+        return self.laplacian
 
-        if norm:
-            self.laplacian = get_norm_laplacian(edge_index, edge_weight, self.num_nodes, 2.0, device)
-        else:
-            self.laplacian = get_laplacian(edge_index, edge_weight, self.num_nodes, device)
+    def project(self, signal):
+        if not hasattr(self, "node_proj"):
+            return signal
+
+        return signal[..., self.node_proj]
 
     @property
-    def eigen_space(self) -> Tuple[ndarray, ndarray]:
+    def eigen_space(self, norm=True) -> Tuple[ndarray, ndarray]:
         """
         Return graph eigen space, i.e. Laplacian eigen decomposition.
 
@@ -76,7 +70,7 @@ class Graph:
             (ndarray): Laplacian eigen values.
             (ndarray): Laplacian eigen vectors.
         """
-        return get_fourier_basis(self.laplacian)
+        return get_fourier_basis(self.get_laplacian(norm))
 
     def diff_kernel(self, kernel: Callable) -> ndarray:
         """
@@ -156,6 +150,90 @@ class Graph:
         return (self.node_index.repeat(1, self.num_edges) == self.edge_index[0]).sum(dim=1).min() < 1
 
 
+class RandomSubGraph(Graph):
+    def __init__(self, graph):
+
+        self.graph = graph
+        self.lie_group = self.graph.lie_group
+        self.nsym = self.graph.nsym
+
+        self._initnodes(graph)
+        self._initedges(graph)
+
+    def _initnodes(self, graph):
+        self.node_index = self.graph.node_index
+
+        if self.lie_group == "se2":
+            self.node_x = self.graph.node_x.clone()
+            self.node_y = self.graph.node_y.clone()
+            self.node_theta = self.graph.node_theta.clone()
+
+        elif self.lie_group == "so3":
+            self.node_alpha = self.graph.node_alpha.clone()
+            self.node_beta = self.graph.node_beta.clone()
+            self.node_gamma = self.graph.node_gamma.clone()
+
+    def _initedges(self, graph):
+        self.edge_index = self.graph.edge_index.clone()
+        self.edge_weight = self.graph.edge_weight.clone()
+        self.edge_sqdist = self.graph.edge_sqdist.clone()
+
+    def edge_sampling(self, rate):
+        # samples N (undirected) edges to keep
+        edge_attr = torch.stack((self.graph.edge_weight, self.graph.edge_sqdist))
+        edge_index, edge_attr = remove_duplicated_edges(self.graph.edge_index, edge_attr, self_loop=False)
+        num_samples = math.ceil(rate * edge_attr[0].nelement())  # num edges to keep
+        sampled_edges = torch.multinomial(edge_attr[0], num_samples)  # edge_attr[0] corresponds to weights
+
+        edge_index, edge_attr = to_undirected(edge_index[:, sampled_edges], edge_attr[:, sampled_edges])
+
+        self.edge_index = edge_index
+        self.edge_weight = edge_attr[0]
+        self.edge_sqdist = edge_attr[1]
+
+    def node_sampling(self, rate):
+        # samples N nodes to keep
+        num_samples = math.floor(rate * self.graph.num_nodes)  # num nodes to keep
+        sampled_nodes, _ = torch.multinomial(torch.ones(self.graph.num_nodes), num_samples).sort()
+        self.node_index = torch.arange(num_samples)
+        self.node_proj = sampled_nodes.clone()
+
+        # sets group attributes of sampled nodes
+        if self.lie_group == "se2":
+            self.node_x = self.graph.node_x[sampled_nodes]
+            self.node_y = self.graph.node_y[sampled_nodes]
+            self.node_theta = self.graph.node_theta[sampled_nodes]
+
+        elif self.lie_group == "so3":
+            self.node_alpha = self.graph.node_alpha[sampled_nodes]
+            self.node_beta = self.graph.node_beta[sampled_nodes]
+            self.node_gamma = self.graph.node_gamma[sampled_nodes]
+
+        # keeps edges between sampled nodes
+        node_mapping = torch.empty(self.graph.num_nodes, dtype=torch.long).fill_(-1)
+        node_mapping[self.graph.node_index[sampled_nodes]] = self.node_index
+
+        edge_index = node_mapping[self.graph.edge_index]
+        mask = (edge_index[0] >= 0) & (edge_index[1] >= 0)
+        self.edge_index = edge_index[:, mask]
+        self.edge_weight = self.graph.edge_weight[mask]
+        self.edge_sqdist = self.graph.edge_sqdist[mask]
+
+    def node_pos(self, axis=None) -> Tuple[FloatTensor, FloatTensor, FloatTensor]:
+        if self.lie_group == "se2":
+            if axis is None:
+                return self.node_x, self.node_y, self.node_theta
+            if axis == "x":
+                return self.node_x
+            if axis == "y":
+                return self.node_y
+            if axis == "z":
+                return self.node_theta
+
+        elif self.lie_group == "so3":
+            return alphabetagamma2xyz(self.node_alpha, self.node_beta, self.node_gamma, axis)
+
+
 class SE2GEGraph(Graph):
     """
     Object representing a SE(2) group equivariant graph. It can be considered as a discretization of
@@ -196,6 +274,8 @@ class SE2GEGraph(Graph):
 
         super().__init__()
 
+        self.nsym = ntheta
+        self.lie_group = "se2"
         if weight_kernel is None:
             weight_kernel = lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac)
 
@@ -271,16 +351,6 @@ class SE2GEGraph(Graph):
         self.edge_sqdist = edge_sqdist
         self.edge_weight = weight_kernel(edge_sqdist, 0.2 * edge_sqdist.mean())
 
-    @property
-    def nsym(self) -> int:
-        """
-        Returns the number of symmetry's layers.
-
-        Returns:
-            int: number of symmetry's layers.
-        """
-        return self.node_theta.unique().nelement()
-
     def node_Gg(self, device=None) -> FloatTensor:
         """
         Returns the matrix formulation of group elements.
@@ -310,27 +380,6 @@ class SE2GEGraph(Graph):
             return self.node_y
         if axis == "z":
             return self.node_theta
-
-    @property
-    def centroid_index(self) -> int:
-        """
-        Returns the index of the centroid node of the graph.
-
-        Returns:
-            (int): centroid node's index.
-        """
-
-        mask = (
-            self.node_x.isclose(self.node_x.median())
-            & self.node_y.isclose(self.node_y.median())
-            & self.node_theta.isclose(self.node_theta.median())
-        )
-
-        return self.node_index[mask]
-
-    @property
-    def lie_group(self):
-        return "se2"
 
 
 class SO3GEGraph(Graph):
@@ -372,6 +421,8 @@ class SO3GEGraph(Graph):
 
         super().__init__()
 
+        self.nsym = nalpha
+        self.lie_group = "so3"
         if weight_kernel is None:
             weight_kernel = lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac)
 
@@ -474,16 +525,6 @@ class SO3GEGraph(Graph):
         self.edge_sqdist = edge_sqdist
         self.edge_weight = weight_kernel(edge_sqdist, 0.2 * edge_sqdist.mean())  # mean(sq_dist) -> weight = 0.4
 
-    @property
-    def nsym(self) -> int:
-        """
-        Returns the number of symmetry's layers.
-
-        Returns:
-            int: number of symmetry's layers.
-        """
-        return self.node_alpha.unique().nelement()
-
     def node_Gg(self, device=None) -> FloatTensor:
         """
         Returns the matrix formulation of group elements.
@@ -506,18 +547,3 @@ class SO3GEGraph(Graph):
             (FloatTensor, optional): z nodes' positions.
         """
         return alphabetagamma2xyz(self.node_alpha, self.node_beta, self.node_gamma, axis)
-
-    @property
-    def centroid_index(self) -> int:
-        """
-        Returns the index of the centroid node of the graph.
-
-        Returns:
-            (int): centroid node's index.
-        """
-
-        return 0
-
-    @property
-    def lie_group(self):
-        return "so3"

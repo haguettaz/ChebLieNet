@@ -30,7 +30,8 @@ def remove_duplicated_edges(
         mask = edge_index[0] <= edge_index[1]
     else:
         mask = edge_index[0] < edge_index[1]
-    return edge_index[:, mask], edge_attr[mask]
+
+    return edge_index[:, mask], edge_attr[..., mask]
 
 
 def to_undirected(edge_index: LongTensor, edge_attr: FloatTensor) -> Tuple[LongTensor, FloatTensor]:
@@ -46,8 +47,8 @@ def to_undirected(edge_index: LongTensor, edge_attr: FloatTensor) -> Tuple[LongT
         (FloatTensor): [description]
     """
     edge_index_inverse = torch.cat((edge_index[1, None], edge_index[0, None]), dim=0)
-    edge_index = torch.cat((edge_index, edge_index_inverse), dim=1)
-    edge_attr = torch.cat((edge_attr, edge_attr))
+    edge_index = torch.cat((edge_index, edge_index_inverse), dim=-1)
+    edge_attr = torch.cat((edge_attr, edge_attr), dim=-1)
     return edge_index, edge_attr
 
 

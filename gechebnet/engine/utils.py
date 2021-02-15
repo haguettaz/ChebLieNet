@@ -27,8 +27,9 @@ def prepare_batch(batch: Tuple[Tensor, Tensor], graph: Graph, device: Device) ->
     B, C, H, W = input.shape
 
     input = input.unsqueeze(2).expand(B, C, graph.nsym, H, W)
-    # input = graph.project(input)
     input = input.reshape(B, C, -1)  # (B, C, L*H*W)
+
+    input = graph.project(input)
 
     return input.to(device), target.to(device)
 
@@ -44,20 +45,26 @@ def wandb_log(trainer: Engine, evaluator: Engine, data_loader: DataLoader):
     """
     evaluator.run(data_loader)
     metrics = evaluator.state.metrics
-
     for k in metrics:
         wandb.log({k: metrics[k], "epoch": trainer.state.epoch})
 
 
-def set_sparse_laplacian(trainer: Engine, graph: Graph, on: str, rate: float):
-    """
-    Sets a randomly sparsified laplacian and log information with wandb.
+def edges_dropout(trainer: Engine, graph: Graph, rate: float):
+    if hasattr(graph, "laplacian"):
+        del graph.laplacian
 
-    Args:
-        trainer (Engine): trainer engine.
-        graph (Graph): graph.
-        on (str): graph's attribute to sparsify on, either nodes or edges.
-        rate (float): sparsification rate.
-    """
-    graph.set_sparse_laplacian(on, rate, norm=True)
-    wandb.log({f"{on} sparsification": rate, "epoch": trainer.state.epoch})
+    graph.edge_sampling(rate)
+    wandb.log({"num_nodes": graph.num_nodes, "epoch": trainer.state.epoch})
+    wandb.log({"num_edges": graph.num_edges, "epoch": trainer.state.epoch})
+
+
+def nodes_sparsification(trainer: Engine, graph: Graph, rate: float):
+    if hasattr(graph, "laplacian"):
+        del graph.laplacian
+
+    if hasattr(graph, "node_proj"):
+        del graph.node_proj
+
+    graph.node_sampling(rate)
+    wandb.log({"num_nodes": graph.num_nodes, "epoch": trainer.state.epoch})
+    wandb.log({"num_edges": graph.num_edges, "epoch": trainer.state.epoch})

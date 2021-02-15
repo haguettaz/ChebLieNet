@@ -5,8 +5,8 @@ import torch
 import wandb
 from gechebnet.data.dataloader import get_test_equivariance_dataloaders, get_train_val_dataloaders
 from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
-from gechebnet.engine.utils import prepare_batch, set_sparse_laplacian, wandb_log
-from gechebnet.graph.graph import SE2GEGraph
+from gechebnet.engine.utils import edges_dropout, nodes_sparsification, prepare_batch, wandb_log
+from gechebnet.graph.graph import RandomSubGraph, SE2GEGraph
 from gechebnet.model.chebnet import WideGEChebNet
 from gechebnet.model.reschebnet import WideResGEChebNet
 from ignite.contrib.handlers import ProgressBar
@@ -61,13 +61,12 @@ def train(config=None):
             sigmas=(config.xi / config.eps, config.xi, 1.0),
             weight_kernel=lambda sqdistc, tc: torch.exp(-sqdistc / 4 * tc),
         )
-        graph.set_laplacian(norm=True, device=device)
-        wandb.log({"num_nodes": graph.num_nodes, "num_edges": graph.num_edges})
+        sub_graph = RandomSubGraph(graph)
 
         # Loads group equivariant Chebnet and optimizer
         if args.resnet:
             model = WideResGEChebNet(
-                graph=graph,
+                graph=sub_graph,
                 in_channels=3,
                 out_channels=10,
                 K=config.K,
@@ -76,7 +75,7 @@ def train(config=None):
             ).to(device)
         else:
             model = WideGEChebNet(
-                graph=graph,
+                graph=sub_graph,
                 in_channels=3,
                 out_channels=10,
                 K=config.K,
@@ -114,7 +113,7 @@ def train(config=None):
 
         # Loads engines
         trainer = create_supervised_trainer(
-            graph=graph,
+            graph=sub_graph,
             model=model,
             optimizer=optimizer,
             loss_fn=nll_loss,
@@ -122,14 +121,22 @@ def train(config=None):
             prepare_batch=prepare_batch,
         )
         ProgressBar(persist=False, desc="Training").attach(trainer)
+
         trainer.add_event_handler(Events.ITERATION_COMPLETED, scheduler)
-        if args.sparse:
+
+        if args.sample_edges:
+            trainer.add_event_handler(
+                Events.ITERATION_STARTED,
+                edges_dropout,
+                sub_graph,
+                args.edges_rate,
+            )
+        if args.sample_nodes:
             trainer.add_event_handler(
                 Events.EPOCH_STARTED,
-                set_sparse_laplacian,
-                graph,
-                args.sparse_on,
-                args.sparse_rate,
+                nodes_sparsification,
+                sub_graph,
+                args.nodes_rate,
             )
 
         classic_metrics = {"classic_test_accuracy": Accuracy(), "classic_test_loss": Loss(nll_loss)}
@@ -137,7 +144,7 @@ def train(config=None):
         flipped_metrics = {"flipped_test_accuracy": Accuracy(), "flipped_test_loss": Loss(nll_loss)}
 
         classic_evaluator = create_supervised_evaluator(
-            graph=graph,
+            graph=sub_graph,
             model=model,
             metrics=classic_metrics,
             device=device,
@@ -146,7 +153,7 @@ def train(config=None):
         ProgressBar(persist=False, desc="Evaluation").attach(classic_evaluator)
 
         rotated_evaluator = create_supervised_evaluator(
-            graph=graph,
+            graph=sub_graph,
             model=model,
             metrics=rotated_metrics,
             device=device,
@@ -155,7 +162,7 @@ def train(config=None):
         ProgressBar(persist=False, desc="Evaluation").attach(rotated_evaluator)
 
         flipped_evaluator = create_supervised_evaluator(
-            graph=graph,
+            graph=sub_graph,
             model=model,
             metrics=flipped_metrics,
             device=device,
@@ -182,9 +189,10 @@ if __name__ == "__main__":
     parser.add_argument("--resnet", action="store_true", default=False)
     parser.add_argument("--depth", type=int, default=8)
     parser.add_argument("--widen_factor", type=int, default=2)
-    parser.add_argument("--sparse", action="store_true", default=False)
-    parser.add_argument("--sparse_rate", type=float, default=0.8)
-    parser.add_argument("--sparse_on", type=str, default="edges", choices=["edges", "nodes"])
+    parser.add_argument("--sample_edges", action="store_true", default=False)
+    parser.add_argument("--edges_rate", type=float, default=1.0)  # rate of edges or nodes to sample
+    parser.add_argument("--sample_nodes", action="store_true", default=False)
+    parser.add_argument("--nodes_rate", type=float, default=1.0)  # rate of edges or nodes to sample
     parser.add_argument("--optim", type=str, default="adam", choices=["sgd", "adam"])
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--nesterov", action="store_true", default=False)

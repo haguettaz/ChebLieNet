@@ -50,6 +50,7 @@ def cheb_conv(x: FloatTensor, weights: FloatTensor, laplacian: Optional[SparseFl
 
 class ChebConv(nn.Module):
     """Graph convolutional layer."""
+
     def __init__(
         self,
         graph: Graph,
@@ -95,7 +96,7 @@ class ChebConv(nn.Module):
         Returns:
             (FloatTensor): convolved input data.
         """
-        laplacian = self.graph.laplacian.to(x.device)
+        laplacian = self.graph.get_laplacian(norm=True, device=x.device)
         x = cheb_conv(x, self.weight, laplacian)  # (B, V, Cin) -> (V, B, Cout)
 
         if self.bias is not None:

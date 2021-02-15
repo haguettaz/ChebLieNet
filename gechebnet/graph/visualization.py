@@ -131,6 +131,7 @@ def visualize_graph_neighborhood(graph, node_index):
             color="weight",
             hover_data=["x", "y", "theta", "sqdist", "weight"],
             color_continuous_scale="PuRd",
+            range_color=[0, 1],
         )
     elif graph.lie_group == "so3":
         dataframe = pd.DataFrame(
