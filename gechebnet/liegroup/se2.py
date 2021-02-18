@@ -2,7 +2,7 @@ import math
 from typing import Optional, Tuple
 
 import torch
-from pykeops.torch import LazyTensor, Pm
+#from pykeops.torch import LazyTensor, Pm
 from torch import FloatTensor, Tensor
 from torch import device as Device
 

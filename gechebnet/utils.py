@@ -4,7 +4,7 @@ from typing import Optional, Union
 import numpy as np
 import torch
 from numpy import ndarray
-from pykeops.torch import LazyTensor
+#from pykeops.torch import LazyTensor
 from scipy.sparse import coo_matrix
 from torch import Tensor
 from torch import device as Device

@@ -2,7 +2,8 @@ import sys
 from time import time
 
 import numpy as np
-import pykeops
+
+# import pykeops
 import torch
 from gechebnet.graph.graph import SE2GEGraph, SO3GEGraph
 from tqdm import tqdm
@@ -49,7 +50,7 @@ def test_speed(knn, iter=10):
 
 
 if __name__ == "__main__":
-    pykeops.clean_pykeops()
+    # pykeops.clean_pykeops()
 
     for knn in [4, 8, 16, 32, 64]:
         compile_graphs(knn)

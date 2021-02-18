@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import torch
 from numpy import ndarray
-from pykeops.torch import Vi, Vj
+#from pykeops.torch import Vi, Vj
 from torch import FloatTensor, LongTensor
 from torch import device as Device
 from torch.sparse import FloatTensor as SparseFloatTensor
