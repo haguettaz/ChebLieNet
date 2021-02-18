@@ -35,27 +35,23 @@ def build_sweep_config(anisotropic: bool, coupled_sym: bool) -> dict:
     }
 
     parameters = {
-        "batch_size": {"distribution": "categorical", "values": [8, 16, 32, 64]},
-        "R": {"distribution": "categorical", "values": [2, 4, 8, 16]},
-        "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
+        "batch_size": {"distribution": "categorical", "values": [8, 16, 32]},
+        "R": {"distribution": "categorical", "values": [2, 3, 4, 5, 6]},
+        "knn": {"distribution": "categorical", "values": [8, 16, 32]},
     }
 
     if anisotropic:
         if coupled_sym:
-            parameters["xi"] = {
-                "distribution": "log_uniform",
-                "min": math.log(1e-2),
-                "max": math.log(1.0),
-            }
+            parameters["xi"] = {"distribution": "constant", "value": 40.0}
         else:
             parameters["xi"] = {"distribution": "constant", "value": 1e-4}
 
-        parameters["nsym"] = {"distribution": "int_uniform", "min": 3, "max": 9}
+        parameters["ntheta"] = {"distribution": "int_uniform", "min": 3, "max": 9}
         parameters["eps"] = {"distribution": "constant", "value": 0.1}
 
     else:
         parameters["xi"] = {"distribution": "constant", "value": 1.0}
-        parameters["nsym"] = {"distribution": "constant", "value": 1}
+        parameters["ntheta"] = {"distribution": "constant", "value": 1}
         parameters["eps"] = {"distribution": "constant", "value": 1.0}
 
     sweep_config["parameters"] = parameters
@@ -76,7 +72,7 @@ def train(config=None):
         graph = SE2GEGraph(
             nx=28,
             ny=28,
-            ntheta=config.nsym,
+            ntheta=config.ntheta,
             knn=config.knn,
             sigmas=(config.xi / config.eps, config.xi, 1.0),
             weight_kernel=lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac),

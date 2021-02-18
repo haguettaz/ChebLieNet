@@ -26,7 +26,7 @@ def prepare_batch(batch: Tuple[Tensor, Tensor], graph: Graph, device: Device) ->
     input, target = batch
     B, C, H, W = input.shape
 
-    input = input.unsqueeze(2).expand(B, C, graph.nsym, H, W)
+    input = input.unsqueeze(2).expand(B, C, graph.nx3, H, W)
     input = input.reshape(B, C, -1)  # (B, C, L*H*W)
 
     input = graph.project(input)

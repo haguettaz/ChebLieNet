@@ -34,7 +34,7 @@ def build_config(anisotropic: bool, coupled_sym: bool) -> dict:
         "R": 4,
         "eps": 0.1 if anisotropic else 1.0,
         "K": 16 if anisotropic else 8,
-        "nsym": 6 if anisotropic else 1,
+        "ntheta": 6 if anisotropic else 1,
         "xi": 1.0 if not anisotropic else 50.0 if coupled_sym else 1e-4,
     }
 
@@ -56,7 +56,7 @@ def train(config=None):
         graph_lvl1 = SE2GEGraph(
             nx=32,
             ny=32,
-            ntheta=config.nsym,
+            ntheta=config.ntheta,
             K=config.K,
             sigmas=(config.xi / config.eps, config.xi, 1.0),
             weight_kernel=lambda sqdistc, tc: torch.exp(-sqdistc / 4 * tc),
@@ -66,7 +66,7 @@ def train(config=None):
         graph_lvl2 = SE2GEGraph(
             nx=16 if args.graph_pool else 32,
             ny=16 if args.graph_pool else 32,
-            ntheta=config.nsym,
+            ntheta=config.ntheta,
             K=config.K,
             sigmas=(config.xi / 4 / config.eps, config.xi / 4, 1.0)
             if args.graph_pool
@@ -78,7 +78,7 @@ def train(config=None):
         graph_lvl3 = SE2GEGraph(
             nx=8 if args.graph_pool else 32,
             ny=8 if args.graph_pool else 32,
-            ntheta=config.nsym,
+            ntheta=config.ntheta,
             K=config.K,
             sigmas=(config.xi / 16 / config.eps, config.xi / 16, 1.0)
             if args.graph_pool
