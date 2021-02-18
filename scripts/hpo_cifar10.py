@@ -4,8 +4,10 @@ import math
 import torch
 import wandb
 from gechebnet.data.dataloader import get_train_val_dataloaders
-from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
-from gechebnet.engine.utils import prepare_batch, set_sparse_laplacian, wandb_log
+from gechebnet.engine.engine import (create_supervised_evaluator,
+                                     create_supervised_trainer)
+from gechebnet.engine.utils import (prepare_batch, set_sparse_laplacian,
+                                    wandb_log)
 from gechebnet.graph.graph import SE2GEGraph
 from gechebnet.model.chebnet import WideGEChebNet
 from gechebnet.model.reschebnet import WideResGEChebNet
@@ -36,7 +38,7 @@ def build_sweep_config(anisotropic: bool, coupled_sym: bool) -> dict:
 
     parameters = {
         "batch_size": {"distribution": "categorical", "values": [8, 16, 32, 64]},
-        "K": {"distribution": "categorical", "values": [2, 4, 8, 16]},
+        "R": {"distribution": "categorical", "values": [2, 4, 8, 16]},
         "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
     }
 
@@ -89,7 +91,7 @@ def train(config=None):
             model = WideResGEChebNet(
                 in_channels=3,
                 out_channels=10,
-                K=config.K,
+                R=config.R,
                 graph=graph,
                 depth=args.depth,
                 widen_factor=args.widen_factor,
@@ -99,7 +101,7 @@ def train(config=None):
             model = WideGEChebNet(
                 in_channels=3,
                 out_channels=10,
-                K=config.K,
+                R=config.R,
                 graph=graph,
                 depth=args.depth,
                 widen_factor=args.widen_factor,

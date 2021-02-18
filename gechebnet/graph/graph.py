@@ -10,9 +10,8 @@ from torch import FloatTensor, LongTensor
 from torch import device as Device
 from torch.sparse import FloatTensor as SparseFloatTensor
 
-from ..liegroup.se2 import se2_anisotropic_square_riemannanian_distance, se2_log, se2_matrix
-from ..liegroup.so3 import so3_anisotropic_square_riemannanian_distance, so3_log, so3_matrix
-from ..liegroup.utils import alphabetagamma2xyz, xyz2betagamma
+from ..liegroup.se2 import se2_matrix, se2_riemannian_sqdist
+from ..liegroup.so3 import alphabetagamma2xyz, so3_matrix, so3_riemannian_sqdist, xyz2betagamma
 from ..utils import rescale, sparse_tensor_to_sparse_array
 from .optimization import repulsive_loss, repulsive_sampling
 from .polyhedron import polyhedron_division, polyhedron_init
@@ -62,7 +61,7 @@ class Graph:
         return signal[..., self.node_proj]
 
     @property
-    def eigen_space(self, norm=True) -> Tuple[ndarray, ndarray]:
+    def eigen_space(self, norm=False) -> Tuple[ndarray, ndarray]:
         """
         Return graph eigen space, i.e. Laplacian eigen decomposition.
 
@@ -155,7 +154,7 @@ class RandomSubGraph(Graph):
 
         self.graph = graph
         self.lie_group = self.graph.lie_group
-        self.nsym = self.graph.nsym
+        self.nx1, self.nx2, self.nx3 = self.graph.nx1, self.graph.nx2, self.graph.nx3
 
         self._initnodes(graph)
         self._initedges(graph)
@@ -249,14 +248,14 @@ class SE2GEGraph(Graph):
         nx: int,
         ny: int,
         ntheta: Optional[int] = 6,
-        knn: Optional[int] = 16,
+        K: Optional[int] = 16,
         sigmas: Optional[Tuple[float, float, float]] = (1.0, 1.0, 1.0),
         weight_kernel: Optional[Callable] = None,
     ):
         """
         Inits a SE(2) group equivariant graph.
             1. Uniformly samples points on the SE(2) manifold.
-            2. Init edges between nodes. Each node has at most knn neighbors, weight of edges are computed according to the
+            2. Init edges between nodes. Each node has at most K neighbors, weight of edges are computed according to the
             Riemannian distance between them and the given weight kernel.
             3. Compress the graph according to the given compression algorithm.
             4. Init laplacian the symmetric normalized laplacian of the graph and store its maximum eigen value.
@@ -267,20 +266,21 @@ class SE2GEGraph(Graph):
             ntheta (int, optional): theta axis discretization. Defaults to 6.
             kappa (float, optional): edges compression rate. Defaults to 0.0.
             weight_kernel (callable, optional): weight kernel to use. Defaults to None.
-            knn (int, optional): maximum number of connections of a vertex. Defaults to 16.
+            K (int, optional): maximum number of connections of a vertex. Defaults to 16.
             sigmas (tuple, optional): anisotropy's parameters to compute anisotropic Riemannian distances. Defaults to (1., 1., 1.).
             device (Device): device. Defaults to None.
         """
 
         super().__init__()
 
-        self.nsym = ntheta
+        self.nx1, self.nx2, self.nx3 = nx, ny, ntheta
         self.lie_group = "se2"
+
         if weight_kernel is None:
             weight_kernel = lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac)
 
         self._initnodes(nx, ny, ntheta)
-        self._initedges(sigmas, knn if knn < self.num_nodes else self.num_nodes - 1, weight_kernel)
+        self._initedges(sigmas, K if K < self.num_nodes else self.num_nodes - 1, weight_kernel)
 
     def _initnodes(self, nx, ny, ntheta):
         """
@@ -296,8 +296,15 @@ class SE2GEGraph(Graph):
 
         self.node_index = torch.arange(nx * ny * ntheta)
 
-        x_axis = torch.arange(0.0, nx)
-        y_axis = torch.arange(0.0, ny)
+        if nx == 1:
+            x_axis = torch.zeros(1)
+        else:
+            x_axis = torch.arange(0.0, 1.0, 1 / nx)
+
+        if ny == 1:
+            y_axis = torch.zeros(1)
+        else:
+            y_axis = torch.arange(0.0, 1.0, 1 / ny)
 
         if ntheta == 1:
             theta_axis = torch.zeros(1)
@@ -313,7 +320,7 @@ class SE2GEGraph(Graph):
     def _initedges(
         self,
         sigmas: Tuple[float, float, float],
-        knn: int,
+        K: int,
         weight_kernel: Callable,
     ):
         """
@@ -323,25 +330,38 @@ class SE2GEGraph(Graph):
 
         Args:
             sigmas (float,float,float): anisotropy's parameters to compute Riemannian distances.
-            knn (int): maximum number of connections of a vertex.
+            K (int): maximum number of connections of a vertex.
             weight_kernel (callable): mapping from squared distance to weight value.
             device (Device): computation device.
 
         Raises:
             ValueError: kappa must be in [0, 1).
         """
-        xi = Vi(torch.inverse(self.node_Gg()).reshape(self.num_nodes, -1))  # sources
-        xj = Vj(self.node_Gg().reshape(self.num_nodes, -1))  # targets
 
-        sqdist = se2_anisotropic_square_riemannanian_distance(
-            xi,
-            xj,
-            sigmas,
-        )
-        edge_sqdist, neighbors = sqdist.Kmin_argKmin(knn + 1, dim=1)
+        # xi = Vi(torch.inverse(self.node_Gg()).reshape(self.num_nodes, -1))  # sources
+        # xj = Vj(self.node_Gg().reshape(self.num_nodes, -1))  # targets
 
-        edge_index = torch.stack((self.node_index.repeat_interleave(knn + 1), neighbors.flatten()), dim=0)
-        edge_sqdist = edge_sqdist.flatten()
+        # sqdist = se2_anisotropic_square_riemannanian_distance(
+        #     xi,
+        #     xj,
+        #     sigmas,
+        # )
+        # edge_sqdist, neighbors = sqdist.Kmin_argKmin(K + 1, dim=1)
+
+        # edge_index = torch.stack((self.node_index.repeat_interleave(K + 1), neighbors.flatten()), dim=0)
+        # edge_sqdist = edge_sqdist.flatten()
+
+        Gg = self.node_Gg()
+        edge_sqdist = torch.empty(self.num_nodes * (K + 1))
+        edge_index = torch.empty((2, self.num_nodes * (K + 1)), dtype=torch.long)
+        Re = torch.diag(torch.tensor(sigmas))
+
+        for idx in self.node_index:
+            sqdist = se2_riemannian_sqdist(Gg[idx], Gg, Re)
+            values, indices = torch.topk(sqdist, largest=False, k=K + 1, sorted=False)
+            edge_sqdist[idx * (K + 1) : (idx + 1) * (K + 1)] = values
+            edge_index[0, idx * (K + 1) : (idx + 1) * (K + 1)] = idx
+            edge_index[1, idx * (K + 1) : (idx + 1) * (K + 1)] = indices
 
         # remove duplicated edges and self-loops
         edge_index, edge_sqdist = remove_duplicated_edges(edge_index, edge_sqdist, self_loop=False)
@@ -397,14 +417,14 @@ class SO3GEGraph(Graph):
         polyhedron: str,
         level: int,
         nalpha: Optional[int] = 6,
-        knn: Optional[int] = 16,
+        K: Optional[int] = 16,
         sigmas: Optional[Tuple[float, float, float]] = (1.0, 1.0, 1.0),
         weight_kernel: Optional[Callable] = None,
     ):
         """
         Inits a SO(3) group equivariant graph.
             1. Uniformly samples points on the SE(2) manifold.
-            2. Init edges between nodes. Each node has at most knn neighbors, weight of edges are computed according to the
+            2. Init edges between nodes. Each node has at most K neighbors, weight of edges are computed according to the
             Riemannian distance between them and the given weight kernel.
             3. Compress the graph according to the given compression algorithm.
             4. Init laplacian the symmetric normalized laplacian of the graph and store its maximum eigen value.
@@ -412,7 +432,7 @@ class SO3GEGraph(Graph):
         Args:
             nsamples (int): number of samples on the pi-sphere
             nalpha (int, optional): alpha axis discretization. Defaults to 6.
-            knn (int, optional): maximum number of connections of a vertex. Defaults to 16.
+            K (int, optional): maximum number of connections of a vertex. Defaults to 16.
             sigmas (tuple, optional): anisotropy's parameters to compute anisotropic Riemannian distances. Defaults to (1., 1., 1.).
             weight_kernel (callable, optional): mapping from squared distance to weight value.
             kappa (float, optional): edges' compression rate. Defaults to 0.0.
@@ -421,7 +441,7 @@ class SO3GEGraph(Graph):
 
         super().__init__()
 
-        self.nsym = nalpha
+        self.nx3 = nalpha
         self.lie_group = "so3"
         if weight_kernel is None:
             weight_kernel = lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac)
@@ -430,7 +450,7 @@ class SO3GEGraph(Graph):
         # self.nalpha = nalpha
         self._initnodes(polyhedron, level, nalpha)
         # self._initnodes(nsamples * nalpha)
-        self._initedges(sigmas, knn if knn < self.num_nodes else self.num_nodes - 1, weight_kernel)
+        self._initedges(sigmas, K if K < self.num_nodes else self.num_nodes - 1, weight_kernel)
 
     def _initnodes(self, polyhedron, level, nalpha):
         # uniformly samples on the sphere by polyhedron subdivisions -> uniformly sampled beta and gamma
@@ -487,7 +507,7 @@ class SO3GEGraph(Graph):
     def _initedges(
         self,
         sigmas: Tuple[float, float, float],
-        knn: int,
+        K: int,
         weight_kernel: Callable,
     ):
         """
@@ -497,7 +517,7 @@ class SO3GEGraph(Graph):
 
         Args:
             sigmas (tuple): anisotropy's parameters to compute anisotropic Riemannian distances.
-            knn (int): maximum number of connections of a vertex.
+            K (int): maximum number of connections of a vertex.
             weight_kernel (callable): mapping from squared distance to weight value.
             kappa (float): edges' compression rate.
             device (Device): computation device.
@@ -505,17 +525,29 @@ class SO3GEGraph(Graph):
         Raises:
             ValueError: kappa must be in [0, 1).
         """
-        Gg = self.node_Gg().reshape(self.num_nodes, -1)
-        Gh = self.node_Gg().inverse().reshape(self.num_nodes, -1)
+        # Gg = self.node_Gg().reshape(self.num_nodes, -1)
+        # Gh = self.node_Gg().inverse().reshape(self.num_nodes, -1)
 
-        xi, xj, xi_t, xj_t = Vi(Gh), Vj(Gg), Vi(Gg), Vj(Gh)
+        # xi, xj = Vi(Gh), Vj(Gg)
 
-        sqdist = so3_anisotropic_square_riemannanian_distance(xi, xj, xi_t, xj_t, sigmas)
+        # sqdist = so3_anisotropic_square_riemannanian_distance(xi, xj, sigmas)
 
-        edge_sqdist, neighbors = sqdist.Kmin_argKmin(knn + 1, dim=1)
+        # edge_sqdist, neighbors = sqdist.Kmin_argKmin(k + 1, dim=1)
 
-        edge_index = torch.stack((self.node_index.repeat_interleave(knn + 1), neighbors.flatten()), dim=0)
-        edge_sqdist = edge_sqdist.flatten()
+        # edge_index = torch.stack((self.node_index.repeat_interleave(K + 1), neighbors.flatten()), dim=0)
+        # edge_sqdist = edge_sqdist.flatten()
+
+        Gg = self.node_Gg()
+        edge_sqdist = torch.empty(self.num_nodes * (K + 1))
+        edge_index = torch.empty((2, self.num_nodes * (K + 1)), dtype=torch.long)
+        Re = torch.diag(torch.tensor(sigmas))
+
+        for idx in self.node_index:
+            sqdist = so3_riemannian_sqdist(Gg[idx], Gg, Re)
+            values, indices = torch.topk(sqdist, largest=False, k=K + 1, sorted=False)
+            edge_sqdist[idx * (K + 1) : (idx + 1) * (K + 1)] = values
+            edge_index[0, idx * (K + 1) : (idx + 1) * (K + 1)] = idx
+            edge_index[1, idx * (K + 1) : (idx + 1) * (K + 1)] = indices
 
         # remove duplicated edges and self-loops
         edge_index, edge_sqdist = remove_duplicated_edges(edge_index, edge_sqdist, self_loop=False)

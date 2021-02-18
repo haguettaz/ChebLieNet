@@ -48,7 +48,19 @@ def mod(input: Tensor, n: float, d: float = 0.0) -> Tensor:
     """
     return (input - d) % n + d
 
-def round(input:Tensor, n_digits:int=0)->Tensor:
+
+def sinc(input):
+    output = torch.sin(input) / input
+    output[input == 0.0] = 1.0
+    return output
+
+
+def weighted_norm(input, weights):
+    W = torch.diag(weights).to(input.device)
+    return torch.matmul(torch.matmul(input.transpose(1, 2), W), input).squeeze()
+
+
+def round(input: Tensor, n_digits: int = 0) -> Tensor:
     """
     Returns a new tensor with the rounded to n decimal places version of the elements of input.
 
@@ -59,7 +71,8 @@ def round(input:Tensor, n_digits:int=0)->Tensor:
     Returns:
         Tensor: output tensor.
     """
-    return torch.round(input * 10**n_digits) / (10**n_digits)    
+    return torch.round(input * 10 ** n_digits) / (10 ** n_digits)
+
 
 def shuffle_tensor(input: Tensor) -> Tensor:
     """

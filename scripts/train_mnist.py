@@ -7,8 +7,8 @@ from gechebnet.data.dataloader import get_test_equivariance_dataloaders, get_tra
 from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engine.utils import edges_dropout, nodes_sparsification, prepare_batch, wandb_log
 from gechebnet.graph.graph import RandomSubGraph, SE2GEGraph
-from gechebnet.model.chebnet import WideGEChebNet
-from gechebnet.model.reschebnet import WideResGEChebNet
+from gechebnet.nn.chebnet import WideGEChebNet
+from gechebnet.nn.reschebnet import WideResGEChebNet
 from ignite.contrib.handlers import ProgressBar
 from ignite.contrib.handlers.param_scheduler import LRScheduler
 from ignite.engine import Events
@@ -31,11 +31,11 @@ def build_config(anisotropic: bool, coupled_sym: bool) -> dict:
     """
 
     config = {
-        "K": 4,
+        "R": 4,
         "eps": 0.1 if anisotropic else 1.0,
-        "knn": 16 if anisotropic else 8,
+        "K": 16 if anisotropic else 8,
         "nsym": 6 if anisotropic else 1,
-        "xi": 1.0 if not anisotropic else 0.05 if coupled_sym else 1e-4,
+        "xi": 1.0 if not anisotropic else 40.0 if coupled_sym else 1e-4,
     }
 
     return config
@@ -53,36 +53,63 @@ def train(config=None):
         device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
         # Loads graph manifold and set normalized laplacian
-        graph = SE2GEGraph(
+        graph_lvl1 = SE2GEGraph(
             nx=28,
             ny=28,
             ntheta=config.nsym,
-            knn=config.knn,
+            K=config.K,
             sigmas=(config.xi / config.eps, config.xi, 1.0),
             weight_kernel=lambda sqdistc, tc: torch.exp(-sqdistc / 4 * tc),
         )
-        sub_graph = RandomSubGraph(graph)
+        sub_graph_lvl1 = RandomSubGraph(graph_lvl1)
 
+        graph_lvl2 = SE2GEGraph(
+            nx=14 if args.graph_pool else 28,
+            ny=14 if args.graph_pool else 28,
+            ntheta=config.nsym,
+            K=config.K,
+            sigmas=(config.xi / 4 / config.eps, config.xi / 4, 1.0)
+            if args.graph_pool
+            else (config.xi / config.eps, config.xi, 1.0),
+            weight_kernel=lambda sqdistc, tc: torch.exp(-sqdistc / 4 * tc),
+        )
+        sub_graph_lvl2 = RandomSubGraph(graph_lvl2)
+
+        graph_lvl3 = SE2GEGraph(
+            nx=7 if args.graph_pool else 28,
+            ny=7 if args.graph_pool else 28,
+            ntheta=config.nsym,
+            K=config.K,
+            sigmas=(config.xi / 16 / config.eps, config.xi / 16, 1.0)
+            if args.graph_pool
+            else (config.xi / config.eps, config.xi, 1.0),
+            weight_kernel=lambda sqdistc, tc: torch.exp(-sqdistc / 4 * tc),
+        )
+        sub_graph_lvl3 = RandomSubGraph(graph_lvl3)
 
         # Loads group equivariant Chebnet and optimizer
         if args.resnet:
             model = WideResGEChebNet(
-                graph=sub_graph,
-                in_channels=1,
-                out_channels=10,
-                K=config.K,
-                depth=args.depth,
-                widen_factor=args.widen_factor,
+                sub_graph_lvl1,
+                sub_graph_lvl2,
+                sub_graph_lvl3,
+                1,
+                10,
+                config.R,
+                args.depth,
+                args.widen_factor,
             ).to(device)
 
         else:
             model = WideGEChebNet(
-                graph=sub_graph,
-                in_channels=1,
-                out_channels=10,
-                K=config.K,
-                depth=args.depth,
-                widen_factor=args.widen_factor,
+                sub_graph_lvl1,
+                sub_graph_lvl2,
+                sub_graph_lvl3,
+                1,
+                10,
+                config.R,
+                args.depth,
+                args.widen_factor,
             ).to(device)
         wandb.log({"capacity": model.capacity})
 
@@ -116,7 +143,7 @@ def train(config=None):
 
         # Loads engines
         trainer = create_supervised_trainer(
-            graph=sub_graph,
+            graph=sub_graph_lvl1,
             model=model,
             optimizer=optimizer,
             loss_fn=nll_loss,
@@ -131,14 +158,39 @@ def train(config=None):
             trainer.add_event_handler(
                 Events.ITERATION_STARTED,
                 edges_dropout,
-                sub_graph,
+                sub_graph_lvl1,
                 args.edges_rate,
             )
+            trainer.add_event_handler(
+                Events.ITERATION_STARTED,
+                edges_dropout,
+                sub_graph_lvl2,
+                args.edges_rate,
+            )
+            trainer.add_event_handler(
+                Events.ITERATION_STARTED,
+                edges_dropout,
+                sub_graph_lvl3,
+                args.edges_rate,
+            )
+
         if args.sample_nodes:
             trainer.add_event_handler(
                 Events.EPOCH_STARTED,
                 nodes_sparsification,
-                sub_graph,
+                sub_graph_lvl1,
+                args.nodes_rate,
+            )
+            trainer.add_event_handler(
+                Events.EPOCH_STARTED,
+                nodes_sparsification,
+                sub_graph_lvl2,
+                args.nodes_rate,
+            )
+            trainer.add_event_handler(
+                Events.EPOCH_STARTED,
+                nodes_sparsification,
+                sub_graph_lvl3,
                 args.nodes_rate,
             )
 
@@ -147,7 +199,7 @@ def train(config=None):
         flipped_metrics = {"flipped_test_accuracy": Accuracy(), "flipped_test_loss": Loss(nll_loss)}
 
         classic_evaluator = create_supervised_evaluator(
-            graph=sub_graph,
+            graph=sub_graph_lvl1,
             model=model,
             metrics=classic_metrics,
             device=device,
@@ -156,7 +208,7 @@ def train(config=None):
         ProgressBar(persist=False, desc="Evaluation").attach(classic_evaluator)
 
         rotated_evaluator = create_supervised_evaluator(
-            graph=sub_graph,
+            graph=sub_graph_lvl1,
             model=model,
             metrics=rotated_metrics,
             device=device,
@@ -165,7 +217,7 @@ def train(config=None):
         ProgressBar(persist=False, desc="Evaluation").attach(rotated_evaluator)
 
         flipped_evaluator = create_supervised_evaluator(
-            graph=sub_graph,
+            graph=sub_graph_lvl1,
             model=model,
             metrics=flipped_metrics,
             device=device,
@@ -196,6 +248,7 @@ if __name__ == "__main__":
     parser.add_argument("--edges_rate", type=float, default=1.0)  # rate of edges or nodes to sample
     parser.add_argument("--sample_nodes", action="store_true", default=False)
     parser.add_argument("--nodes_rate", type=float, default=1.0)  # rate of edges or nodes to sample
+    parser.add_argument("--graph_pool", action="store_true", default=False)
     parser.add_argument("--optim", type=str, default="adam", choices=["sgd", "adam"])
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--nesterov", action="store_true", default=False)

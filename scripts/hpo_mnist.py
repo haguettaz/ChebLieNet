@@ -36,7 +36,7 @@ def build_sweep_config(anisotropic: bool, coupled_sym: bool) -> dict:
 
     parameters = {
         "batch_size": {"distribution": "categorical", "values": [8, 16, 32, 64]},
-        "K": {"distribution": "categorical", "values": [2, 4, 8, 16]},
+        "R": {"distribution": "categorical", "values": [2, 4, 8, 16]},
         "knn": {"distribution": "categorical", "values": [4, 8, 16, 32]},
     }
 
@@ -89,7 +89,7 @@ def train(config=None):
             model = WideResGEChebNet(
                 in_channels=1,
                 out_channels=10,
-                K=config.K,
+                R=config.R,
                 graph=graph,
                 depth=args.depth,
                 widen_factor=args.widen_factor,
@@ -99,7 +99,7 @@ def train(config=None):
             model = WideGEChebNet(
                 in_channels=1,
                 out_channels=10,
-                K=config.K,
+                R=config.R,
                 graph=graph,
                 depth=args.depth,
                 widen_factor=args.widen_factor,
