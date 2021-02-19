@@ -29,13 +29,23 @@ class WideGEChebNet(nn.Module):
 
         # hidden layers : 3 convolutional blocks + spatial pooling
         self.block1 = NetworkBlock(graph_lvl1, hidden_channels[0], hidden_channels[1], num_layers, BasicBlock, R)
-        self.graphmaxpool1 = GraphPooling(
-            graph_lvl1.nx3, graph_lvl2.nx3, graph_lvl1.nx2, graph_lvl2.nx2, graph_lvl1.nx1, graph_lvl2.nx1
-        )
+
+        if graph_lvl1.nx3 != graph_lvl2.nx3 or graph_lvl1.nx2 != graph_lvl2.nx2 or graph_lvl1.nx1 != graph_lvl2.nx1:
+            self.graphmaxpool1 = GraphPooling(
+                graph_lvl1.nx3, graph_lvl2.nx3, graph_lvl1.nx2, graph_lvl2.nx2, graph_lvl1.nx1, graph_lvl2.nx1
+            )
+        else:
+            self.graphmaxpool1 = None
+
         self.block2 = NetworkBlock(graph_lvl2, hidden_channels[1], hidden_channels[2], num_layers, BasicBlock, R)
-        self.graphmaxpool2 = GraphPooling(
-            graph_lvl2.nx3, graph_lvl3.nx3, graph_lvl2.nx2, graph_lvl3.nx2, graph_lvl2.nx1, graph_lvl3.nx1
-        )
+
+        if graph_lvl2.nx3 != graph_lvl3.nx3 or graph_lvl2.nx2 != graph_lvl3.nx2 or graph_lvl2.nx1 != graph_lvl3.nx1:
+            self.graphmaxpool2 = GraphPooling(
+                graph_lvl2.nx3, graph_lvl3.nx3, graph_lvl2.nx2, graph_lvl3.nx2, graph_lvl2.nx1, graph_lvl3.nx1
+            )
+        else:
+            self.graphmaxpool2 = None
+
         self.block3 = NetworkBlock(graph_lvl3, hidden_channels[2], hidden_channels[3], num_layers, BasicBlock, R)
 
         # output layer : global average pooling + fc
@@ -49,9 +59,11 @@ class WideGEChebNet(nn.Module):
         out = self.relu(self.conv(x))
 
         out = self.block1(out)
-        out = self.graphmaxpool1(out)
+        if self.graphmaxpool1 is not None:
+            out = self.graphmaxpool1(out)
         out = self.block2(out)
-        out = self.graphmaxpool2(out)
+        if self.graphmaxpool2 is not None:
+            out = self.graphmaxpool2(out)
         out = self.block3(out)
 
         out = self.globalmaxpool(out).contiguous().view(B, -1)
