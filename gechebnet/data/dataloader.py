@@ -15,6 +15,7 @@ from torchvision.transforms import (
 )
 
 from ..utils import shuffle_tensor
+from .transform import Random90Rotation
 
 # mean and std per channels on the training sets
 MNIST_MEAN, MNIST_STD = (0.1307,), (0.3081,)
@@ -67,7 +68,7 @@ def get_train_val_dataloaders(
     elif dataset == "stl10":
         dataset = STL10(
             data_path,
-            split="test", # we use test set as training set since it has more samples
+            split="test",  # we use test set as training set since it has more samples
             download=True,
             transform=Compose([ToTensor(), Normalize(STL10_MEAN, STL10_STD)]),
         )
@@ -104,7 +105,7 @@ def get_test_equivariance_dataloaders(
 
     Returns:
         (DataLoader): test dataloader
-        (DataLoader): test dataloader with random rotations 
+        (DataLoader): test dataloader with random rotations
         (DataLoader): test dataloader with random flips.
     """
 
@@ -149,7 +150,7 @@ def get_test_equivariance_dataloaders(
             data_path,
             train=False,
             download=True,
-            transform=Compose([RandomRotation(degrees=180), ToTensor(), Normalize(CIFAR10_MEAN, CIFAR10_STD)]),
+            transform=Compose([Random90Rotation(), ToTensor(), Normalize(CIFAR10_MEAN, CIFAR10_STD)]),
         )
         flipped_dataset = CIFAR10(
             data_path,
@@ -177,7 +178,7 @@ def get_test_equivariance_dataloaders(
             download=True,
             transform=Compose(
                 [
-                    RandomRotation(degrees=180),
+                    Random90Rotation(),
                     ToTensor(),
                     Normalize(STL10_MEAN, STL10_STD),
                 ]

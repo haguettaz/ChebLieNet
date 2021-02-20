@@ -5,7 +5,8 @@ import numpy as np
 import pandas as pd
 import torch
 from numpy import ndarray
-#from pykeops.torch import Vi, Vj
+
+# from pykeops.torch import Vi, Vj
 from torch import FloatTensor, LongTensor
 from torch import device as Device
 from torch.sparse import FloatTensor as SparseFloatTensor
@@ -60,8 +61,7 @@ class Graph:
 
         return signal[..., self.node_proj]
 
-    @property
-    def eigen_space(self, norm=False) -> Tuple[ndarray, ndarray]:
+    def get_eigen_space(self, norm=False) -> Tuple[ndarray, ndarray]:
         """
         Return graph eigen space, i.e. Laplacian eigen decomposition.
 
@@ -69,7 +69,10 @@ class Graph:
             (ndarray): Laplacian eigen values.
             (ndarray): Laplacian eigen vectors.
         """
-        return get_fourier_basis(self.get_laplacian(norm))
+        if not hasattr(self, "eigen_space"):
+            self.eigen_space = get_fourier_basis(self.get_laplacian(norm))
+
+        return self.eigen_space
 
     def diff_kernel(self, kernel: Callable) -> ndarray:
         """
@@ -143,10 +146,13 @@ class Graph:
         f[node_idx] = 1.0
         return f
 
-    # can possibily crash for graph with too high number of vertices and edges
     @property
-    def contains_isolated_node(self):
-        return (self.node_index.repeat(1, self.num_edges) == self.edge_index[0]).sum(dim=1).min() < 1
+    def is_connected():
+        return (self.node_index.repeat(1, self.num_edges) == self.edge_index[0]).sum(dim=1).min() > 0
+
+    @property
+    def is_undirected():
+        return torch.allclose(self.edge_index[0].sort(), self.edge_index[1].sort())
 
 
 class RandomSubGraph(Graph):
