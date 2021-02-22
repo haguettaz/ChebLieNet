@@ -17,7 +17,7 @@ from torchvision.transforms import (
 from ..utils import shuffle_tensor
 from .transform import Random90Rotation
 
-# mean and std per channels on the training sets
+# mean and std per channels on the training sets for the normalization
 MNIST_MEAN, MNIST_STD = (0.1307,), (0.3081,)
 STL10_MEAN, STL10_STD = (0.4472, 0.4396, 0.4050), (0.2606, 0.2567, 0.2700)
 CIFAR10_MEAN, CIFAR10_STD = (0.4914, 0.4822, 0.4465), (0.2470, 0.2435, 0.2616)
@@ -104,8 +104,8 @@ def get_test_equivariance_dataloaders(
         ValueError: dataset has to be 'mnist', 'cifar10' or 'stl10',
 
     Returns:
-        (DataLoader): test dataloader
-        (DataLoader): test dataloader with random rotations
+        (DataLoader): test dataloader.
+        (DataLoader): test dataloader with random rotations.
         (DataLoader): test dataloader with random flips.
     """
 

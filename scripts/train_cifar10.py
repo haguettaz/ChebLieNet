@@ -18,16 +18,16 @@ from torch.optim import SGD, Adam
 from torch.optim.lr_scheduler import MultiStepLR
 
 
-def build_config(anisotropic: bool, coupled_sym: bool) -> dict:
+def get_config(anisotropic: bool, coupled_sym: bool) -> dict:
     """
-    [summary]
+    Gets training configuration.
 
     Args:
-        anisotropic (bool): [description]
-        coupled_sym (bool): [description]
+        anisotropic (bool): if True, uses an anisotropic graph manifold.
+        coupled_sym (bool): if True, uses coupled symmetric layers.
 
     Returns:
-        dict: [description]
+        (dict): configuration dictionnary.
     """
 
     config = {
@@ -42,6 +42,12 @@ def build_config(anisotropic: bool, coupled_sym: bool) -> dict:
 
 
 def train(config=None):
+    """
+    Trains a model on CIFAR-10 and evaluates its performance on CIFAR-10, Flip-CIFAR-10 and 90Rot-CIFAR-10.
+
+    Args:
+        config (dict, optional): configuration dictionnary. Defaults to None.
+    """
 
     # Initialize a new wandb run
     with wandb.init(config=config, project="gechebnet"):
@@ -259,7 +265,7 @@ if __name__ == "__main__":
     parser.add_argument("--cuda", action="store_true", default=False)
     args = parser.parse_args()
 
-    config = build_config(
+    config = get_config(
         anisotropic=args.anisotropic,
         coupled_sym=args.coupled_sym,
     )

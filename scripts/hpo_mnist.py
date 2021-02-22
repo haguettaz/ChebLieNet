@@ -20,15 +20,16 @@ from torch.optim.lr_scheduler import MultiStepLR
 
 def build_sweep_config(anisotropic: bool, coupled_sym: bool) -> dict:
     """
-    [summary]
+    Gets training configuration for bayesian hyper-parameters optimization.
 
     Args:
-        anisotropic (bool): [description]
-        coupled_sym (bool): [description]
+        anisotropic (bool): if True, uses an anisotropic graph manifold.
+        coupled_sym (bool): if True, uses coupled symmetric layers.
 
     Returns:
-        dict: [description]
+        (dict): configuration dictionnary.
     """
+
     sweep_config = {
         "method": "bayes",
         "metric": {"name": "validation_accuracy", "goal": "maximize"},
@@ -60,6 +61,13 @@ def build_sweep_config(anisotropic: bool, coupled_sym: bool) -> dict:
 
 
 def train(config=None):
+    """
+    Trains a model on MNIST and evaluates its performance on MNIST, Flip-MNIST and 90Rot-MNIST.
+
+    Args:
+        config (dict, optional): configuration dictionnary. Defaults to None.
+    """
+
     # Initialize a new wandb run
     with wandb.init(config=config):
 

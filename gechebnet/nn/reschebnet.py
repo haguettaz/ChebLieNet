@@ -1,9 +1,6 @@
-import math
-from typing import Optional, Tuple, Union
+from typing import Optional
 
-import torch
-from torch import FloatTensor, nn
-from torch.sparse import FloatTensor as SparseFloatTensor
+from torch import Tensor, nn
 
 from ..graph.graph import Graph
 from .convolution import ChebConv
@@ -11,7 +8,33 @@ from .utils import GraphPooling, NetworkBlock, ResidualBlock
 
 
 class WideResGEChebNet(nn.Module):
-    def __init__(self, graph_lvl1, graph_lvl2, graph_lvl3, in_channels, out_channels, R, depth, widen_factor=1):
+    def __init__(
+        self,
+        graph_lvl1: Graph,
+        graph_lvl2: Graph,
+        graph_lvl3: Graph,
+        in_channels: int,
+        out_channels: int,
+        R: int,
+        depth: int,
+        widen_factor: Optional[int] = 1,
+    ):
+        """
+        Initialization.
+
+        Args:
+            graph_lvl1 (Graph): graph with level 1 coarsening (original graph).
+            graph_lvl2 (Graph): graph with level 2 coarsening.
+            graph_lvl3 (Graph): graph with level 3 coarsening.
+            in_channels (int): number of input channels.
+            out_channels (int): number of output channels.
+            R (int): order of the Chebyshev polynomials.
+            depth (int): depth of the neural network.
+            widen_factor (int, optional): widen factor of the neural network. Defaults to 1.
+
+        Raises:
+            ValueError: depth must be compatible with the architecture.
+        """
         super(WideResGEChebNet, self).__init__()
 
         hidden_channels = [16, 16 * widen_factor, 32 * widen_factor, 64 * widen_factor]
@@ -41,7 +64,16 @@ class WideResGEChebNet(nn.Module):
         self.fc = nn.Linear(hidden_channels[3], out_channels)
         self.logsoftmax = nn.LogSoftmax(dim=1)
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
+        """
+        Forward pass.
+
+        Args:
+            x (Tensor): input tensor.
+
+        Returns:
+            (Tensor): output tensor.
+        """
 
         B, _, _ = x.shape
 
@@ -62,21 +94,9 @@ class WideResGEChebNet(nn.Module):
     @property
     def capacity(self) -> int:
         """
-        Return the capacity of the network, i.e. its number of trainable parameters.
+        Returns the capacity of the network, i.e. its number of trainable parameters.
 
         Returns:
             (int): number of trainable parameters of the network.
         """
         return sum(p.numel() for p in self.parameters())
-
-
-def wide_res_gechebnet_26_8(graph_lvl1, graph_lvl2, graph_lvl3, in_channels, out_channels, R):
-    return WideResGEChebNet(graph_lvl1, graph_lvl2, graph_lvl3, in_channels, out_channels, R, depth=26, widen_factor=8)
-
-
-def wide_res_gechebnet_20_4(graph_lvl1, graph_lvl2, graph_lvl3, in_channels, out_channels, R):
-    return WideResGEChebNet(graph_lvl1, graph_lvl2, graph_lvl3, in_channels, out_channels, R, depth=20, widen_factor=4)
-
-
-def wide_res_gechebnet_14_2(graph_lvl1, graph_lvl2, graph_lvl3, in_channels, out_channels, R):
-    return WideResGEChebNet(graph_lvl1, graph_lvl2, graph_lvl3, in_channels, out_channels, R, depth=14, widen_factor=2)

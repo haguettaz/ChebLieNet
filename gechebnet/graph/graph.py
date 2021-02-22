@@ -37,11 +37,12 @@ class Graph:
         self.edge_weight = FloatTensor()
         self.edge_sqdist = FloatTensor()
 
-    def get_laplacian(self, norm=True, device: Optional[Device] = None):
+    def get_laplacian(self, norm=True, device: Optional[Device] = None) -> SparseFloatTensor:
         """
-        Returns symmetric normalized graph laplacian
+        Returns symmetric normalized graph laplacian .
 
         Args:
+            norm (bool, optional): if True return normalized laplacian with eigenvalues in [-1, 1].
             device (Device, optional): computation device. Defaults to None.
 
         Returns:
@@ -56,6 +57,15 @@ class Graph:
         return self.laplacian
 
     def project(self, signal):
+        """
+        Projects a signal on the graph.
+
+        Args:
+            signal (Tensor): signal to project.
+
+        Returns:
+            (Tensor): projected signal.
+        """
         if not hasattr(self, "node_proj"):
             return signal
 
@@ -64,6 +74,9 @@ class Graph:
     def get_eigen_space(self, norm=False) -> Tuple[ndarray, ndarray]:
         """
         Return graph eigen space, i.e. Laplacian eigen decomposition.
+
+        Args:
+            norm (bool, optional): if True, uses the normalized laplacian with eigenvalues in [-1, 1].
 
         Returns:
             (ndarray): Laplacian eigen values.
@@ -82,7 +95,7 @@ class Graph:
             tau (float): time constant.
 
         Returns:
-            ndarray: diffusion kernel.
+            (ndarray): diffusion kernel.
         """
         lambdas, Phi = self.eigen_space
         return Phi @ np.diag(kernel(lambdas)) @ Phi.T
@@ -107,56 +120,58 @@ class Graph:
         """
         return self.edge_index.shape[1]
 
-    def neighbors_weights(self, node_index):
-        mask = self.edge_index[0] == node_index
-        neighbors_index = self.edge_index[1, mask]
-        weights = torch.zeros(self.num_nodes)
-        weights[neighbors_index] = self.edge_weight[mask]
-        return weights
-
-    def neighbors_sqdists(self, node_index):
-        mask = self.edge_index[0] == node_index
-        neighbors_index = self.edge_index[1, mask]
-        sqdists = torch.empty(self.num_nodes).fill_(math.nan)
-        sqdists[neighbors_index] = self.edge_sqdist[mask]
-        return sqdists
-
-    def dirac(self, node_idx: int = 0, lib: str = "numpy") -> Union[ndarray, FloatTensor]:
+    def neighborhood(self, node_index: int) -> Tuple[LongTensor, FloatTensor, FloatTensor]:
         """
-        Return a dirac function centered on a given node index.
+        Returns the node's neighborhood.
 
         Args:
-            node_idx (int, optional): node index. Defaults to 0.
-            lib (str, optional): used library. Defaults to "numpy".
-
-        Raises:
-            ValueError: lib must be 'numpy' or 'pytorch'
+            node_index (int): node index.
 
         Returns:
-            Union[ndarray, FloatTensor]: dirac ndarray or tensor.
+            (LongTensor): neighbors' indices.
+            (FloatTensor): edges' weight from node to neighbors.
+            (FloatTensor): squared riemannian distance from node to neighbors.
         """
-        if lib not in {"numpy", "pytorch"}:
-            raise ValueError(f"{lib} is not a valid value for lib: must be 'numpy' or 'pytorch'")
-
-        if lib == "numpy":
-            f = np.zeros(self.num_nodes)
-        else:
-            f = torch.zeros(self.num_nodes)
-
-        f[node_idx] = 1.0
-        return f
+        mask = self.edge_index[0] == node_index
+        return self.edge_index[1, mask], self.edge_weight[mask], self.edge_sqdist[mask]
 
     @property
     def is_connected():
+        """
+        Returns True is the graph is connected, that is it does not contain isolated node.
+
+        Returns:
+            (bool): True if the graph is connected.
+        """
         return (self.node_index.repeat(1, self.num_edges) == self.edge_index[0]).sum(dim=1).min() > 0
 
     @property
     def is_undirected():
+        """
+        Returns True is the graph is undirected.
+
+        Returns:
+            (bool): True if the graph is undirected.
+        """
         return torch.allclose(self.edge_index[0].sort(), self.edge_index[1].sort())
 
 
 class RandomSubGraph(Graph):
+    """
+    Symbolic class to generate a random sub-graph, that is a graph that is randomly created
+    from another by edges' or nodes' sampling.
+
+    Args:
+        (Graph): parent class representing a graph.
+    """
+
     def __init__(self, graph):
+        """
+        Initialization.
+
+        Args:
+            graph (Graph): original graph.
+        """
 
         self.graph = graph
         self.lie_group = self.graph.lie_group
@@ -166,6 +181,12 @@ class RandomSubGraph(Graph):
         self._initedges(graph)
 
     def _initnodes(self, graph):
+        """
+        Inits nodes of the sub-graph.
+
+        Args:
+            graph (Graph): original graph.
+        """
         self.node_index = self.graph.node_index
 
         if self.lie_group == "se2":
@@ -179,16 +200,28 @@ class RandomSubGraph(Graph):
             self.node_gamma = self.graph.node_gamma.clone()
 
     def _initedges(self, graph):
+        """
+        Inits edges of the sub-graph.
+
+        Args:
+            graph (Graph): original graph.
+        """
         self.edge_index = self.graph.edge_index.clone()
         self.edge_weight = self.graph.edge_weight.clone()
         self.edge_sqdist = self.graph.edge_sqdist.clone()
 
     def edge_sampling(self, rate):
-        # samples N (undirected) edges to keep
+        """
+        Randomly samples a given rate of edges from the original graph to generate a random sub-graph.
+
+        Args:
+            rate (float): rate of edges to sample.
+        """
+        # samples N (undirected) edges from the original graph based on their weights
         edge_attr = torch.stack((self.graph.edge_weight, self.graph.edge_sqdist))
         edge_index, edge_attr = remove_duplicated_edges(self.graph.edge_index, edge_attr, self_loop=False)
-        num_samples = math.ceil(rate * edge_attr[0].nelement())  # num edges to keep
-        sampled_edges = torch.multinomial(edge_attr[0], num_samples)  # edge_attr[0] corresponds to weights
+        num_samples = math.ceil(rate * edge_attr[0].nelement())
+        sampled_edges = torch.multinomial(edge_attr[0], num_samples)
 
         edge_index, edge_attr = to_undirected(edge_index[:, sampled_edges], edge_attr[:, sampled_edges])
 
@@ -197,8 +230,14 @@ class RandomSubGraph(Graph):
         self.edge_sqdist = edge_attr[1]
 
     def node_sampling(self, rate):
-        # samples N nodes to keep
-        num_samples = math.floor(rate * self.graph.num_nodes)  # num nodes to keep
+        """
+        Randomly samples a given rate of nodes from the original graph to generate a random sub-graph.
+
+        Args:
+            rate (float): rate of nodes to sample.
+        """
+        # samples N nodes from the original graph
+        num_samples = math.floor(rate * self.graph.num_nodes)
         sampled_nodes, _ = torch.multinomial(torch.ones(self.graph.num_nodes), num_samples).sort()
         self.node_index = torch.arange(num_samples)
         self.node_proj = sampled_nodes.clone()
@@ -214,7 +253,7 @@ class RandomSubGraph(Graph):
             self.node_beta = self.graph.node_beta[sampled_nodes]
             self.node_gamma = self.graph.node_gamma[sampled_nodes]
 
-        # keeps edges between sampled nodes
+        # selects edges between sampled nodes.
         node_mapping = torch.empty(self.graph.num_nodes, dtype=torch.long).fill_(-1)
         node_mapping[self.graph.node_index[sampled_nodes]] = self.node_index
 
@@ -225,6 +264,17 @@ class RandomSubGraph(Graph):
         self.edge_sqdist = self.graph.edge_sqdist[mask]
 
     def node_pos(self, axis=None) -> Tuple[FloatTensor, FloatTensor, FloatTensor]:
+        """
+        Returns the cartesian position of the graph's nodes.
+
+        Args:
+            axis (str, optional): position's axis. Defaults to None.
+
+        Returns:
+            (FloatTensor, optional): x position.
+            (FloatTensor, optional): y position.
+            (FloatTensor, optional): z position.
+        """
         if self.lie_group == "se2":
             if axis is None:
                 return self.node_x, self.node_y, self.node_theta
@@ -261,20 +311,15 @@ class SE2GEGraph(Graph):
         """
         Inits a SE(2) group equivariant graph.
             1. Uniformly samples points on the SE(2) manifold.
-            2. Init edges between nodes. Each node has at most K neighbors, weight of edges are computed according to the
-            Riemannian distance between them and the given weight kernel.
-            3. Compress the graph according to the given compression algorithm.
-            4. Init laplacian the symmetric normalized laplacian of the graph and store its maximum eigen value.
+            2. Init edges between nodes. Each node has at most K neighbors, edges' weights depend on the riemannian distances between nodes.
 
         Args:
-            nx (int): x axis discretization.
-            ny (int): y axis discretization.
-            ntheta (int, optional): theta axis discretization. Defaults to 6.
-            kappa (float, optional): edges compression rate. Defaults to 0.0.
-            weight_kernel (callable, optional): weight kernel to use. Defaults to None.
+            nx (int): discretization of the x axis.
+            ny (int): discretization of the y axis.
+            ntheta (int, optional): discretization of the theta axis. Defaults to 6.
             K (int, optional): maximum number of connections of a vertex. Defaults to 16.
             sigmas (tuple, optional): anisotropy's parameters to compute anisotropic Riemannian distances. Defaults to (1., 1., 1.).
-            device (Device): device. Defaults to None.
+            weight_kernel (callable, optional): weight kernel to use. Defaults to None.
         """
 
         super().__init__()
@@ -290,14 +335,16 @@ class SE2GEGraph(Graph):
 
     def _initnodes(self, nx, ny, ntheta):
         """
-        Init node indices and positions (hypercube pose). The stored attributes are:
+        Init nodes' index and associated group elements. The stored attributes are:
             - node_index (LongTensor): indices of nodes in format (num_nodes).
-            - x (FloatTensor): x position of nodes in format (num_nodes) and in range (-inf, +inf).
-            - y (FloatTensor): y position of nodes in format (num_nodes) and in range (-inf, +inf).
-            - theta (FloatTensor): theta position of nodes in format (num_nodes) and in range [-pi/2, pi/2).
+            - node_x (FloatTensor): x attributes of the associated group elements in format (num_nodes) and in range [0, 1).
+            - node_y (FloatTensor): y attributes of the associated group elements in format (num_nodes) and in range [0, 1).
+            - node_theta (FloatTensor): theta attributes of the associated group elements in format (num_nodes) and in range [-pi/2, pi/2).
 
         Args:
-            num_nodes (int): number of nodes to sample.
+            nx (int): discretization of the x axis.
+            ny (int): discretization of the y axis.
+            ntheta (int): discretization of the theta axis.
         """
 
         self.node_index = torch.arange(nx * ny * ntheta)
@@ -330,38 +377,23 @@ class SE2GEGraph(Graph):
         weight_kernel: Callable,
     ):
         """
-        Init edge indices and attributes (weights). The stored attributes are:
+        Inits edges' indices and attributes (weights and squared riemannian distances). The stored attributes are:
             - edge_index (LongTensor): indices of edges in format (2, num_edges).
             - edge_weight (FloatTensor): weight of edges in format (num_edges).
+            - edge_sqdist (FloatTensor): squared riemannian distances between connected nodes in format (num_edges).
 
         Args:
-            sigmas (float,float,float): anisotropy's parameters to compute Riemannian distances.
+            sigmas (float,float,float): anisotropy's parameters to compute riemannian distances.
             K (int): maximum number of connections of a vertex.
-            weight_kernel (callable): mapping from squared distance to weight value.
-            device (Device): computation device.
-
-        Raises:
-            ValueError: kappa must be in [0, 1).
+            weight_kernel (callable): mapping from squared riemannian distance to weight.
         """
-
-        # xi = Vi(torch.inverse(self.node_Gg()).reshape(self.num_nodes, -1))  # sources
-        # xj = Vj(self.node_Gg().reshape(self.num_nodes, -1))  # targets
-
-        # sqdist = se2_anisotropic_square_riemannanian_distance(
-        #     xi,
-        #     xj,
-        #     sigmas,
-        # )
-        # edge_sqdist, neighbors = sqdist.Kmin_argKmin(K + 1, dim=1)
-
-        # edge_index = torch.stack((self.node_index.repeat_interleave(K + 1), neighbors.flatten()), dim=0)
-        # edge_sqdist = edge_sqdist.flatten()
 
         Gg = self.node_Gg()
         edge_sqdist = torch.empty(self.num_nodes * (K + 1))
         edge_index = torch.empty((2, self.num_nodes * (K + 1)), dtype=torch.long)
         Re = torch.diag(torch.tensor(sigmas))
 
+        # compute all pairwise distances of the graph. WARNING: can possibly take a lot of time!!
         for idx in self.node_index:
             sqdist = se2_riemannian_sqdist(Gg[idx], Gg, Re)
             values, indices = torch.topk(sqdist, largest=False, k=K + 1, sorted=False)
@@ -369,7 +401,7 @@ class SE2GEGraph(Graph):
             edge_index[0, idx * (K + 1) : (idx + 1) * (K + 1)] = idx
             edge_index[1, idx * (K + 1) : (idx + 1) * (K + 1)] = indices
 
-        # remove duplicated edges and self-loops
+        # remove duplicated edges and self-loops and make the graph undirected
         edge_index, edge_sqdist = remove_duplicated_edges(edge_index, edge_sqdist, self_loop=False)
         edge_index, edge_sqdist = to_undirected(edge_index, edge_sqdist)
 
@@ -393,10 +425,13 @@ class SE2GEGraph(Graph):
         """
         Return the cartesian positions of the nodes of the graph.
 
+        Args:
+            axis (str, optional): position's axis. Defaults to None.
+
         Returns:
-            (FloatTensor): x nodes' positions.
-            (FloatTensor): y nodes' positions.
-            (FloatTensor): z nodes' positions.
+            (FloatTensor, optional): x positions.
+            (FloatTensor, optional): y positions.
+            (FloatTensor, optional): z positions.
         """
         if axis is None:
             return self.node_x, self.node_y, self.node_theta
@@ -410,9 +445,8 @@ class SE2GEGraph(Graph):
 
 class SO3GEGraph(Graph):
     """
-    Object representing a SO(3) group equivariant graph. It can be considered as a discretization of
-    the SO(3) group where nodes corresponds to group elements and edges are proportional to the anisotropic
-    Riemannian distances between group elements.
+    Object representing a SO(3) group equivariant graph. It can be considered as a discretization of the SO(3) group where nodes
+    corresponds to group elements and edges are proportional to the anisotropic Riemannian distances between group elements.
 
     Args:
         (Graph): parent class representing a graph.
@@ -429,20 +463,17 @@ class SO3GEGraph(Graph):
     ):
         """
         Inits a SO(3) group equivariant graph.
-            1. Uniformly samples points on the SE(2) manifold.
-            2. Init edges between nodes. Each node has at most K neighbors, weight of edges are computed according to the
-            Riemannian distance between them and the given weight kernel.
-            3. Compress the graph according to the given compression algorithm.
-            4. Init laplacian the symmetric normalized laplacian of the graph and store its maximum eigen value.
+            1. Uniformly samples points on the SO(3) manifold.
+            2. Init edges between nodes. Each node has at most K neighbors and edges' weights depend on
+            riemannian distances between nodes.
 
         Args:
-            nsamples (int): number of samples on the pi-sphere
-            nalpha (int, optional): alpha axis discretization. Defaults to 6.
+            polyhedron (str): polyhedron of the polyhedral method to uniformly sample on S2.
+            level (int): level of the polyhedral method.
+            nalpha (int, optional): discretization of the alpha axis. Defaults to 6.
             K (int, optional): maximum number of connections of a vertex. Defaults to 16.
             sigmas (tuple, optional): anisotropy's parameters to compute anisotropic Riemannian distances. Defaults to (1., 1., 1.).
             weight_kernel (callable, optional): mapping from squared distance to weight value.
-            kappa (float, optional): edges' compression rate. Defaults to 0.0.
-            device (Device, optional): computation device. Defaults to None.
         """
 
         super().__init__()
@@ -458,7 +489,19 @@ class SO3GEGraph(Graph):
         # self._initnodes(nsamples * nalpha)
         self._initedges(sigmas, K if K < self.num_nodes else self.num_nodes - 1, weight_kernel)
 
-    def _initnodes(self, polyhedron, level, nalpha):
+    def _initnodes(self, polyhedron: str, level: int, nalpha: int):
+        """
+        Init nodes' index and associated group elements. The stored attributes are:
+            - node_index (LongTensor): indices of nodes in format (num_nodes).
+            - node_alpha (FloatTensor): alpha attributes of the associated group elements in format (num_nodes) and in range [-pi/2, pi/2).
+            - node_beta (FloatTensor): beta attributes of the associated group elements in format (num_nodes) and in range [-pi, pi).
+            - node_gamma (FloatTensor): gamma attributes of the associated group elements in format (num_nodes) and in range [-pi/2, pi/2).
+
+        Args:
+            polyhedron (str): polyhedron of the polyhedral method to uniformly sample on S2.
+            level (int): level of the polyhedral method.
+            nalpha (int): discretization of the alpha axis.
+        """
         # uniformly samples on the sphere by polyhedron subdivisions -> uniformly sampled beta and gamma
         vertices, faces = polyhedron_init(polyhedron)
         x, y, z = polyhedron_division(vertices, faces, level)
@@ -477,39 +520,6 @@ class SO3GEGraph(Graph):
 
         self.node_index = torch.arange(self.node_alpha.shape[0])
 
-    # def _initnodes(self, num_nodes: int):
-    #     """
-    #     Init nodes on the SO(3) manifold. The stored attributes are:
-    #         - node_index (LongTensor): indices of nodes in format (num_nodes).
-    #         - alpha (FloatTensor): rotation about x axis in format (num_nodes) and in range [-pi/2, pi/2).
-    #         - beta (FloatTensor): rotation about y axis in format (num_nodes) and in range [-pi, pi).
-    #         - gamma (FloatTensor): rotation about z axis in format (num_nodes) and in range [-pi/2, pi/2).
-
-    #     Args:
-    #         num_nodes (int): number of nodes to sample.
-    #         device (Device): computation device.
-    #     """
-
-    #     self.node_index = torch.arange(num_nodes)
-
-    #     # uniform sampling on the sphere using a repulsive model
-    #     x, y, z = repulsive_sampling(
-    #         self.nsamples,
-    #         loss_fn=lambda x_: repulsive_loss(x_, 1.0, 10.0),
-    #         radius=math.pi,
-    #         device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
-    #         max_iter=25000,
-    #     )
-
-    #     # convert cartesian positions of the nodes on the sphere to beta and gamma rotations
-    #     _, beta, gamma = xyz2alphabetagamma(x, y, z)
-
-    #     alpha = torch.arange(-math.pi / 2, math.pi / 2, math.pi / self.nalpha)
-
-    #     self.node_alpha = alpha.unsqueeze(1).expand(self.nalpha, self.nsamples).flatten()
-    #     self.node_beta = beta.unsqueeze(0).expand(self.nalpha, self.nsamples).flatten()
-    #     self.node_gamma = gamma.unsqueeze(0).expand(self.nalpha, self.nsamples).flatten()
-
     def _initedges(
         self,
         sigmas: Tuple[float, float, float],
@@ -517,37 +527,23 @@ class SO3GEGraph(Graph):
         weight_kernel: Callable,
     ):
         """
-        Init edge indices and attributes (weights). The stored attributes are:
+        Inits edges' indices and attributes (weights and squared riemannian distances). The stored attributes are:
             - edge_index (LongTensor): indices of edges in format (2, num_edges).
             - edge_weight (FloatTensor): weight of edges in format (num_edges).
+            - edge_sqdist (FloatTensor): squared riemannian distances between connected nodes in format (num_edges).
 
         Args:
-            sigmas (tuple): anisotropy's parameters to compute anisotropic Riemannian distances.
+            sigmas (float,float,float): anisotropy's parameters to compute riemannian distances.
             K (int): maximum number of connections of a vertex.
-            weight_kernel (callable): mapping from squared distance to weight value.
-            kappa (float): edges' compression rate.
-            device (Device): computation device.
-
-        Raises:
-            ValueError: kappa must be in [0, 1).
+            weight_kernel (callable): mapping from squared riemannian distance to weight.
         """
-        # Gg = self.node_Gg().reshape(self.num_nodes, -1)
-        # Gh = self.node_Gg().inverse().reshape(self.num_nodes, -1)
-
-        # xi, xj = Vi(Gh), Vj(Gg)
-
-        # sqdist = so3_anisotropic_square_riemannanian_distance(xi, xj, sigmas)
-
-        # edge_sqdist, neighbors = sqdist.Kmin_argKmin(k + 1, dim=1)
-
-        # edge_index = torch.stack((self.node_index.repeat_interleave(K + 1), neighbors.flatten()), dim=0)
-        # edge_sqdist = edge_sqdist.flatten()
 
         Gg = self.node_Gg()
         edge_sqdist = torch.empty(self.num_nodes * (K + 1))
         edge_index = torch.empty((2, self.num_nodes * (K + 1)), dtype=torch.long)
         Re = torch.diag(torch.tensor(sigmas))
 
+        # compute all pairwise distances of the graph. WARNING: can possibly take a lot of time!!
         for idx in self.node_index:
             sqdist = so3_riemannian_sqdist(Gg[idx], Gg, Re)
             values, indices = torch.topk(sqdist, largest=False, k=K + 1, sorted=False)
@@ -555,7 +551,7 @@ class SO3GEGraph(Graph):
             edge_index[0, idx * (K + 1) : (idx + 1) * (K + 1)] = idx
             edge_index[1, idx * (K + 1) : (idx + 1) * (K + 1)] = indices
 
-        # remove duplicated edges and self-loops
+        # remove duplicated edges and self-loops and make the graph undirected
         edge_index, edge_sqdist = remove_duplicated_edges(edge_index, edge_sqdist, self_loop=False)
         edge_index, edge_sqdist = to_undirected(edge_index, edge_sqdist)
 
@@ -580,8 +576,8 @@ class SO3GEGraph(Graph):
         Returns the cartesian positions of the nodes of the graph.
 
         Returns:
-            (FloatTensor, optional): x nodes' positions.
-            (FloatTensor, optional): y nodes' positions.
-            (FloatTensor, optional): z nodes' positions.
+            (FloatTensor, optional): x positions.
+            (FloatTensor, optional): y positions.
+            (FloatTensor, optional): z positions.
         """
         return alphabetagamma2xyz(self.node_alpha, self.node_beta, self.node_gamma, axis)

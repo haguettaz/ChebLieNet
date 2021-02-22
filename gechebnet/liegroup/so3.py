@@ -2,15 +2,10 @@ import math
 from typing import Optional, Tuple
 
 import torch
-
-# from pykeops.torch import LazyTensor, Pm
 from torch import FloatTensor, Tensor
 from torch import device as Device
 
-from ..utils import mod
-from .utils import weighted_norm
-
-# ROUND_PI = 3.14159
+from ..utils import mod, weighted_norm
 
 
 def so3_matrix(alpha, beta, gamma, device=None):
@@ -19,13 +14,13 @@ def so3_matrix(alpha, beta, gamma, device=None):
     SO(3) group elements.
 
     Args:
-        alpha (FloatTensor): x rotation input tensor.
-        beta (FloatTensor): y rotation input tensor.
-        gamma (FloatTensor): z rotation input tensor.
+        alpha (FloatTensor): alpha attributes of group elements.
+        beta (FloatTensor): beta attributes of group elements.
+        gamma (FloatTensor): gamma attributes of group elements.
         device (Device, optional): computation device. Defaults to None.
 
     Returns:
-        FloatTensor: matrix representation output tensor.
+        (FloatTensor): matrix representation of the group elements.
     """
     if not alpha.nelement() == beta.nelement() == gamma.nelement():
         raise ValueError(f"input tensors must contain the same number of element but do not.")
@@ -62,45 +57,48 @@ def so3_matrix(alpha, beta, gamma, device=None):
     return Rc @ Rb @ Ra
 
 
-# def so3_log(Gg: LazyTensor):
-#     """
-#     Returns a new LazyTensor corresponding to logarithmic maps of the matrix representation input LazyTensor.
-#     The matrix logarithmic is computed using Rodrigues' rotation formula.
-
-#     Args:
-#         Gg (LazyTensor): input LazyTensor, i.e. matrix representation.
-#         Gg_t (LazyTensor): input LazyTensor, i.e. transposed matrix representation.
-
-#     Returns:
-#         (LazyTensor): output LazyTensor, i.e. tangent space coefficients.
-#     """
-#     # theta is a rounded to 5 decimal places's angle in the range [0.00000, 3.14159]
-#     theta = (((Gg[0] + Gg[4] + Gg[8]) - 1) / 2).acos().round(5)
-
-#     c1 = 0.5 * (Gg[2] - Gg[6]) / theta.sinc()
-#     c2 = 0.5 * (Gg[3] - Gg[1]) / theta.sinc()
-#     c3 = 0.5 * (Gg[7] - Gg[5]) / theta.sinc()
-
-#     # mimic if theta == pi then (0, 0, theta) else (a02, a10, a32) with step function
-#     c1 = 0.0 * (theta - ROUND_PI).step() + c1 * (1.0 - (theta - ROUND_PI).step())
-#     c2 = 0.0 * (theta - ROUND_PI).step() + c2 * (1.0 - (theta - ROUND_PI).step())
-#     c3 = theta * (theta - ROUND_PI).step() + c3 * (1.0 - (theta - ROUND_PI).step())
-
-#     return LazyTensor.cat((c1, c2, c3), dim=-1)
-
-
-def so3_inverse(G):
-    return torch.transpose(G, -1, -2)
-
-
 def so3_element(G):
+    """
+    Returns three new tensors corresponding to alpha, beta and gamma attributes of the group elements specified by the
+    so3 group elements in matrix formulation.
+
+    Args:
+        G (Tensor): matrix formulation of the group elements.
+
+    Returns:
+        (Tensor): alpha attributes of the group elements.
+        (Tensor): beta attributes of the group elements.
+        (Tensor): gamma attributes of the group elements.
+    """
     alpha = mod(torch.atan2(G[..., 2, 1], G[..., 2, 2]), math.pi, -math.pi / 2)
     gamma = mod(torch.atan2(G[..., 1, 0], G[..., 0, 0]), math.pi, -math.pi / 2)
     beta = torch.atan2(-G[..., 2, 0], G[..., 0, 0] / torch.cos(gamma))
     return alpha, beta, gamma
 
 
+def so3_inverse(G):
+    """
+    Returns a new tensor corresponding to the inverse of the group elements in matrix formulation.
+
+    Args:
+        G (Tensor): matrix formulation of the group elements.
+
+    Returns:
+        (Tensor): matrix formulation of the inverse group elements.
+    """
+    return torch.transpose(G, -1, -2)
+
+
 def so3_log(G):
+    """
+    Returns a new tensor containing the riemannnian logarithm of the group elements in matrix formulation.
+
+    Args:
+        G (Tensor): matrix formulation of the group elements.
+
+    Returns:
+        (Tensor): riemannian logarithms.
+    """
     theta = torch.acos(((G[..., 0, 0] + G[..., 1, 1] + G[..., 2, 2]) - 1) / 2)  # round??
 
     c1 = 0.5 * theta / torch.sin(theta) * (G[..., 0, 2] - G[..., 2, 0])
@@ -123,6 +121,17 @@ def so3_log(G):
 
 
 def so3_riemannian_sqdist(Gg, Gh, Re):
+    """
+    Returns the squared riemannian distances between group elements in matrix formulation.
+
+    Args:
+        Gg (Tensor): matrix formulation of the source group elements.
+        Gh (Tensor): matrix formulation of the target group elements.
+        Re (Tensor): matrix formulation of the riemannian metric.
+
+    Returns:
+        (Tensor): squared riemannian distances
+    """
     G = torch.matmul(so3_inverse(Gg), Gh)
 
     # transform group product to be sure the element is in the projective line bundle of the so3 group
@@ -130,28 +139,6 @@ def so3_riemannian_sqdist(Gg, Gh, Re):
     G = so3_matrix(alpha_, beta_, gamma_)
 
     return weighted_norm(so3_log(G), Re)
-
-
-# def so3_anisotropic_square_riemannanian_distance(xi, xj, sigmas):
-#     """
-#     Returns the square anisotropic riemannian distances between xi and xj.
-
-#     Args:
-#         xi (LazyTensor): input tensor, i.e. source points in format (N, 1, 3).
-#         xj (LazyTensor): input tensor, i.e. target points in format (1, N, 3).
-#         xi_t (LazyTensor): input tensor, i.e. source points in format (N, 1, 3) for the transposed operation.
-#         xj_t (LazyTensor): input tensor, i.e. target points in format (1, N, 3) for the transposed operation.
-#         sigmas (tuple): anisotropy's parameters to compute anisotropic riemannian distances.
-#         device (Device): computation device.
-
-#     Returns:
-#         (LazyTensor): output tensor, i.e. square anisotropic riemannian distances in format (N, N, 1).
-#     """
-#     S = Pm(torch.tensor([*sigmas]))
-
-#     xixj = LazyTensor.keops_tensordot(xi, xj, (3, 3), (3, 3), (1,), (0,))  # Gg^{-1}.Gh
-
-#     return so3_log(xixj).weightedsqnorm(S)
 
 
 def xyz2betagamma(x: FloatTensor, y: FloatTensor, z: FloatTensor) -> Tuple[FloatTensor, FloatTensor]:

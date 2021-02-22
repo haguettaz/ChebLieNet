@@ -24,6 +24,7 @@ def create_supervised_trainer(
     Factory function for creating a trainer for supervised models.
 
     Args:
+        graph (Graph): graph.
         model (Module): neural network.
         optimizer (Optimizer): optimizer.
         loss_fn (callable): loss function.
@@ -82,6 +83,7 @@ def create_supervised_evaluator(
     Factory function for creating an evaluator for supervised models.
 
     Args:
+        graph (Graph): graph.
         model (Module): neural network.
         metrics (dict, optional): map metric names to Metrics. Defaults to None.
         device (Device): computation device. Defaults to None.

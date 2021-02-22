@@ -1,3 +1,5 @@
+# pylint: disable=E1101
+
 from typing import Optional, Tuple
 
 import torch
@@ -16,8 +18,8 @@ def prepare_batch(batch: Tuple[Tensor, Tensor], graph: Graph, device: Device) ->
 
     Args:
         batch (tuple): batch containing input and target data.
-        graph (Graph): graph object corresponding to the support of the input.
-        device (Device): device on which to put the batch data.
+        graph (Graph): graph.
+        device (Device): computation device.
 
     Returns:
         (Tensor): batch input.
@@ -50,6 +52,14 @@ def wandb_log(trainer: Engine, evaluator: Engine, data_loader: DataLoader):
 
 
 def edges_dropout(trainer: Engine, graph: Graph, rate: float):
+    """
+    Random sampling on edges of the graph.
+
+    Args:
+        trainer (Engine): trainer engine.
+        graph (Graph): graph.
+        rate (float): rate of edges to randomly sample.
+    """
     if hasattr(graph, "laplacian"):
         del graph.laplacian
 
@@ -59,6 +69,14 @@ def edges_dropout(trainer: Engine, graph: Graph, rate: float):
 
 
 def nodes_sparsification(trainer: Engine, graph: Graph, rate: float):
+    """
+    Random sampling on nodes of the graph.
+
+    Args:
+        trainer (Engine): trainer engine.
+        graph (Graph): graph.
+        rate (float): rate of nodes to randomly sample.
+    """
     if hasattr(graph, "laplacian"):
         del graph.laplacian
 

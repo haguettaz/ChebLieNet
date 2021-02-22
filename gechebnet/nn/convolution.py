@@ -5,7 +5,7 @@ import math
 from typing import Optional
 
 import torch
-from torch import FloatTensor, nn
+from torch import FloatTensor, Tensor, nn
 from torch.sparse import FloatTensor as SparseFloatTensor
 
 from ..graph.graph import Graph
@@ -60,13 +60,14 @@ class ChebConv(nn.Module):
         bias=True,
     ):
         """
-        Initialize the Chebyshev layer.
+        Initialization of the Chebyshev layer.
 
         Args:
-            in_channels (int): number of channels in the input graph.
-            out_channels (int): number of channels in the output graph.
+            graph (Graph): graph.
+            in_channels (int): number of input channels.
+            out_channels (int): number of output channels.
             R (int): order of the Chebyshev polynomials.
-            bias (bool, optional): whether to add a bias term. Defaults to True.
+            bias (bool, optional): True if bias in the convolution. Defaults to True.
         """
         super().__init__()
 
@@ -87,14 +88,15 @@ class ChebConv(nn.Module):
         else:
             self.register_parameter("bias", None)
 
-    def forward(self, x: FloatTensor):
-        """Forward graph convolution.
+    def forward(self, x: Tensor) -> Tensor:
+        """
+        Forward pass.
 
         Args:
-            x (FloatTensor): input data.
+            x (Tensor): input tensor.
 
         Returns:
-            (FloatTensor): convolved input data.
+            (Tensor): convolved tensor.
         """
         laplacian = self.graph.get_laplacian(norm=True, device=x.device)
         x = cheb_conv(x, self.weight, laplacian)  # (B, V, Cin) -> (V, B, Cout)
@@ -106,6 +108,12 @@ class ChebConv(nn.Module):
         return x
 
     def extra_repr(self) -> str:
+        """
+        Extra representation of the Chebyschev convolutional layer.
+
+        Returns:
+            (str): extra representation.
+        """
         s = "in_channels={in_channels}, out_channels={out_channels}, R={R}"
         if self.bias is None:
             s += ", bias=False"

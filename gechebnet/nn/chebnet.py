@@ -1,19 +1,44 @@
-import math
-from typing import Optional, Tuple, Union
+from typing import Optional
 
-import torch
-from torch import FloatTensor, nn
-from torch.sparse import FloatTensor as SparseFloatTensor
+from torch import Tensor, nn
 
 from ..graph.graph import Graph
-from ..graph.signal_processing import get_norm_laplacian
-from ..graph.sparsification import sparsify_on_edges, sparsify_on_nodes
 from .convolution import ChebConv
 from .utils import BasicBlock, GraphPooling, NetworkBlock
 
 
 class WideGEChebNet(nn.Module):
-    def __init__(self, graph_lvl1, graph_lvl2, graph_lvl3, in_channels, out_channels, R, depth, widen_factor=1):
+    """
+    Wide Group Equivariant ChebNet.
+    """
+
+    def __init__(
+        self,
+        graph_lvl1: Graph,
+        graph_lvl2: Graph,
+        graph_lvl3: Graph,
+        in_channels: int,
+        out_channels: int,
+        R: int,
+        depth: int,
+        widen_factor: Optional[int] = 1,
+    ):
+        """
+        Initialization.
+
+        Args:
+            graph_lvl1 (Graph): graph with level 1 coarsening (original graph).
+            graph_lvl2 (Graph): graph with level 2 coarsening.
+            graph_lvl3 (Graph): graph with level 3 coarsening.
+            in_channels (int): number of input channels.
+            out_channels (int): number of output channels.
+            R (int): order of the Chebyshev polynomials.
+            depth (int): depth of the neural network.
+            widen_factor (int, optional): widen factor of the neural network. Defaults to 1.
+
+        Raises:
+            ValueError: depth must be compatible with the architecture.
+        """
         super(WideGEChebNet, self).__init__()
 
         hidden_channels = [16, 16 * widen_factor, 32 * widen_factor, 64 * widen_factor]
@@ -27,7 +52,7 @@ class WideGEChebNet(nn.Module):
         self.conv = ChebConv(graph_lvl1, in_channels, hidden_channels[0], R)
         self.relu = nn.ReLU(inplace=True)
 
-        # hidden layers : 3 convolutional blocks + spatial pooling
+        # hidden layers : 3 convolutional blocks + optional spatial pooling
         self.block1 = NetworkBlock(graph_lvl1, hidden_channels[0], hidden_channels[1], num_layers, BasicBlock, R)
 
         if graph_lvl1.nx3 != graph_lvl2.nx3 or graph_lvl1.nx2 != graph_lvl2.nx2 or graph_lvl1.nx1 != graph_lvl2.nx1:
@@ -53,7 +78,16 @@ class WideGEChebNet(nn.Module):
         self.fc = nn.Linear(hidden_channels[3], out_channels)
         self.logsoftmax = nn.LogSoftmax(dim=1)
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
+        """
+        Forward pass.
+
+        Args:
+            x (Tensor): input tensor.
+
+        Returns:
+            (Tensor): output tensor.
+        """
         B, _, _ = x.shape
 
         out = self.relu(self.conv(x))
@@ -75,21 +109,9 @@ class WideGEChebNet(nn.Module):
     @property
     def capacity(self) -> int:
         """
-        Return the capacity of the network, i.e. its number of trainable parameters.
+        Returns the capacity of the network, i.e. its number of trainable parameters.
 
         Returns:
             (int): number of trainable parameters of the network.
         """
         return sum(p.numel() for p in self.parameters())
-
-
-def wide_gechebnet_14_8(graph_lvl1, graph_lvl2, graph_lvl3, in_channels, out_channels, R):
-    return WideGEChebNet(graph_lvl1, graph_lvl2, graph_lvl3, in_channels, out_channels, R, depth=14, widen_factor=8)
-
-
-def wide_gechebnet_11_4(graph_lvl1, graph_lvl2, graph_lvl3, in_channels, out_channels, R):
-    return WideGEChebNet(graph_lvl1, graph_lvl2, graph_lvl3, in_channels, out_channels, R, depth=11, widen_factor=4)
-
-
-def wide_gechebnet_8_2(graph_lvl1, graph_lvl2, graph_lvl3, in_channels, out_channels, R):
-    return WideGEChebNet(graph_lvl1, graph_lvl2, graph_lvl3, in_channels, out_channels, R, depth=8, widen_factor=2)

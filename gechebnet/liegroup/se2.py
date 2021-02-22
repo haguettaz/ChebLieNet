@@ -2,12 +2,10 @@ import math
 from typing import Optional, Tuple
 
 import torch
-#from pykeops.torch import LazyTensor, Pm
 from torch import FloatTensor, Tensor
 from torch import device as Device
 
-from ..utils import mod
-from .utils import weighted_norm
+from ..utils import mod, weighted_norm
 
 
 def se2_matrix(x: FloatTensor, y: FloatTensor, theta: FloatTensor, device: Optional[Device] = None) -> FloatTensor:
@@ -16,13 +14,13 @@ def se2_matrix(x: FloatTensor, y: FloatTensor, theta: FloatTensor, device: Optio
     SE(2) group elements.
 
     Args:
-        x (FloatTensor): x translation input tensor.
-        y (FloatTensor): y translation input tensor.
-        theta (FloatTensor): z rotation input tensor.
-        device (Device): computation device.
+        x (FloatTensor): x attributes of group elements.
+        y (FloatTensor): y attributes of group elements.
+        theta (FloatTensor): theta attributes of group elements.
+        device (Device, optional): computation device. Defaults to None.
 
     Returns:
-        FloatTensor: matrix representation output tensor.
+        (FloatTensor): matrix representation of the group elements.
     """
     cos = torch.cos(theta)
     sin = torch.sin(theta)
@@ -40,6 +38,18 @@ def se2_matrix(x: FloatTensor, y: FloatTensor, theta: FloatTensor, device: Optio
 
 
 def se2_element(G: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+    """
+    Returns three new tensors corresponding to x, y and theta attributes of the group elements specified by the
+    se2 group elements in matrix formulation.
+
+    Args:
+        G (Tensor): matrix formulation of the group elements.
+
+    Returns:
+        (Tensor): x attributes of the group elements.
+        (Tensor): y attributes of the group elements.
+        (Tensor): theta attributes of the group elements.
+    """
     x = G[..., 0, 2]
     y = G[..., 1, 2]
     theta = mod(torch.atan2(G[..., 1, 0], G[..., 0, 0]), math.pi, -math.pi / 2)
@@ -47,10 +57,28 @@ def se2_element(G: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
 
 
 def se2_inverse(G: Tensor) -> Tensor:
+    """
+    Returns a new tensor corresponding to the inverse of the group elements in matrix formulation.
+
+    Args:
+        G (Tensor): matrix formulation of the group elements.
+
+    Returns:
+        (Tensor): matrix formulation of the inverse group elements.
+    """
     return torch.inverse(G)
 
 
 def se2_log(G: Tensor) -> Tensor:
+    """
+    Returns a new tensor containing the riemannnian logarithm of the group elements in matrix formulation.
+
+    Args:
+        G (Tensor): matrix formulation of the group elements.
+
+    Returns:
+        (Tensor): riemannian logarithms.
+    """
     x, y, theta = se2_element(G)
 
     c1 = theta / 2 * (y + x * torch.cos(theta / 2) / torch.sin(theta / 2))
@@ -66,7 +94,18 @@ def se2_log(G: Tensor) -> Tensor:
     return c
 
 
-def se2_riemannian_sqdist(Gg, Gh, Re):
+def se2_riemannian_sqdist(Gg: Tensor, Gh: Tensor, Re: Tensor) -> Tensor:
+    """
+    Returns the squared riemannian distances between group elements in matrix formulation.
+
+    Args:
+        Gg (Tensor): matrix formulation of the source group elements.
+        Gh (Tensor): matrix formulation of the target group elements.
+        Re (Tensor): matrix formulation of the riemannian metric.
+
+    Returns:
+        (Tensor): squared riemannian distances
+    """
     G = torch.matmul(se2_inverse(Gg), Gh)
 
     # transform group product to be sure the element is in the projective line bundle of the se2 group
@@ -74,49 +113,3 @@ def se2_riemannian_sqdist(Gg, Gh, Re):
     G = se2_matrix(x, y, theta)
 
     return weighted_norm(se2_log(G), Re)
-
-
-# def se2_log(Gg: LazyTensor) -> LazyTensor:
-#     """
-#     Returns a new LazyTensor corresponding to logarithmic maps of the matrix representation input LazyTensor.
-
-#     Args:
-#         Gg (LazyTensor): input LazyTensor, i.e. matrix representation.
-
-#     Returns:
-#         (LazyTensor): output LazyTensor, i.e. tangent space coefficients.
-#     """
-
-#     theta = Gg[3].atan2(Gg[0]).mod(math.pi, -math.pi / 2).round(5)
-#     x = Gg[2]
-#     y = Gg[5]
-
-#     c1 = theta / 2 * y + x * (theta / 2).cos() / ((theta / 2).sinc())
-#     c2 = -theta / 2 * x + y * (theta / 2).cos() / ((theta / 2).sinc())
-#     c3 = theta
-
-#     return LazyTensor.cat((c1, c2, c3), dim=-1)
-
-
-# def se2_anisotropic_square_riemannanian_distance(
-#     xi: LazyTensor,
-#     xj: LazyTensor,
-#     sigmas: Tuple[float, float, float],
-# ) -> LazyTensor:
-#     """
-#     Returns the square anisotropic riemannian distances between xi and xj.
-
-#     Args:
-#         xi (LazyTensor): input tensor, i.e. source points in format (N, 1, 3).
-#         xj (LazyTensor): input tensor, i.e. target points in format (1, N, 3).
-#         sigmas (tuple): anisotropy's parameters to compute anisotropic riemannian distances.
-#         device (Device): computation device.
-
-#     Returns:
-#         (LazyTensor): output tensor, i.e. square anisotropic riemannian distances in format (N, N, 1).
-#     """
-#     S = Pm(torch.tensor([*sigmas]))
-
-#     xixj = LazyTensor.keops_tensordot(xi, xj, (3, 3), (3, 3), (1,), (0,))  # g^-1 * h
-
-#     return se2_log(xixj).weightedsqnorm(S)

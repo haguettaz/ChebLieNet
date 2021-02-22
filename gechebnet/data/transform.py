@@ -1,6 +1,9 @@
+from typing import Union
+
 import torch
 import torch.transforms.functional as F
-from torch import nn
+from PIL import Image as PILImage
+from torch import Tensor, nn
 
 
 class Random90Rotation(nn.Module):
@@ -23,13 +26,13 @@ class Random90Rotation(nn.Module):
         k = int(torch.empty(1).random_(0, 4).item())
         return k
 
-    def forward(self, img):
+    def forward(self, img: Union[PILImage, Tensor]):
         """
         Args:
-            img (Tensor): Image to be rotated.
+            img (PILImage or Tensor): image to be rotated.
 
         Returns:
-            PIL Image or Tensor: Rotated image.
+            (PILImage or Tensor): rotated image.
         """
         k = self.get_params()
         return F.rotate(img, k * 90)
