@@ -17,7 +17,6 @@ from ..utils import rescale, sparse_tensor_to_sparse_array
 from .optimization import repulsive_loss, repulsive_sampling
 from .polyhedron import SphericalPolyhedron
 from .signal_processing import get_fourier_basis, get_laplacian, get_norm_laplacian
-from .sparsification import sparsify_on_edges, sparsify_on_nodes
 from .utils import remove_duplicated_edges, to_undirected
 
 
