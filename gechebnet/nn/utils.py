@@ -168,8 +168,8 @@ class BasicBlock(nn.Module):
             kerne_size (int): kernel size.
         """
         super(BasicBlock, self).__init__()
-        self.bn = nn.BatchNorm1d(in_channels)
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, bias=True)
+        self.bn = nn.BatchNorm2d(in_channels)
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, padding=1, bias=True)
         self.relu = nn.ReLU()
 
     def forward(self, x: Tensor) -> Tensor:
@@ -202,12 +202,12 @@ class ResidualBlock(nn.Module):
         """
         super(ResidualBlock, self).__init__()
 
-        self.bn1 = nn.BatchNorm1d(in_channels)
+        self.bn1 = nn.BatchNorm2d(in_channels)
         self.relu1 = nn.ReLU()
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size, bias=True)
-        self.bn2 = nn.BatchNorm1d(out_channels)
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size, padding=1, bias=True)
+        self.bn2 = nn.BatchNorm2d(out_channels)
         self.relu2 = nn.ReLU()
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size, bias=True)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size, padding=1, bias=True)
 
         self.equalInOut = in_channels == out_channels
 

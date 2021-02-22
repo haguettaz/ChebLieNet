@@ -94,7 +94,7 @@ class WideGEChebNet(nn.Module):
         Returns:
             (Tensor): output tensor.
         """
-        B, _, _ = x.shape
+        B, *_ = x.shape
 
         out = self.relu(self.conv(x))
 
@@ -197,7 +197,7 @@ class WideResGEChebNet(nn.Module):
             (Tensor): output tensor.
         """
 
-        B, _, _ = x.shape
+        B, *_ = x.shape
 
         out = self.conv(x)
 

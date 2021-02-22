@@ -52,7 +52,7 @@ class WideCNN(nn.Module):
             self.maxpool2 = None
 
         # input layer : convolutional layer + relu
-        self.conv = nn.Conv2d(in_channels, hidden_channels[0], kernel_size)
+        self.conv = nn.Conv2d(in_channels, hidden_channels[0], kernel_size, padding=1)
         self.relu = nn.ReLU(inplace=True)
 
         # hidden layers : 3 convolutional blocks + optional spatial pooling
@@ -63,7 +63,7 @@ class WideCNN(nn.Module):
         self.block3 = NetworkBlock(hidden_channels[2], hidden_channels[3], num_layers, BasicBlock, kernel_size)
 
         # output layer : global average pooling + fc
-        self.globalmaxpool = nn.AdaptiveMaxPool1d(1)
+        self.globalmaxpool = nn.AdaptiveMaxPool2d(1)
         self.fc = nn.Linear(hidden_channels[3], out_channels)
         self.logsoftmax = nn.LogSoftmax(dim=1)
 
@@ -77,16 +77,20 @@ class WideCNN(nn.Module):
         Returns:
             (Tensor): output tensor.
         """
-        B, _, _ = x.shape
+
+        B, *_ = x.shape
 
         out = self.relu(self.conv(x))
 
         out = self.block1(out)
+
         if self.maxpool1 is not None:
             out = self.maxpool1(out)
+
         out = self.block2(out)
         if self.maxpool2 is not None:
             out = self.maxpool2(out)
+
         out = self.block3(out)
 
         out = self.globalmaxpool(out).contiguous().view(B, -1)
@@ -159,7 +163,7 @@ class WideResCNN(nn.Module):
         self.block3 = NetworkBlock(hidden_channels[2], hidden_channels[3], num_layers, ResidualBlock, kernel_size)
 
         # output layer : global average pooling + fc
-        self.globalmaxpool = nn.AdaptiveMaxPool1d(1)
+        self.globalmaxpool = nn.AdaptiveMaxPool2d(1)
         self.fc = nn.Linear(hidden_channels[3], out_channels)
         self.logsoftmax = nn.LogSoftmax(dim=1)
 
@@ -174,7 +178,7 @@ class WideResCNN(nn.Module):
             (Tensor): output tensor.
         """
 
-        B, _, _ = x.shape
+        B, *_ = x.shape
 
         out = self.conv(x)
 
