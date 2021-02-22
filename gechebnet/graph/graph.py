@@ -15,7 +15,7 @@ from ..liegroup.se2 import se2_matrix, se2_riemannian_sqdist
 from ..liegroup.so3 import alphabetagamma2xyz, so3_matrix, so3_riemannian_sqdist, xyz2betagamma
 from ..utils import rescale, sparse_tensor_to_sparse_array
 from .optimization import repulsive_loss, repulsive_sampling
-from .polyhedron import polyhedron_division, polyhedron_init
+from .polyhedron import SphericalPolyhedron
 from .signal_processing import get_fourier_basis, get_laplacian, get_norm_laplacian
 from .sparsification import sparsify_on_edges, sparsify_on_nodes
 from .utils import remove_duplicated_edges, to_undirected
@@ -483,10 +483,7 @@ class SO3GEGraph(Graph):
         if weight_kernel is None:
             weight_kernel = lambda sqdistc, sqsigmac: torch.exp(-sqdistc / sqsigmac)
 
-        # self.nsamples = nsamples
-        # self.nalpha = nalpha
         self._initnodes(polyhedron, level, nalpha)
-        # self._initnodes(nsamples * nalpha)
         self._initedges(sigmas, K if K < self.num_nodes else self.num_nodes - 1, weight_kernel)
 
     def _initnodes(self, polyhedron: str, level: int, nalpha: int):
@@ -503,8 +500,8 @@ class SO3GEGraph(Graph):
             nalpha (int): discretization of the alpha axis.
         """
         # uniformly samples on the sphere by polyhedron subdivisions -> uniformly sampled beta and gamma
-        vertices, faces = polyhedron_init(polyhedron)
-        x, y, z = polyhedron_division(vertices, faces, level)
+        spherical_polyhedron = SphericalPolyhedron(polyhedron)
+        x, y, z = spherical_polyhedron.spherical_sampling(level)
         beta, gamma = xyz2betagamma(x, y, z)
 
         # uniformly samples alpha
