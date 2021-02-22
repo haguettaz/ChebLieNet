@@ -257,7 +257,7 @@ if __name__ == "__main__":
     parser.add_argument("-N", "--num_experiments", type=int)
     parser.add_argument("-E", "--max_epochs", type=int)
     parser.add_argument("--batch_size", type=int, default=16)
-    parser.add_argument("--cnn", action="store_true", defaults=False)
+    parser.add_argument("--cnn", action="store_true", default=False)
     parser.add_argument("--anisotropic", action="store_true", default=False)
     parser.add_argument("--coupled_sym", action="store_true", default=False)
     parser.add_argument("--resnet", action="store_true", default=False)
