@@ -1,9 +1,9 @@
 from typing import Union
 
 import torch
-import torch.transforms.functional as F
 from PIL import Image as PILImage
 from torch import Tensor, nn
+from torchvision.transforms import functional as F
 
 
 class Random90Rotation(nn.Module):
