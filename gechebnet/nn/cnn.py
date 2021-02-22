@@ -88,6 +88,7 @@ class WideCNN(nn.Module):
             out = self.maxpool1(out)
 
         out = self.block2(out)
+
         if self.maxpool2 is not None:
             out = self.maxpool2(out)
 
@@ -182,11 +183,16 @@ class WideResCNN(nn.Module):
 
         out = self.conv(x)
 
+        out = self.block1(out)
+
         if self.maxpool1 is not None:
             out = self.maxpool1(out)
+
         out = self.block2(out)
+
         if self.maxpool2 is not None:
             out = self.maxpool2(out)
+
         out = self.block3(out)
 
         out = self.globalmaxpool(out).contiguous().view(B, -1)
