@@ -4,42 +4,38 @@ from torch import Tensor, nn
 
 from ..graph.graph import Graph
 from .convolution import ChebConv
-from .utils import ChebBasicBlock, ChebNetworkBlock, ChebResidualBlock, GraphPooling
+from .utils import BasicBlock, NetworkBlock, ResidualBlock
 
 
-class WideGEChebNet(nn.Module):
+class WideCNN(nn.Module):
     """
     Wide Group Equivariant ChebNet.
     """
 
     def __init__(
         self,
-        graph_lvl1: Graph,
-        graph_lvl2: Graph,
-        graph_lvl3: Graph,
         in_channels: int,
         out_channels: int,
-        R: int,
+        kernel_size: int,
         depth: int,
         widen_factor: Optional[int] = 1,
+        pooling: Optional[bool] = False,
     ):
         """
         Initialization.
 
         Args:
-            graph_lvl1 (Graph): graph with level 1 coarsening (original graph).
-            graph_lvl2 (Graph): graph with level 2 coarsening.
-            graph_lvl3 (Graph): graph with level 3 coarsening.
             in_channels (int): number of input channels.
             out_channels (int): number of output channels.
-            R (int): order of the Chebyshev polynomials.
+            kernel_size (int): kernel size.
             depth (int): depth of the neural network.
             widen_factor (int, optional): widen factor of the neural network. Defaults to 1.
+            pooling (bool, optional): if True, add pooling layers at the end of each block. Defaults to False.
 
         Raises:
             ValueError: depth must be compatible with the architecture.
         """
-        super(WideGEChebNet, self).__init__()
+        super(WideCNN, self).__init__()
 
         hidden_channels = [16, 16 * widen_factor, 32 * widen_factor, 64 * widen_factor]
 
@@ -48,36 +44,23 @@ class WideGEChebNet(nn.Module):
 
         num_layers = (depth - 2) // 3
 
+        if pooling:
+            self.maxpool1 = nn.MaxPool2d(2)
+            self.maxpool2 = nn.MaxPool2d(2)
+        else:
+            self.maxpool1 = None
+            self.maxpool2 = None
+
         # input layer : convolutional layer + relu
-        self.conv = ChebConv(graph_lvl1, in_channels, hidden_channels[0], R)
+        self.conv = nn.Conv2d(in_channels, hidden_channels[0], kernel_size)
         self.relu = nn.ReLU(inplace=True)
 
         # hidden layers : 3 convolutional blocks + optional spatial pooling
-        self.block1 = ChebNetworkBlock(
-            graph_lvl1, hidden_channels[0], hidden_channels[1], num_layers, ChebBasicBlock, R
-        )
+        self.block1 = NetworkBlock(hidden_channels[0], hidden_channels[1], num_layers, BasicBlock, kernel_size)
 
-        if graph_lvl1.nx3 != graph_lvl2.nx3 or graph_lvl1.nx2 != graph_lvl2.nx2 or graph_lvl1.nx1 != graph_lvl2.nx1:
-            self.graphmaxpool1 = GraphPooling(
-                graph_lvl1.nx3, graph_lvl2.nx3, graph_lvl1.nx2, graph_lvl2.nx2, graph_lvl1.nx1, graph_lvl2.nx1
-            )
-        else:
-            self.graphmaxpool1 = None
+        self.block2 = NetworkBlock(hidden_channels[1], hidden_channels[2], num_layers, BasicBlock, kernel_size)
 
-        self.block2 = ChebNetworkBlock(
-            graph_lvl2, hidden_channels[1], hidden_channels[2], num_layers, ChebBasicBlock, R
-        )
-
-        if graph_lvl2.nx3 != graph_lvl3.nx3 or graph_lvl2.nx2 != graph_lvl3.nx2 or graph_lvl2.nx1 != graph_lvl3.nx1:
-            self.graphmaxpool2 = GraphPooling(
-                graph_lvl2.nx3, graph_lvl3.nx3, graph_lvl2.nx2, graph_lvl3.nx2, graph_lvl2.nx1, graph_lvl3.nx1
-            )
-        else:
-            self.graphmaxpool2 = None
-
-        self.block3 = ChebNetworkBlock(
-            graph_lvl3, hidden_channels[2], hidden_channels[3], num_layers, ChebBasicBlock, R
-        )
+        self.block3 = NetworkBlock(hidden_channels[2], hidden_channels[3], num_layers, BasicBlock, kernel_size)
 
         # output layer : global average pooling + fc
         self.globalmaxpool = nn.AdaptiveMaxPool1d(1)
@@ -99,11 +82,11 @@ class WideGEChebNet(nn.Module):
         out = self.relu(self.conv(x))
 
         out = self.block1(out)
-        if self.graphmaxpool1 is not None:
-            out = self.graphmaxpool1(out)
+        if self.maxpool1 is not None:
+            out = self.maxpool1(out)
         out = self.block2(out)
-        if self.graphmaxpool2 is not None:
-            out = self.graphmaxpool2(out)
+        if self.maxpool2 is not None:
+            out = self.maxpool2(out)
         out = self.block3(out)
 
         out = self.globalmaxpool(out).contiguous().view(B, -1)
@@ -123,63 +106,57 @@ class WideGEChebNet(nn.Module):
         return sum(p.numel() for p in self.parameters())
 
 
-class WideResGEChebNet(nn.Module):
+class WideResCNN(nn.Module):
     def __init__(
         self,
-        graph_lvl1: Graph,
-        graph_lvl2: Graph,
-        graph_lvl3: Graph,
         in_channels: int,
         out_channels: int,
-        R: int,
+        kernel_size: int,
         depth: int,
         widen_factor: Optional[int] = 1,
+        pooling: Optional[bool] = False,
     ):
         """
         Initialization.
 
         Args:
-            graph_lvl1 (Graph): graph with level 1 coarsening (original graph).
-            graph_lvl2 (Graph): graph with level 2 coarsening.
-            graph_lvl3 (Graph): graph with level 3 coarsening.
             in_channels (int): number of input channels.
             out_channels (int): number of output channels.
-            R (int): order of the Chebyshev polynomials.
+            kernel_size (int): kernel size.
             depth (int): depth of the neural network.
             widen_factor (int, optional): widen factor of the neural network. Defaults to 1.
+            pooling (bool, optional): if True, add pooling layers at the end of each block. Defaults to False.
 
         Raises:
             ValueError: depth must be compatible with the architecture.
         """
-        super(WideResGEChebNet, self).__init__()
+
+        super(WideResCNN, self).__init__()
 
         hidden_channels = [16, 16 * widen_factor, 32 * widen_factor, 64 * widen_factor]
 
-        if (depth - 2) % 6:
-            raise ValueError(f"{depth} is not a valid value for {depth}")
+        if (depth - 2) % 3:
+            raise ValueError(f"{depth} is not a valid value for depth")
 
-        num_layers = (depth - 2) // 6
+        num_layers = (depth - 2) // 3
+
+        if pooling:
+            self.maxpool1 = nn.MaxPool2d(2)
+            self.maxpool2 = nn.MaxPool2d(2)
+        else:
+            self.maxpool1 = None
+            self.maxpool2 = None
 
         # input layer : convolutional layer + relu
-        self.conv = ChebConv(graph_lvl1, in_channels, hidden_channels[0], R)
+        self.conv = nn.Conv2d(in_channels, hidden_channels[0], kernel_size)
         self.relu = nn.ReLU(inplace=True)
 
-        # hidden layers : 3 convolutional blocks
-        self.block1 = ChebNetworkBlock(
-            graph_lvl1, hidden_channels[0], hidden_channels[1], num_layers, ChebResidualBlock, R
-        )
-        self.graphmaxpool1 = GraphPooling(
-            graph_lvl1.nx3, graph_lvl2.nx3, graph_lvl1.nx2, graph_lvl2.nx2, graph_lvl1.nx1, graph_lvl2.nx1
-        )
-        self.block2 = ChebNetworkBlock(
-            graph_lvl2, hidden_channels[1], hidden_channels[2], num_layers, ChebResidualBlock, R
-        )
-        self.graphmaxpool2 = GraphPooling(
-            graph_lvl2.nx3, graph_lvl3.nx3, graph_lvl2.nx2, graph_lvl3.nx2, graph_lvl2.nx1, graph_lvl3.nx1
-        )
-        self.block3 = ChebNetworkBlock(
-            graph_lvl3, hidden_channels[2], hidden_channels[3], num_layers, ChebResidualBlock, R
-        )
+        # hidden layers : 3 convolutional blocks + optional spatial pooling
+        self.block1 = NetworkBlock(hidden_channels[0], hidden_channels[1], num_layers, ResidualBlock, kernel_size)
+
+        self.block2 = NetworkBlock(hidden_channels[1], hidden_channels[2], num_layers, ResidualBlock, kernel_size)
+
+        self.block3 = NetworkBlock(hidden_channels[2], hidden_channels[3], num_layers, ResidualBlock, kernel_size)
 
         # output layer : global average pooling + fc
         self.globalmaxpool = nn.AdaptiveMaxPool1d(1)
@@ -201,12 +178,11 @@ class WideResGEChebNet(nn.Module):
 
         out = self.conv(x)
 
-        out = self.block1(out)
-        if self.graphmaxpool1 is not None:
-            out = self.graphmaxpool1(out)
+        if self.maxpool1 is not None:
+            out = self.maxpool1(out)
         out = self.block2(out)
-        if self.graphmaxpool2 is not None:
-            out = self.graphmaxpool2(out)
+        if self.maxpool2 is not None:
+            out = self.maxpool2(out)
         out = self.block3(out)
 
         out = self.globalmaxpool(out).contiguous().view(B, -1)

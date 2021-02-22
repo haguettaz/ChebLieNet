@@ -26,6 +26,10 @@ def prepare_batch(batch: Tuple[Tensor, Tensor], graph: Graph, device: Device) ->
         (Tensor): batch target.
     """
     input, target = batch
+
+    if graph is None:
+        return input.to(device), target.to(device)
+
     B, C, H, W = input.shape
 
     input = input.unsqueeze(2).expand(B, C, graph.nx3, H, W)
