@@ -232,7 +232,7 @@ def train(config=None):
             )
 
         cm = ConfusionMatrix(num_classes=3)
-        metrics = {"test_mIoU": mIoU(cm, ignore_index=0), "test_loss": Loss(nll_loss)}
+        metrics = {"test_mIoU": mIoU(cm), "test_mIoU_nb": mIoU(cm, ignore_index=0), "test_loss": Loss(nll_loss)}
 
         evaluator = create_supervised_evaluator(
             graph=sub_graph_lvl5,
