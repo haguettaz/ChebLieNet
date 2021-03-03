@@ -13,7 +13,8 @@ from gechebnet.nn.layers.unpools import IcosahedralUnpool
 from gechebnet.nn.models.chebnets import UChebNet
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
-from ignite.metrics import Accuracy, ConfusionMatrix, Loss, cmAccuracy, mIoU
+from ignite.metrics import Accuracy, ConfusionMatrix, Fbeta, Loss
+from ignite.metrics.confusion_matrix import cmAccuracy, cmPrecision, cmRecall, mIoU
 from torch.nn.functional import nll_loss
 from torch.optim import Adam
 
@@ -232,7 +233,14 @@ def train(config=None):
             )
 
         cm = ConfusionMatrix(num_classes=3)
-        metrics = {"test_mIoU": mIoU(cm), "test_mIoU_nb": mIoU(cm, ignore_index=0), "test_loss": Loss(nll_loss)}
+        precision = cmPrecision(cm, average=False)
+        recall = cmRecall(cm, average=False)
+        metrics = {
+            "test_F1": Fbeta(1, precision=precision, recall=recall),
+            "test_mIoU": mIoU(cm),
+            "test_mIoU_nb": mIoU(cm, ignore_index=0),
+            "test_loss": Loss(nll_loss),
+        }
 
         evaluator = create_supervised_evaluator(
             graph=sub_graph_lvl5,
