@@ -194,44 +194,6 @@ def train(config=None):
                 args.edges_rate,
             )
 
-        if args.sample_nodes:
-            trainer.add_event_handler(
-                Events.EPOCH_STARTED,
-                nodes_sparsification,
-                sub_graph_lvl0,
-                args.nodes_rate,
-            )
-            trainer.add_event_handler(
-                Events.EPOCH_STARTED,
-                nodes_sparsification,
-                sub_graph_lvl1,
-                args.nodes_rate,
-            )
-            trainer.add_event_handler(
-                Events.EPOCH_STARTED,
-                nodes_sparsification,
-                sub_graph_lvl2,
-                args.nodes_rate,
-            )
-            trainer.add_event_handler(
-                Events.EPOCH_STARTED,
-                nodes_sparsification,
-                sub_graph_lvl3,
-                args.nodes_rate,
-            )
-            trainer.add_event_handler(
-                Events.EPOCH_STARTED,
-                nodes_sparsification,
-                sub_graph_lvl4,
-                args.nodes_rate,
-            )
-            trainer.add_event_handler(
-                Events.EPOCH_STARTED,
-                nodes_sparsification,
-                sub_graph_lvl5,
-                args.nodes_rate,
-            )
-
         cm = ConfusionMatrix(num_classes=3)
         precision = cmPrecision(cm, average=False)
         recall = cmRecall(cm, average=False)
@@ -269,8 +231,6 @@ if __name__ == "__main__":
     parser.add_argument("--coupled_sym", action="store_true", default=False)
     parser.add_argument("--sample_edges", action="store_true", default=False)
     parser.add_argument("--edges_rate", type=float, default=1.0)  # rate of edges to sample
-    parser.add_argument("--sample_nodes", action="store_true", default=False)
-    parser.add_argument("--nodes_rate", type=float, default=1.0)  # rate of nodes to sample
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--cuda", action="store_true", default=False)
     args = parser.parse_args()

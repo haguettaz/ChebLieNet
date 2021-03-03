@@ -222,6 +222,8 @@ class RandomSubGraph(Graph):
         """
         Randomly samples a given rate of nodes from the original graph to generate a random sub-graph.
 
+        Warning: nodes' sampling is not compatible with pooling and unpooling operations.
+
         Args:
             rate (float): rate of nodes to sample.
         """
@@ -265,6 +267,10 @@ class RandomSubGraph(Graph):
         if axis == "z":
             return z[self.sub_node_index]
         return x[self.sub_node_index], y[self.sub_node_index], z[self.sub_node_index]
+
+    @property
+    def size(self):
+        return self.graph.size
 
 
 class GEGraph(Graph):
