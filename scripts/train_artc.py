@@ -14,8 +14,8 @@ from gechebnet.nn.models.chebnets import UChebNet
 from gechebnet.nn.models.utils import capacity
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
-from ignite.metrics import Accuracy, ConfusionMatrix, Fbeta, Loss
-from ignite.metrics.confusion_matrix import cmAccuracy, cmPrecision, cmRecall, mIoU
+from ignite.metrics import Accuracy, ConfusionMatrix, Fbeta, Loss, Precision, Recall
+from ignite.metrics.confusion_matrix import cmAccuracy, mIoU
 from torch.nn.functional import nll_loss
 from torch.optim import Adam
 
@@ -196,8 +196,8 @@ def train(config=None):
             )
 
         cm = ConfusionMatrix(num_classes=3)
-        precision = cmPrecision(cm, average=False)
-        recall = cmRecall(cm, average=False)
+        precision = Precision(average=False)
+        recall = Recall(average=False)
         metrics = {
             "test_F1": Fbeta(1, precision=precision, recall=recall),
             "test_mIoU": mIoU(cm),
