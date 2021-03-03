@@ -8,10 +8,10 @@ from gechebnet.engines.engines import create_supervised_evaluator, create_superv
 from gechebnet.engines.utils import edges_dropout, prepare_batch, wandb_log
 from gechebnet.graphs.graphs import RandomSubGraph, SO3GEGraph
 from gechebnet.liegroups.so3 import so3_uniform_sampling
-from gechebnet.models.utils import capacity
 from gechebnet.nn.layers.pools import IcosahedralPool
 from gechebnet.nn.layers.unpools import IcosahedralUnpool
 from gechebnet.nn.models.chebnets import UChebNet
+from gechebnet.nn.models.utils import capacity
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
 from ignite.metrics import Accuracy, ConfusionMatrix, Fbeta, Loss

@@ -8,7 +8,7 @@ from gechebnet.engines.engines import create_supervised_evaluator, create_superv
 from gechebnet.engines.utils import edges_dropout, nodes_sparsification, prepare_batch, wandb_log
 from gechebnet.graphs.graphs import RandomSubGraph, SE2GEGraph
 from gechebnet.liegroups.se2 import se2_uniform_sampling
-from gechebnet.models.utils import capacity
+from gechebnet.nn.models.utils import capacity
 from gechebnet.nn.models.chebnets import WideResGEChebNet
 from gechebnet.nn.models.convnets import WideResConvNet
 from ignite.contrib.handlers import ProgressBar

@@ -9,7 +9,7 @@ from gechebnet.engine.utils import prepare_batch, set_sparse_laplacian, wandb_lo
 from gechebnet.graph.graph import SE2GEGraph
 from gechebnet.model.chebnet import WideGEChebNet
 from gechebnet.model.reschebnet import WideResGEChebNet
-from gechebnet.models.utils import capacity
+from gechebnet.nn.models.utils import capacity
 from ignite.contrib.handlers import ProgressBar
 from ignite.contrib.handlers.param_scheduler import LRScheduler
 from ignite.engine import Events
