@@ -91,16 +91,6 @@ class WideResGEChebNet(nn.Module):
         out = self.fc(out)
         return self.logsoftmax(x)
 
-    @property
-    def capacity(self) -> int:
-        """
-        Returns the capacity of the network, i.e. its number of trainable parameters.
-
-        Returns:
-            (int): number of trainable parameters of the network.
-        """
-        return sum(p.numel() for p in self.parameters())
-
 
 class Encoder(nn.Module):
     """

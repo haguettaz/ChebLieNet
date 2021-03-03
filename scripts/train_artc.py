@@ -5,9 +5,10 @@ import torch
 import wandb
 from gechebnet.datas.dataloaders import get_test_loader, get_train_val_loaders
 from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
-from gechebnet.engines.utils import edges_dropout, nodes_sparsification, prepare_batch, wandb_log
+from gechebnet.engines.utils import edges_dropout, prepare_batch, wandb_log
 from gechebnet.graphs.graphs import RandomSubGraph, SO3GEGraph
 from gechebnet.liegroups.so3 import so3_uniform_sampling
+from gechebnet.models.utils import capacity
 from gechebnet.nn.layers.pools import IcosahedralPool
 from gechebnet.nn.layers.unpools import IcosahedralUnpool
 from gechebnet.nn.models.chebnets import UChebNet
@@ -131,7 +132,7 @@ def train(config=None):
             sub_graph_lvl5,
         ).to(device)
 
-        wandb.log({"capacity": model.capacity})
+        wandb.log({"capacity": capacity(model)})
 
         optimizer = Adam(model.parameters(), lr=args.lr)
 
