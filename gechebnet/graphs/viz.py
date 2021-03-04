@@ -1,21 +1,15 @@
-from typing import Any, Callable, Optional, Tuple
+# coding=utf-8
 
-import numpy as np
 import pandas as pd
 import plotly.express as px
-import torch
-from numpy import ndarray
-from torch import FloatTensor, Tensor
-
-from .graphs import Graph
 
 
-def visualize_graph(graph: Graph):
+def visualize_graph(graph):
     """
     Visualize graph's vertices.
 
     Args:
-        graph (Graph): graph.
+        graph (`Graph`): graph.
     """
 
     df = pd.DataFrame({"node_index": graph.node_index})
@@ -33,13 +27,13 @@ def visualize_graph(graph: Graph):
     fig.show()
 
 
-def visualize_graph_signal(graph: Graph, signal: Tensor):
+def visualize_graph_signal(graph, signal):
     """
-    Visualize graph's signal.
+    Visualize a signal on the graph's vertices.
 
     Args:
-        graph (Graph): graph.
-        signal (Tensor): graph's signal.
+        graph (`Graph`): graph.
+        signal (`torch.Tensor`): signal on the graph's vertices.
     """
 
     df = pd.DataFrame({"node_index": graph.node_index})
@@ -71,12 +65,12 @@ def visualize_graph_signal(graph: Graph, signal: Tensor):
     fig.show()
 
 
-def visualize_graph_neighborhood(graph: Graph, node_index: int):
+def visualize_graph_neighborhood(graph, node_index):
     """
     Visualize graph neighborhood of the given node.
 
     Args:
-        graph (Graph): graph.
+        graph (`Graph`): graph.
         node_index (int): node index.
     """
     df1 = pd.DataFrame()

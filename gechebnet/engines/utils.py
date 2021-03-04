@@ -1,43 +1,34 @@
-# pylint: disable=E1101
+# coding=utf-8
 
-from typing import Optional, Tuple
-
-import torch
 import wandb
-from ignite.engine.engine import Engine
-from torch import FloatTensor, Tensor
-from torch import device as Device
-from torch.utils.data import DataLoader
-
-from ..graphs.graphs import Graph
 
 
-def prepare_batch(batch: Tuple[Tensor, Tensor], graph: Graph, device: Device) -> Tuple[Tensor, Tensor]:
+def prepare_batch(batch, graph, device):
     """
     Prepares a batch to directly feed a model with.
 
     Args:
-        batch (tuple): batch containing input and target data.
-        graph (Graph): graph.
-        device (Device): computation device.
+        batch (tuple): batch tuple containing the image and the target.
+        graph (`Graph`): graph.
+        device (`torch.device`): computation device.
 
     Returns:
-        (Tensor): batch input.
-        (Tensor): batch target.
+        (`torch.Tensor`): image.
+        (`torch.Tensor`): target.
     """
-    input, target = batch
-    
-    return input[..., graph.sub_node_index].to(device), target.to(device)
+    image, target = batch
+
+    return image[..., graph.sub_node_index].to(device), target.to(device)
 
 
-def wandb_log(trainer: Engine, evaluator: Engine, data_loader: DataLoader):
+def wandb_log(trainer, evaluator, data_loader):
     """
-    Evaluates a model and log information with wandb.
+    Launch the evaluator ignite's engine and log performance with wandb.
 
     Args:
-        trainer (Engine): trainer engine.
-        evaluator (Engine): evaluator engine.
-        data_loader (DataLoader): dataloader on which to evaluate the model.
+        trainer (`Engine`): trainer ignite's engine.
+        evaluator (`Engine`): evaluator ignite's engine.
+        data_loader (`DataLoader`): evaluation dataloader.
     """
     evaluator.run(data_loader)
     metrics = evaluator.state.metrics
@@ -45,38 +36,34 @@ def wandb_log(trainer: Engine, evaluator: Engine, data_loader: DataLoader):
         wandb.log({k: metrics[k], "epoch": trainer.state.epoch})
 
 
-def edges_dropout(trainer: Engine, graph: Graph, rate: float):
+def sample_edges(trainer, graph, rate):
     """
-    Random sampling on edges of the graph.
+    Perform a random edges' sampling of the given graph.
+    For details, we refer to `gechebnet.graphs.graphs.RandomSubGraph.edge_sampling`
 
     Args:
-        trainer (Engine): trainer engine.
-        graph (Graph): graph.
+        trainer (`Engine`): trainer ignite's engine.
+        graph (`Graph`): graph.
         rate (float): rate of edges to randomly sample.
     """
-    if hasattr(graph, "laplacian"):
-        del graph.laplacian
 
+    graph.reinit()
     graph.edge_sampling(rate)
     wandb.log({"num_nodes": graph.num_nodes, "epoch": trainer.state.epoch})
     wandb.log({"num_edges": graph.num_edges, "epoch": trainer.state.epoch})
 
 
-def nodes_sparsification(trainer: Engine, graph: Graph, rate: float):
+def sample_nodes(trainer, graph, rate):
     """
-    Random sampling on nodes of the graph.
+    Perform a random nodes' sampling of the given graph.
+    For details, we refer to `gechebnet.graphs.graphs.RandomSubGraph.node_sampling`
 
     Args:
-        trainer (Engine): trainer engine.
-        graph (Graph): graph.
+        trainer (`Engine`): trainer ignite's engine.
+        graph (`Graph`): graph.
         rate (float): rate of nodes to randomly sample.
     """
-    if hasattr(graph, "laplacian"):
-        del graph.laplacian
-
-    if hasattr(graph, "node_proj"):
-        del graph.node_proj
-
+    graph.reinit()
     graph.node_sampling(rate)
     wandb.log({"num_nodes": graph.num_nodes, "epoch": trainer.state.epoch})
     wandb.log({"num_edges": graph.num_edges, "epoch": trainer.state.epoch})

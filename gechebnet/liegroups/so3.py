@@ -1,13 +1,9 @@
 import math
 import os
 import pickle
-from typing import Optional, Tuple
 
 import torch
-from torch import FloatTensor, Tensor
-from torch import device as Device
 
-from ..utils.polyhedron import SphericalPolyhedron
 from ..utils.utils import mod, weighted_norm
 
 
@@ -17,13 +13,13 @@ def so3_matrix(alpha, beta, gamma, device=None):
     SO(3) group elements.
 
     Args:
-        alpha (FloatTensor): alpha attributes of group elements.
-        beta (FloatTensor): beta attributes of group elements.
-        gamma (FloatTensor): gamma attributes of group elements.
+        alpha (`torch.FloatTensor`): alpha attributes of group elements.
+        beta (`torch.FloatTensor`): beta attributes of group elements.
+        gamma (`torch.FloatTensor`): gamma attributes of group elements.
         device (Device, optional): computation device. Defaults to None.
 
     Returns:
-        (FloatTensor): matrix representation of the group elements.
+        (`torch.FloatTensor`): matrix representation of the group elements.
     """
     if not alpha.nelement() == beta.nelement() == gamma.nelement():
         raise ValueError(f"input tensors must contain the same number of element but do not.")
@@ -62,16 +58,16 @@ def so3_matrix(alpha, beta, gamma, device=None):
 
 def so3_element(G):
     """
-    Returns three new tensors corresponding to alpha, beta and gamma attributes of the group elements specified by the
+    Return new tensors corresponding to alpha, beta and gamma attributes of the group elements specified by the
     so3 group elements in matrix formulation.
 
     Args:
-        G (Tensor): matrix formulation of the group elements.
+        G (`torch.FloatTensor`): matrix formulation of the group elements.
 
     Returns:
-        (Tensor): alpha attributes of the group elements.
-        (Tensor): beta attributes of the group elements.
-        (Tensor): gamma attributes of the group elements.
+        (`torch.FloatTensor`): alpha attributes of the group elements.
+        (`torch.FloatTensor`): beta attributes of the group elements.
+        (`torch.FloatTensor`): gamma attributes of the group elements.
     """
     alpha = mod(torch.atan2(G[..., 2, 1], G[..., 2, 2]), math.pi, -math.pi / 2)
     gamma = mod(torch.atan2(G[..., 1, 0], G[..., 0, 0]), math.pi, -math.pi / 2)
@@ -84,10 +80,10 @@ def so3_inverse(G):
     Returns a new tensor corresponding to the inverse of the group elements in matrix formulation.
 
     Args:
-        G (Tensor): matrix formulation of the group elements.
+        G (`torch.FloatTensor`): matrix formulation of the group elements.
 
     Returns:
-        (Tensor): matrix formulation of the inverse group elements.
+        (`torch.FloatTensor`): matrix formulation of the inverse group elements.
     """
     return torch.transpose(G, -1, -2)
 
@@ -97,10 +93,10 @@ def so3_log(G):
     Returns a new tensor containing the riemannnian logarithm of the group elements in matrix formulation.
 
     Args:
-        G (Tensor): matrix formulation of the group elements.
+        G (`torch.FloatTensor`): matrix formulation of the group elements.
 
     Returns:
-        (Tensor): riemannian logarithms.
+        (`torch.FloatTensor`): riemannian logarithms.
     """
     theta = torch.acos(((G[..., 0, 0] + G[..., 1, 1] + G[..., 2, 2]) - 1) / 2)  # round??
 
@@ -125,15 +121,15 @@ def so3_log(G):
 
 def so3_riemannian_sqdist(Gg, Gh, Re):
     """
-    Returns the squared riemannian distances between group elements in matrix formulation.
+    Return the squared riemannian distances between group elements in matrix formulation.
 
     Args:
-        Gg (Tensor): matrix formulation of the source group elements.
-        Gh (Tensor): matrix formulation of the target group elements.
-        Re (Tensor): matrix formulation of the riemannian metric.
+        Gg (`torch.FloatTensor`): matrix formulation of the source group elements.
+        Gh (`torch.FloatTensor`): matrix formulation of the target group elements.
+        Re (`torch.FloatTensor`): matrix formulation of the riemannian metric.
 
     Returns:
-        (Tensor): squared riemannian distances
+        (`torch.FloatTensor`): squared riemannian distances
     """
     G = torch.matmul(so3_inverse(Gg), Gh)
 
@@ -144,18 +140,18 @@ def so3_riemannian_sqdist(Gg, Gh, Re):
     return weighted_norm(so3_log(G), Re)
 
 
-def xyz2betagamma(x: FloatTensor, y: FloatTensor, z: FloatTensor) -> Tuple[FloatTensor, FloatTensor]:
+def xyz2betagamma(x, y, z):
     """
-    Returns new tensors corresponding to angle representation from the cartesian representation.
+    Return new tensors corresponding to angle representation from the cartesian representation.
 
     Args:
-        x (FloatTensor): input tensor, i.e. x positions.
-        y (FloatTensor): input tensor, i.e. y positions.
-        z (FloatTensor): input tensor, i.e. z positions.
+        x (`torch.FloatTensor`): x positions.
+        y (`torch.FloatTensor`): y positions.
+        z (`torch.FloatTensor`): z positions.
 
     Returns:
-        (FloatTensor): output tensor, i.e. beta rotation about y axis.
-        (FloatTensor): output tensor, i.e. gamma rotation about z axis.
+        (`torch.FloatTensor`): beta rotations about y axis.
+        (`torch.FloatTensor`): gamma rotations about z axis.
     """
 
     beta = torch.stack(
@@ -173,21 +169,20 @@ def xyz2betagamma(x: FloatTensor, y: FloatTensor, z: FloatTensor) -> Tuple[Float
     return beta[mask], gamma[mask]
 
 
-def alphabetagamma2xyz(
-    alpha: FloatTensor, beta: FloatTensor, gamma: FloatTensor, axis=None
-) -> Tuple[FloatTensor, FloatTensor, FloatTensor]:
+def alphabetagamma2xyz(alpha, beta, gamma, axis=None):
     """
     Returns new tensors corresponding to angle representation from the cartesian representation.
 
     Args:
-        alpha (FloatTensor): input tensor, i.e. alpha rotation about x axis.
-        beta (FloatTensor): input tensor, i.e. beta rotation about y axis.
-        gamma (FloatTensor): input tensor, i.e. gamma rotation about z axis.
+        alpha (`torch.FloatTensor`): alpha rotations about x axis.
+        beta (`torch.FloatTensor`): beta rotations about y axis.
+        gamma (`torch.FloatTensor`): gamma rotations about z axis.
+        axis (str, optional): cartesian axis. If None, return all axis. Defaults to None.
 
     Returns:
-        (FloatTensor): output tensor, i.e. x positions.
-        (FloatTensor): output tensor, i.e. y positions.
-        (FloatTensor): output tensor, i.e. z positions.
+        (`torch.FloatTensor`, optional): x positions.
+        (`torch.FloatTensor`, optional): y positions.
+        (`torch.FloatTensor`, optional): z positions.
     """
     if axis == "x":
         return (math.pi + alpha) * torch.cos(beta) * torch.cos(gamma)
@@ -204,6 +199,18 @@ def alphabetagamma2xyz(
 
 
 def so3_uniform_sampling(path_to_sampling, level, nalpha):
+    """
+    Uniformly samples elements of the SE(2) group in the hypersphere S(2) x [-pi/2, pi/2).
+
+    Args:
+        path_to_sampling (str): path to the icosahedral samplings' directory.
+        level (int): level of the icosahedral sampling. Level 0 corresponds to an icosahedre.
+        naplha (int): discretization of the alpha axis.
+
+    Returns:
+        (`torch.FloatTensor`): uniform sampling.
+    """
+    # uniformly samples beta and gamma on S2 using an icosahedric method
     with open(os.path.join(path_to_sampling, f"icosphere_{level}.pkl"), "rb") as f:
         data = pickle.load(f)
         xyz = torch.from_numpy(data["V"])

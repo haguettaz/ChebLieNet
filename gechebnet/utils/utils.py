@@ -1,94 +1,88 @@
 import math
-from typing import Optional, Tuple, Union
 
 import numpy as np
+import scipy
 import torch
-from numpy import ndarray
-from scipy.sparse import coo_matrix
-from torch import FloatTensor, Tensor
-from torch import device as Device
-from torch.sparse import FloatTensor as SparseFloatTensor
-from torch.sparse import Tensor as SparseTensor
 
 
-def mod(input: Tensor, n: float, d: float = 0.0) -> Tensor:
+def mod(input, n, d=0.0):
     """
-    Returns a new tensor whose elements corresepond to the modulo with offset of the elements of the input tensor.
+    Returns a new tensor whose elements corresepond to the modulo with offset of the elements of the input.
 
     Args:
-        input (Tensor): input tensor.
+        input (`torch.FloatTensor`): input tensor.
         n (float): modulus.
         d (float, optional): offset. Defaults to 0.0.
 
     Returns:
-        (Tensor): output tensor.
+        (`torch.FloatTensor`): output tensor.
     """
     return (input - d) % n + d
 
 
-def sinc(input: Tensor) -> Tensor:
+def sinc(input):
     """
-    Returns a new tensor whose elements correspond to the sinus cardinal of the elements of the input tensor.
+    Returns a new tensor whose elements correspond to the sinus cardinal of the elements of the input.
 
     Args:
-        input (Tensor): input tensor.
+        input (`torch.FloatTensor`): input tensor.
 
     Returns:
-        (Tensor): output tensor.
+        (`torch.FloatTensor`): output tensor.
     """
     output = torch.sin(input) / input
     output[input == 0.0] = 1.0
     return output
 
 
-def round(input: Tensor, n_digits: int = 0) -> Tensor:
+def round(input, n_digits=0):
     """
-    Returns a new tensor with the rounded to n decimal places version of the elements of input.
+    Returns a new tensor with the rounded to n decimal places version of the elements of the input.
 
     Args:
-        input (Tensor): input_tensor.
+        input (`torch.FloatTensor`): input_tensor.
         n_digits (int, optional): number of digits. Defaults to 0.
 
     Returns:
-        (Tensor): output tensor.
+        (`torch.FloatTensor`): output tensor.
     """
     return torch.round(input * 10 ** n_digits) / (10 ** n_digits)
 
 
-def weighted_norm(input: Tensor, Re: Tensor) -> Tensor:
+def weighted_norm(input, Re):
     """
-    Returns a new tensor whose elements correspond to the squared weighted norm of the input tensor.
+    Returns a new tensor whose elements correspond to the squared weighted norm of the input.
 
     Args:
-        input (Tensor): input tensor.
-        Re (Tensor): metric tensor.
+        input (`torch.FloatTensor`): input tensor with shape (N, D).
+        Re (`torch.FloatTensor`): metric tensor with shape (D, D).
 
     Returns:
-        (Tensor): squared weighted norm.
+        (`torch.FloatTensor`): squared weighted norm with shape (N).
     """
     Re = Re.to(input.device)
     return torch.matmul(torch.matmul(input.transpose(1, 2), Re), input).squeeze()
 
 
-def shuffle_tensor(input: Tensor) -> Tensor:
+def shuffle_tensor(input):
     """
-    Returns a new tensor whose elements correspond to a randomly shuffled version of the the elements of the input tensor.
+    Returns a new tensor whose elements correspond to a randomly shuffled version of the the elements of the input.
 
     Args:
-        input (Tensor): input tensor.
+        input (`torch.Tensor`): input tensor.
 
     Returns:
-        (Tensor): output tensor.
+        (`torch.Tensor`): output tensor.
     """
     return input[torch.randperm(input.nelement())]
 
 
-def sparsity_measure(input: SparseTensor) -> float:
+def sparsity_measure(input):
     """
     Returns the sparsity rate of the input sparse tensor, i.e. the rate of zero elements.
 
     Args:
-        input (SparseTensor): input tensor.
+        input (`torch.sparse.Tensor`): input tensor.
 
     Returns:
         (float): sparsity rate.
@@ -96,38 +90,36 @@ def sparsity_measure(input: SparseTensor) -> float:
     return input._nnz() / (input.size(0) * input.size(1))
 
 
-def sparse_tensor_to_sparse_array(input) -> coo_matrix:
+def sparse_tensor_to_sparse_array(input):
     """
-    Converts a PyTorch sparse tensor to a Numpy sparse array.
+    Converts a sparse torch tensor to a sparse scipy matrix.
 
     Args:
-        input (SparseTensor): sparse tensor.
+        input (`torch.sparse.Tensor`): torch tensor.
 
     Returns:
-        (coo_matrix): output matrix.
+        (`scipy.sparse.coo_matrix`): scipy matrix.
     """
     input = input.cpu()
 
     row, col = input._indices()
     value = input._values()
 
-    out = coo_matrix((value, (row, col)), input.size())
+    out = scipy.sparse.coo_matrix((value, (row, col)), input.size())
     return out
 
 
-def delta_kronecker(
-    size: Union[int, Tuple[int, ...]], offset: Union[int, Tuple[int, ...]], device: Optional[Device] = None
-) -> Tensor:
+def delta_kronecker(size, offset, device=None):
     """
     Returns a new tensor whose elements correspond to a delta kronecker with offset.
 
     Args:
         size (int or tuple of ints): size of the output tensor.
         offset (int or tuple of ints): offset of the delta kronecker.
-        device (Device, optional): computation device. Defaults to None.
+        device (`torch.device`, optional): computation device. Defaults to None.
 
     Returns:
-        (Tensor): delta kronecker.
+        (`torch.FloatTensor`): delta kronecker.
     """
 
     if type(size) != type(offset):

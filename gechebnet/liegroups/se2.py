@@ -1,26 +1,23 @@
 import math
-from typing import Optional, Tuple
 
 import torch
-from torch import FloatTensor, Tensor
-from torch import device as Device
 
 from ..utils.utils import mod, weighted_norm
 
 
-def se2_matrix(x: FloatTensor, y: FloatTensor, theta: FloatTensor, device: Optional[Device] = None) -> FloatTensor:
+def se2_matrix(x, y, theta, device=None):
     """
     Returns a new tensor corresponding to matrix formulation of the given input tensors representing
     SE(2) group elements.
 
     Args:
-        x (FloatTensor): x attributes of group elements.
-        y (FloatTensor): y attributes of group elements.
-        theta (FloatTensor): theta attributes of group elements.
+        x (`torch.FloatTensor`): x attributes of group elements.
+        y (`torch.FloatTensor`): y attributes of group elements.
+        theta (`torch.FloatTensor`): theta attributes of group elements.
         device (Device, optional): computation device. Defaults to None.
 
     Returns:
-        (FloatTensor): matrix representation of the group elements.
+        (`torch.FloatTensor`): matrix representation of the group elements.
     """
     cos = torch.cos(theta)
     sin = torch.sin(theta)
@@ -37,18 +34,18 @@ def se2_matrix(x: FloatTensor, y: FloatTensor, theta: FloatTensor, device: Optio
     return Gg
 
 
-def se2_element(G: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+def se2_element(G):
     """
     Returns three new tensors corresponding to x, y and theta attributes of the group elements specified by the
     se2 group elements in matrix formulation.
 
     Args:
-        G (Tensor): matrix formulation of the group elements.
+        G (`torch.FloatTensor`): matrix formulation of the group elements.
 
     Returns:
-        (Tensor): x attributes of the group elements.
-        (Tensor): y attributes of the group elements.
-        (Tensor): theta attributes of the group elements.
+        (`torch.FloatTensor`): x attributes of the group elements.
+        (`torch.FloatTensor`): y attributes of the group elements.
+        (`torch.FloatTensor`): theta attributes of the group elements.
     """
     x = G[..., 0, 2]
     y = G[..., 1, 2]
@@ -56,28 +53,28 @@ def se2_element(G: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
     return x, y, theta
 
 
-def se2_inverse(G: Tensor) -> Tensor:
+def se2_inverse(G):
     """
     Returns a new tensor corresponding to the inverse of the group elements in matrix formulation.
 
     Args:
-        G (Tensor): matrix formulation of the group elements.
+        G (`torch.FloatTensor`): matrix formulation of the group elements.
 
     Returns:
-        (Tensor): matrix formulation of the inverse group elements.
+        (`torch.FloatTensor`): matrix formulation of the inverse group elements.
     """
     return torch.inverse(G)
 
 
-def se2_log(G: Tensor) -> Tensor:
+def se2_log(G):
     """
     Returns a new tensor containing the riemannnian logarithm of the group elements in matrix formulation.
 
     Args:
-        G (Tensor): matrix formulation of the group elements.
+        G (`torch.FloatTensor`): matrix formulation of the group elements.
 
     Returns:
-        (Tensor): riemannian logarithms.
+        (`torch.FloatTensor`): riemannian logarithms.
     """
     x, y, theta = se2_element(G)
 
@@ -94,17 +91,17 @@ def se2_log(G: Tensor) -> Tensor:
     return c
 
 
-def se2_riemannian_sqdist(Gg: Tensor, Gh: Tensor, Re: Tensor) -> Tensor:
+def se2_riemannian_sqdist(Gg, Gh, Re):
     """
     Returns the squared riemannian distances between group elements in matrix formulation.
 
     Args:
-        Gg (Tensor): matrix formulation of the source group elements.
-        Gh (Tensor): matrix formulation of the target group elements.
-        Re (Tensor): matrix formulation of the riemannian metric.
+        Gg (`torch.FloatTensor`): matrix formulation of the source group elements.
+        Gh (`torch.FloatTensor`): matrix formulation of the target group elements.
+        Re (`torch.FloatTensor`): matrix formulation of the riemannian metric.
 
     Returns:
-        (Tensor): squared riemannian distances
+        (`torch.FloatTensor`): squared riemannian distances
     """
     G = torch.matmul(se2_inverse(Gg), Gh)
 
@@ -115,7 +112,18 @@ def se2_riemannian_sqdist(Gg: Tensor, Gh: Tensor, Re: Tensor) -> Tensor:
     return weighted_norm(se2_log(G), Re)
 
 
-def se2_uniform_sampling(nx: int, ny: int, ntheta: int) -> Tuple[Tensor, Tensor, Tensor]:
+def se2_uniform_sampling(nx, ny, ntheta):
+    """
+    Uniformly samples elements of the SE(2) group in the hypercube [0, 1) x [0, 1) x [-pi/2, pi/2).
+
+    Args:
+        nx (int): discretization of the x axis.
+        ny (int): discretization of the y axis.
+        ntheta (int): discretization of the theta axis.
+
+    Returns:
+        (`torch.FloatTensor`): uniform sampling.
+    """
     if nx == 1:
         x_axis = torch.zeros(1)
     else:

@@ -1,79 +1,71 @@
+# coding=utf-8
+
 import math
 import os
 import sys
-from typing import Callable, Optional, Tuple, Union
 
 import numpy as np
-import pandas as pd
 import torch
-from numpy import ndarray
-from torch import FloatTensor, LongTensor
-from torch import device as Device
-from torch.sparse import FloatTensor as SparseFloatTensor
 from tqdm import tqdm
 
 from ..liegroups.se2 import se2_matrix, se2_riemannian_sqdist
 from ..liegroups.so3 import alphabetagamma2xyz, so3_matrix, so3_riemannian_sqdist, xyz2betagamma
-from .gsp import get_fourier_basis, get_laplacian, get_norm_laplacian
+from .gsp import get_fourier_basis, get_laplacian, get_rescaled_laplacian
 from .utils import remove_duplicated_edges, to_undirected
 
 
 class Graph:
-    """
-    Symbolic class representing a graph with nodes and edges. The main graph's operations are implemented
-    in this class: Laplacian, eigen space and diffusion kernels.
-    """
-
-    def get_laplacian(self, norm=True, device: Optional[Device] = None):
+    def get_laplacian(self, rescale=True, device=None):
         """
         Returns symmetric normalized graph laplacian .
 
         Args:
-            norm (bool, optional): if True return normalized laplacian with eigenvalues in [-1, 1].
-            device (Device, optional): computation device. Defaults to None.
+            rescale (bool, optional): if True, it returns rescaled normalized laplacian with eigenvalues
+                in [-1, 1]. Defaults to True.
+            device (`torch.device`, optional): computation device. Defaults to None.
 
         Returns:
-            (SparseFloatTensor): laplacian.
+            (`torch.sparse.FloatTensor`): laplacian.
         """
         if not hasattr(self, "laplacian"):
-            if norm:
-                self.laplacian = get_norm_laplacian(self.edge_index, self.edge_weight, self.num_nodes, 2.0, device)
+            if rescale:
+                self.laplacian = get_rescaled_laplacian(self.edge_index, self.edge_weight, self.num_nodes, 2.0, device)
             else:
                 self.laplacian = get_laplacian(self.edge_index, self.edge_weight, self.num_nodes, device=device)
 
         return self.laplacian
 
-    def get_eigen_space(self, norm=False) -> Tuple[ndarray, ndarray]:
+    def get_eigen_space(self, norm=False):
         """
         Return graph eigen space, i.e. Laplacian eigen decomposition.
 
         Args:
-            norm (bool, optional): if True, uses the normalized laplacian with eigenvalues in [-1, 1].
+            norm (bool, optional): if True, uses the normalized laplacian with eigenvalues in [-1, 1]. Defaults to False.
 
         Returns:
-            (ndarray): Laplacian eigen values.
-            (ndarray): Laplacian eigen vectors.
+            (`np.ndarray`): Laplacian eigen values.
+            (`np.ndarray`): Laplacian eigen vectors.
         """
         if not hasattr(self, "eigen_space"):
             self.eigen_space = get_fourier_basis(self.get_laplacian(norm))
 
         return self.eigen_space
 
-    def diff_kernel(self, kernel: Callable) -> ndarray:
+    def diff_kernel(self, kernel):
         """
-        Return the diffusion kernel of the graph specified by the kernel imput.
+        Return the diffusion kernel of the graph specified by the kernel input.
 
         Args:
             tau (float): time constant.
 
         Returns:
-            (ndarray): diffusion kernel.
+            (`np.ndarray`): diffusion kernel.
         """
         lambdas, Phi = self.eigen_space
         return Phi @ np.diag(kernel(lambdas)) @ Phi.T
 
     @property
-    def num_nodes(self) -> int:
+    def num_nodes(self):
         """
         Return the total number of nodes of the graph.
 
@@ -83,16 +75,16 @@ class Graph:
         return self.node_index.shape[0]
 
     @property
-    def num_edges(self) -> int:
+    def num_edges(self):
         """
         Return the total number of edges of the graph.
 
         Returns:
-            (int): number of edges.
+            (int): number of (directed) edges.
         """
         return self.edge_index.shape[1]
 
-    def neighborhood(self, node_index: int) -> Tuple[LongTensor, FloatTensor, FloatTensor]:
+    def neighborhood(self, node_index):
         """
         Returns the node's neighborhood.
 
@@ -100,9 +92,9 @@ class Graph:
             node_index (int): node index.
 
         Returns:
-            (LongTensor): neighbors' indices.
-            (FloatTensor): edges' weight from node to neighbors.
-            (FloatTensor): squared riemannian distance from node to neighbors.
+            (`torch.LongTensor`): neighbors' indices.
+            (`torch.FloatTensor`): weights of edges from node to neighbors.
+            (`torch.FloatTensor`): squared riemannian distance from node to neighbors.
         """
         if not node_index in self.node_index:
             raise ValueError(f"{node_index} is not a valid index")
@@ -113,18 +105,14 @@ class Graph:
     @property
     def is_connected(self):
         """
-        Returns True is the graph is connected, that is it does not contain isolated node.
-
         Returns:
-            (bool): True if the graph is connected.
+            (bool): True if the graph is connected, i.e. it does not contain isolated vertex.
         """
         return (self.node_index.repeat(1, self.num_edges) == self.edge_index[0]).sum(dim=1).min() > 0
 
     @property
     def is_undirected(self):
         """
-        Returns True is the graph is undirected.
-
         Returns:
             (bool): True if the graph is undirected.
         """
@@ -153,10 +141,8 @@ class Graph:
 
     def check_graph_exists(self, path_to_graph):
         """
-        [summary]
-
         Returns:
-            [type]: [description]
+            (bool): True if the graph exists in the graphs' directory.
         """
         for attr in self.node_attributes:
             if not os.path.exists(os.path.join(path_to_graph, f"{self.str_repr}_{attr}.pt")):
@@ -170,20 +156,10 @@ class Graph:
 
 
 class RandomSubGraph(Graph):
-    """
-    Symbolic class to generate a random sub-graph, that is a graph that is randomly created
-    from another by edges' or nodes' sampling.
-
-    Args:
-        (Graph): parent class representing a graph.
-    """
-
     def __init__(self, graph):
         """
-        Initialization.
-
         Args:
-            graph (Graph): original graph.
+            graph (`Graph`): parent graph.
         """
 
         self.graph = graph
@@ -197,9 +173,26 @@ class RandomSubGraph(Graph):
 
         self.sub_node_index = self.node_index.clone()
 
+    def reinit(self):
+        """
+        Reinitialize random sub-graph nodes and edges' attributes.
+        """
+        if hasattr(self, "laplacian"):
+            del self.laplacian
+
+        for attr in self.graph.node_attributes:
+            setattr(self, attr, getattr(self.graph, attr))
+
+        for attr in self.graph.edge_attributes:
+            setattr(self, attr, getattr(self.graph, attr))
+
+        self.sub_node_index = self.node_index.clone()
+
     def edge_sampling(self, rate):
         """
         Randomly samples a given rate of edges from the original graph to generate a random sub-graph.
+        The graph is assumed to be undirected and the probability for an edge to be sampled is proportional
+        to its weight.
 
         Args:
             rate (float): rate of edges to sample.
@@ -221,6 +214,8 @@ class RandomSubGraph(Graph):
     def node_sampling(self, rate):
         """
         Randomly samples a given rate of nodes from the original graph to generate a random sub-graph.
+        All the nodes have the same probability being sampled. After having sampled the vertices, only the
+        edges between sampled nodes are conserved.
 
         Warning: nodes' sampling is not compatible with pooling and unpooling operations.
 
@@ -246,17 +241,17 @@ class RandomSubGraph(Graph):
         self.edge_weight = self.graph.edge_weight[mask]
         self.edge_sqdist = self.graph.edge_sqdist[mask]
 
-    def cartesian_pos(self, axis=None) -> Tuple[FloatTensor, FloatTensor, FloatTensor]:
+    def cartesian_pos(self, axis=None):
         """
         Returns the cartesian position of the graph's nodes.
 
         Args:
-            axis (str, optional): position's axis. Defaults to None.
+            axis (str, optional): cartesian axis. If None, return all axis. Defaults to None.
 
         Returns:
-            (FloatTensor, optional): x position.
-            (FloatTensor, optional): y position.
-            (FloatTensor, optional): z position.
+            (`torch.FloatTensor`, optional): x position.
+            (`torch.FloatTensor`, optional): y position.
+            (`torch.FloatTensor`, optional): z position.
         """
         x, y, z = self.graph.cartesian_pos()
 
@@ -270,18 +265,30 @@ class RandomSubGraph(Graph):
 
     @property
     def size(self):
+        """
+        Return number of vertices as a tuple (L, F) where L referes to the number of
+        layers and F to its number of fibers.
+
+        Warning: it is not compatible with nodes' compression.
+
+        Returns:
+            (tuple): number of layers and fibers.
+        """
         return self.graph.size
 
 
 class GEGraph(Graph):
+    """
+    Basic class for an (anisotropic) group equivariant graph.
+    """
+
     def __init__(self, uniform_sampling, sigmas, K, path_to_graph):
         """
-        Initialization.
-
         Args:
-            uniform_sampling (torch.tensor): [description]
-            sigmas (tuple of floats): [description]
-            K (int): [description]
+            uniform_sampling (`torch.Tensor`): uniform sampling on the group manifold in format (D, V) where
+                V corresponds to the number of samples points and D to the dimension of the group.
+            sigmas (tuple of floats): anisotropy's coefficients.
+            K (int): number of neighbors per vertex.
         """
         super().__init__()
 
@@ -299,6 +306,11 @@ class GEGraph(Graph):
             print("Saved!")
 
     def _initnodes(self, uniform_sampling):
+        """
+        Args:
+            uniform_sampling (`torch.Tensor`): uniform sampling on the group manifold in format (D, V) where
+                V corresponds to the number of samples points and D to the dimension of the group.
+        """
         _, V = uniform_sampling.shape
 
         for k, d in self.group_dim.items():
@@ -307,6 +319,11 @@ class GEGraph(Graph):
         self.node_index = torch.arange(V)
 
     def _initedges(self, sigmas, K):
+        """
+        Args:
+            sigmas (tuple): anisotropy's coefficients.
+            K (int): number of neighbors per vertex.
+        """
         Gg = self.general_linear_group_element
         edge_sqdist = torch.empty(self.num_nodes * (K + 1))
         edge_index = torch.empty((2, self.num_nodes * (K + 1)), dtype=torch.long)
@@ -331,17 +348,16 @@ class GEGraph(Graph):
 class SE2GEGraph(GEGraph):
     """
     Object representing a SE(2) group equivariant graph. It can be considered as a discretization of
-    the SE(2) group where nodes corresponds to group elements and edges are proportional to the anisotropic
+    the SE(2) group where vertices corresponds to group elements and edges are proportional to the anisotropic
     SE(2) riemannian distances between group elements.
     """
 
     def __init__(self, uniform_sampling, sigmas, K, path_to_graph):
         """
-        Initialization.
-
         Args:
-            uniform_sampling (Tensor): uniform sampling of SE(2) group's elements.
-            sigmas (tuple of floats): anisotropy's parameters.
+            uniform_sampling (`torch.FloatTensor`): uniform sampling on the SE(2) group manifold in format (D, V)
+                where V corresponds to the number of samples points and D to the dimension of the group.
+            sigmas (tuple of floats): anisotropy's coefficients.
             K (int): number of neighbors.
             path_to_graph (str): path to the folder to save graph.
         """
@@ -357,12 +373,12 @@ class SE2GEGraph(GEGraph):
         riemannian metric Re.
 
         Args:
-            Gg (Tensor): GL(3) group elements.
-            Gh (Tensor): GL(3) group elements.
-            Re (Tensor): riemannian metric.
+            Gg (`torch.FloatTensor`): GL(3) group elements.
+            Gh (`torch.FloatTensor`): GL(3) group elements.
+            Re (`torch.FloatTensor`): riemannian metric.
 
         Returns:
-            (Tensor): squared riemannian distance.
+            (`torch.FloatTensor`): squared riemannian distance.
         """
         return se2_riemannian_sqdist(Gg, Gh, Re)
 
@@ -372,7 +388,7 @@ class SE2GEGraph(GEGraph):
         Return the group elements of graph's vertices.
 
         Returns:
-            (Tensor): SE(2) group's elements.
+            (`torch.FloatTensor`): SE(2) group's elements.
         """
         return self.node_x, self.node_y, self.node_theta
 
@@ -382,17 +398,31 @@ class SE2GEGraph(GEGraph):
         Return the general linear group elements of graph's vertices.
 
         Returns:
-            (Tensor): GL(3) group's elements.
+            (`torch.FloatTensor`): GL(3) group's elements.
         """
         return se2_matrix(self.node_x, self.node_y, self.node_theta)
 
     @property
     def group_dim(self):
+        """
+        Return the name of the group's dimensions.
+
+        Returns:
+            (dict): mapping from dimensions' names to dimensions' indices.
+        """
         return {"x": 0, "y": 1, "theta": 2}
 
     @property
     def size(self):
-        # not compatible with node compression
+        """
+        Return number of vertices as a tuple (L, F) where L referes to the number of
+        layers and F to its number of fibers.
+
+        Warning: it is not compatible with nodes' compression.
+
+        Returns:
+            (tuple): number of layers and fibers.
+        """
         nsym = self.node_theta.unique().nelement()
         return (nsym, self.num_nodes // nsym)
 
@@ -401,12 +431,12 @@ class SE2GEGraph(GEGraph):
         Return the cartesian positions of the graph's vertices.
 
         Args:
-            (str, optional): the cartesian axis to return, if None, return all axis. Defaults to None.
+            axis (str, optional): cartesian axis. If None, return all axis. Defaults to None.
 
         Returns:
-            (FloatTensor, optional): x positions.
-            (FloatTensor, optional): y positions.
-            (FloatTensor, optional): z positions.
+            (`torch.FloatTensor`, optional): x positions.
+            (`torch.FloatTensor`, optional): y positions.
+            (`torch.FloatTensor`, optional): z positions.
         """
         if axis is None:
             return self.node_x, self.node_y, self.node_theta
@@ -419,10 +449,22 @@ class SE2GEGraph(GEGraph):
 
     @property
     def node_attributes(self):
+        """
+        Returns the graph's nodes attributes.
+
+        Returns:
+            (tuple): tuple of nodes' attributes
+        """
         return ("node_index", "node_x", "node_y", "node_theta")
 
     @property
     def edge_attributes(self):
+        """
+        Returns the graph's edges attributes.
+
+        Returns:
+            (tuple): tuple of edges' attributes
+        """
         return ("edge_index", "edge_weight", "edge_sqdist")
 
 
@@ -435,11 +477,10 @@ class SO3GEGraph(GEGraph):
 
     def __init__(self, uniform_sampling, sigmas, K, path_to_graph):
         """
-        Initialization.
-
         Args:
-            uniform_sampling (Tensor): uniform sampling of SE(2) group's elements.
-            sigmas (tuple of floats): anisotropy's parameters.
+            uniform_sampling (`torch.FloatTensor`): uniform sampling on the SO(3) group manifold in format (D, V)
+                where V corresponds to the number of samples points and D to the dimension of the group.
+            sigmas (tuple of floats): anisotropy's coefficients.
             K (int): number of neighbors.
             path_to_graph (str): path to the folder to save graph.
         """
@@ -455,12 +496,12 @@ class SO3GEGraph(GEGraph):
         riemannian metric Re.
 
         Args:
-            Gg (Tensor): GL(3) group elements.
-            Gh (Tensor): GL(3) group elements.
-            Re (Tensor): riemannian metric.
+            Gg (`torch.FloatTensor`): GL(3) group elements.
+            Gh (`torch.FloatTensor`): GL(3) group elements.
+            Re (`torch.FloatTensor`): riemannian metric.
 
         Returns:
-            (Tensor): squared riemannian distance.
+            (`torch.FloatTensor`): squared riemannian distance.
         """
         return so3_riemannian_sqdist(Gg, Gh, Re)
 
@@ -470,7 +511,7 @@ class SO3GEGraph(GEGraph):
         Return the group elements of graph's vertices.
 
         Returns:
-            (Tensor): SO(3) group's elements.
+            (`torch.FloatTensor`): SO(3) group's elements.
         """
         return self.node_alpha, self.node_beta, self.node_gamma
 
@@ -480,17 +521,31 @@ class SO3GEGraph(GEGraph):
         Return the general linear group elements of graph's vertices.
 
         Returns:
-            (Tensor): GL(3) group's elements.
+            (`torch.FloatTensor`): GL(3) group's elements.
         """
         return so3_matrix(self.node_alpha, self.node_beta, self.node_gamma)
 
     @property
     def group_dim(self):
+        """
+        Return the name of the group's dimensions.
+
+        Returns:
+            (dict): mapping from dimensions' names to dimensions' indices.
+        """
         return {"alpha": 0, "beta": 1, "gamma": 2}
 
     @property
     def size(self):
-        # not compatible with node compression
+        """
+        Return number of vertices as a tuple (L, F) where L referes to the number of
+        layers and F to its number of fibers.
+
+        Warning: it is not compatible with nodes' compression.
+
+        Returns:
+            (tuple): number of layers and fibers.
+        """
         nsym = self.node_alpha.unique().nelement()
         return (nsym, self.num_nodes // nsym)
 
@@ -499,12 +554,12 @@ class SO3GEGraph(GEGraph):
         Return the cartesian positions of the graph's vertices.
 
         Args:
-            (str, optional): the cartesian axis to return. Defaults to None.
+            axis (str, optional): cartesian axis. If None, return all axis. Defaults to None.
 
         Returns:
-            (FloatTensor, optional): x positions.
-            (FloatTensor, optional): y positions.
-            (FloatTensor, optional): z positions.
+            (`torch.FloatTensor`, optional): x positions.
+            (`torch.FloatTensor`, optional): y positions.
+            (`torch.FloatTensor`, optional): z positions.
         """
         x, y, z = alphabetagamma2xyz(self.node_alpha, self.node_beta, self.node_gamma)
 
@@ -519,8 +574,20 @@ class SO3GEGraph(GEGraph):
 
     @property
     def node_attributes(self):
+        """
+        Returns the graph's nodes attributes.
+
+        Returns:
+            (tuple): tuple of nodes' attributes
+        """
         return ("node_index", "node_alpha", "node_beta", "node_gamma")
 
     @property
     def edge_attributes(self):
+        """
+        Returns the graph's edges attributes.
+
+        Returns:
+            (tuple): tuple of edges' attributes
+        """
         return ("edge_index", "edge_weight", "edge_sqdist")

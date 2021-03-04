@@ -1,46 +1,36 @@
-from typing import Tuple
+# coding=utf-8
 
 import torch
-from torch import BoolTensor, FloatTensor, LongTensor
-from torch import device as Device
-from torch.sparse import FloatTensor as SparseFloatTensor
 
 
-def remove_duplicated_edges(edge_index: LongTensor, edge_attr: FloatTensor) -> Tuple[LongTensor, FloatTensor]:
+def remove_duplicated_edges(edge_index, edge_attr):
     """
-    Remove duplicated edges in the graph given by edge_index and edge_attr. Duplicated edges can appear if the
-    number of connections per vertex is higher than the total number of vertices.
+    Remove duplicated edges in the graph, assuming an undirected graph.
 
     Args:
-        edge_index (LongTensor): indices of edges.
-        edge_attr (FloatTensor): attributes of edges.
-        knn (int): number of connections of a vertex.
-
-    Raises:
-        ValueError: number of edges must be equal to the number of nodes times the number of connections per node.
+        edge_index (`torch.LongTensor`): indices of graph's edges.
+        edge_attr (`torch.FloatTensor`): attributes of graph's edges.
 
     Returns:
-        (LongTensor): indices of edges.
-        (FloatTensor)]: attributes of edges
+        (`torch.LongTensor`): indices of graph's edges.
+        (`torch.FloatTensor`): attributes of graph's edges.
     """
     mask = edge_index[0] <= edge_index[1]
 
     return edge_index[:, mask], edge_attr[..., mask]
 
 
-def to_undirected(
-    edge_index: LongTensor, edge_attr: FloatTensor, self_loop: bool = False
-) -> Tuple[LongTensor, FloatTensor]:
+def to_undirected(edge_index, edge_attr, self_loop=False):
     """
-    [summary]
+    Make the graph undirected, that is create an inverse edge for each edge.
 
     Args:
-        edge_index (LongTensor): [description]
-        edge_attr (FloatTensor): [description]
+        edge_index (`torch.LongTensor`): indices of graph's edges.
+        edge_attr (`torch.FloatTensor`): attributes of graph's edges.
 
     Returns:
-        (LongTensor): [description]
-        (FloatTensor): [description]
+        (`torch.LongTensor`): indices of graph's edges.
+        (`torch.FloatTensor`): attributes of graph's edges.
     """
     edge_index_inverse = torch.cat((edge_index[1, None], edge_index[0, None]), dim=0)
     edge_index = torch.cat((edge_index, edge_index_inverse), dim=-1)
@@ -52,36 +42,35 @@ def to_undirected(
     return remove_self_loops(edge_index, edge_attr)
 
 
-def remove_self_loops(edge_index: LongTensor, edge_attr: FloatTensor) -> Tuple[LongTensor, FloatTensor]:
+def remove_self_loops(edge_index, edge_attr):
     """
-    Removes every self-loop in the graph given by edge_index and edge_attr.
+    Removes all self-loop in the graph.
 
     Args:
-        edge_index (LongTensor): indices of edges.
-        edge_attr (FloatTensor): attributes of edges.
+        edge_index (`torch.LongTensor`): indices of graph's edges.
+        edge_attr (`torch.FloatTensor`): attributes of graph's edges.
 
     Returns:
-        LongTensor: indices of edges.
-        FloatTensor: attributes of edges.
+        (`torch.LongTensor`): indices of graph's edges.
+        (`torch.FloatTensor`): attributes of graph's edges.
     """
     mask = edge_index[0] != edge_index[1]
 
     return edge_index[:, mask], edge_attr[mask]
 
 
-def add_self_loops(
-    edge_index: LongTensor, edge_attr: FloatTensor, weight: float = 1.0
-) -> Tuple[LongTensor, FloatTensor]:
+def add_self_loops(edge_index, edge_attr, weight=1.0):
     """
-    [summary]
+    Add a self-loop for each vertex of the graph.
 
     Args:
-        edge_index (LongTensor): [description]
-        edge_attr (FloatTensor): [description]
-        weight (float, optional): [description]. Defaults to 1.0.
+        edge_index (`torch.LongTensor`): indices of graph's edges.
+        edge_attr (`torch.FloatTensor`): attributes of graph's edges.
+        weight (float, optional): weight of a self-loop. Defaults to 1.0.
 
     Returns:
-        Tuple[LongTensor, FloatTensor]: [description]
+        (`torch.LongTensor`): indices of graph's edges.
+        (`torch.FloatTensor`): attributes of graph's edges.
     """
 
     self_loop_index = edge_index[0].unique().unsqueeze(0).repeat(2, 1)

@@ -1,3 +1,5 @@
+# coding=utf-8
+
 import random
 
 import numpy as np
@@ -29,10 +31,10 @@ class Random90Rotation(nn.Module):
     def forward(self, input):
         """
         Args:
-            input (PILImage or Tensor): input to rotate.
+            input (`PILImage` or `Tensor`): input to rotate.
 
         Returns:
-            (PILImage or Tensor): rotated output.
+            (`PILImage` or `Tensor`): rotated output.
         """
         k = self.get_params()
         return F.rotate(input, k * 90)
@@ -59,10 +61,10 @@ class Normalize:
     def forward(self, input):
         """
         Args:
-            input (`torch.Tensor`): input tensor with size (C, V) to be normalized.
+            input (`Tensor`): input tensor with size (C, V) to be normalized.
 
         Returns:
-            (`torch.Tensor`): normalized output tensor.
+            (`Tensor`): normalized output tensor.
         """
         return (input - self.mean) / self.std
 
@@ -78,7 +80,7 @@ class ToTensor:
             input (:obj:): input object to convert.
 
         Returns:
-            (`torch.Tensor`): output tensor with size (1, C, V).
+            (`Tensor`): output tensor with size (1, C, V).
         """
 
         if _is_pil_image(input):
@@ -163,7 +165,7 @@ class BoolToInt:
     def forward(self, input):
         """
         Args:
-            input (`torch.Tensor`): input tensor to convert.
+            input (`torch.BoolTensor`): input tensor to convert.
         Returns:
             (`torch.Tensor`): output tensor.
         """

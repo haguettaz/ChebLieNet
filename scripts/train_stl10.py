@@ -5,7 +5,7 @@ import torch
 import wandb
 from gechebnet.datas.dataloaders import get_test_equivariance_dataloaders, get_train_val_dataloaders
 from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
-from gechebnet.engines.utils import edges_dropout, nodes_sparsification, prepare_batch, wandb_log
+from gechebnet.engines.utils import sample_edges, sample_nodes, prepare_batch, wandb_log
 from gechebnet.graphs.graphs import RandomSubGraph, SE2GEGraph
 from gechebnet.liegroups.se2 import se2_uniform_sampling
 from gechebnet.nn.models.utils import capacity
@@ -142,19 +142,19 @@ def train(config=None):
         if args.sample_edges:
             trainer.add_event_handler(
                 Events.ITERATION_STARTED,
-                edges_dropout,
+                sample_edges,
                 sub_graph_lvl1,
                 args.edges_rate,
             )
             trainer.add_event_handler(
                 Events.ITERATION_STARTED,
-                edges_dropout,
+                sample_edges,
                 sub_graph_lvl2,
                 args.edges_rate,
             )
             trainer.add_event_handler(
                 Events.ITERATION_STARTED,
-                edges_dropout,
+                sample_edges,
                 sub_graph_lvl3,
                 args.edges_rate,
             )
@@ -162,19 +162,19 @@ def train(config=None):
         if args.sample_nodes:
             trainer.add_event_handler(
                 Events.EPOCH_STARTED,
-                nodes_sparsification,
+                sample_nodes,
                 sub_graph_lvl1,
                 args.nodes_rate,
             )
             trainer.add_event_handler(
                 Events.EPOCH_STARTED,
-                nodes_sparsification,
+                sample_nodes,
                 sub_graph_lvl2,
                 args.nodes_rate,
             )
             trainer.add_event_handler(
                 Events.EPOCH_STARTED,
-                nodes_sparsification,
+                sample_nodes,
                 sub_graph_lvl3,
                 args.nodes_rate,
             )
