@@ -1,6 +1,5 @@
 import itertools
 import os
-from typing import Optional
 
 import numpy as np
 from torch.utils.data import Dataset
@@ -11,20 +10,18 @@ from .transforms import Compose
 
 class ARTCDataset(Dataset):
     """
-    Dataset for reduced atmospheric river and tropical cyclone dataset.
-
-    Credits. https://github.com/deepsphere/deepsphere-pytorch
+    Dataset for reduced atmospheric river and tropical cyclone dataset (from https://github.com/deepsphere/deepsphere-pytorch)
     """
 
     resource = "http://island.me.berkeley.edu/ugscnn/data/climate_sphere_l5.zip"
 
     def __init__(
         self,
-        path_to_data: str,
-        indices: Optional[list] = None,
-        transform_image: Optional[Compose] = None,
-        transform_target: Optional[Compose] = None,
-        download: Optional[bool] = False,
+        path_to_data,
+        indices=None,
+        transform_image=None,
+        transform_target=None,
+        download=False,
     ):
         """
         Initialization.
@@ -32,8 +29,8 @@ class ARTCDataset(Dataset):
         Args:
             path_to_data (str): path to data directory.
             indices (list, optional): list of indices representing the subset of the data used for the current dataset.
-            transform_image (:obj:`Compose`, optional): data' transformations.
-            transform_target (:obj:`Compose`, optional): labels' transformations.
+            transform_image (:obj:`Compose`, optional): list of transformations to apply on images.
+            transform_target (:obj:`Compose`, optional): list of transformations to apply on targets.
             download (bool, optional): if True, downloads the dataset from the internet and puts it in data directory.
                 If dataset is already downloaded, it is not downloaded again.. Defaults to False.
         """
@@ -50,7 +47,7 @@ class ARTCDataset(Dataset):
         Get files.
 
         Returns:
-            (list): list of strings, which represent the files contained in the dataset.
+            (list): list of files contained in the dataset.
         """
         return self.files
 
@@ -68,10 +65,11 @@ class ARTCDataset(Dataset):
         Get an item from the dataset.
 
         Args:
-            idx (int): index of the desired datapoint.
+            idx (int): index of the desired item.
 
         Returns:
-            (tuple): (image, target) where target is index of the target class.
+            (:obj:): image on the sphere with 16 channels. The class depends on the image's transformations.
+            (:obj:): target on the sphere with 3 channels. The class depends on the target's transformations.
         """
         item = np.load(os.path.join(self.path_to_data, self.files[idx]))
         image, target = item["data"], item["labels"]
@@ -110,5 +108,8 @@ class ARTCDataset(Dataset):
     def check_exists(self):
         """
         Check if dataset already exists.
+
+        Returns:
+            (bool): True if the directory containing dataset already exists.
         """
         return os.path.exists(self.path_to_data)

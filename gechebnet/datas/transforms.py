@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 import torch
 from torch import Tensor, nn
@@ -9,98 +11,109 @@ from .functionals import _is_numpy, _is_pil_image, pil_to_tensor
 
 class Random90Rotation(nn.Module):
     """
-    Rotate the image by k-90 angle.
+    Rotate the image by 0, 90, 180 ou 270 degrees clockwise.
     The image can be a PIL Image or a Tensor, in which case it is expected
     to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions.
     """
 
-    def __init__(self):
-        super().__init__()
-
     @staticmethod
-    def get_params() -> int:
-        """Get parameters for ``rotate`` for a random k-90 degrees rotation.
+    def get_params():
+        """
+        Get parameters for ``rotate`` for a random rotation by 0, 90, 180 ou 270 degrees clockwise.
 
         Returns:
-            float: angle parameter to be passed to ``rotate`` for random k-90 rotation.
+            (int): number of 90 degrees clockwise rotations to perform.
         """
-        k = int(torch.empty(1).random_(0, 4).item())
-        return k
+        return random.randint(0, 3)
 
-    def forward(self, item):
+    def forward(self, input):
         """
         Args:
-            item (PILImage or Tensor): image to be rotated.
+            input (PILImage or Tensor): input to rotate.
 
         Returns:
-            (PILImage or Tensor): rotated image.
+            (PILImage or Tensor): rotated output.
         """
         k = self.get_params()
-        return F.rotate(item, k * 90)
+        return F.rotate(input, k * 90)
 
 
 class Normalize:
-    """Normalize using mean and std."""
+    """
+    Normalize a tensor image with mean and standard deviation.
+    Given mean: ``(mean[1],...,mean[n])`` and std: ``(std[1],..,std[n])`` for ``n``
+    channels, this transform will normalize each channel of the input
+    ``torch.*Tensor`` i.e.,
+    ``output[channel] = (input[channel] - mean[channel]) / std[channel]``
+    """
 
     def __init__(self, mean, std):
         """
-        Initialization.
-
         Args:
-            mean (tuple): means of each feature.
-            std (tuple): standard deviations of each feature.
+            mean (sequence): sequence of means for each channel.
+            std (sequence): sequence of standard deviations for each channel.
         """
-        self.mean = torch.tensor(mean).unsqueeze(1)
-        self.std = torch.tensor(std).unsqueeze(1)
+        self.mean = Tensor(mean).unsqueeze(1)
+        self.std = Tensor(std).unsqueeze(1)
 
-    def __call__(self, item):
+    def forward(self, input):
         """
-        Calling function.
-
         Args:
-            item (`torch.Tensor`): sample of size (1, features, vertices) to be normalized on its features.
+            input (`torch.Tensor`): input tensor with size (C, V) to be normalized.
 
         Returns:
-            `torch.Tensor`: normalized input tensor.
+            (`torch.Tensor`): normalized output tensor.
         """
-        return (item - self.mean) / self.std
+        return (input - self.mean) / self.std
 
 
 class ToTensor:
-    """Convert raw data and labels to PyTorch tensor."""
+    """
+    Convert input object to PyTorch tensor.
+    """
 
-    def __call__(self, item):
-        """Function call operator to change type.
+    def forward(self, input):
+        """
         Args:
-            item (`numpy.array`): input that needs to be transformed.
+            input (:obj:): input object to convert.
+
         Returns:
-            `torch.Tensor`: sample of size (1, features, vertices).
+            (`torch.Tensor`): output tensor with size (1, C, V).
         """
 
-        if _is_pil_image(item):
-            return pil_to_tensor(item)
+        if _is_pil_image(input):
+            return pil_to_tensor(input)
 
-        if _is_numpy(item):
-            return torch.from_numpy(item)
+        if _is_numpy(input):
+            return torch.from_numpy(input)
 
-        return torch.Tensor(item)
+        return Tensor(input)
 
 
 class Compose:
-    """Composes several transforms together. This transform does not support torchscript.
-    Please, see the note below.
-
-    Args:
-        transforms (list of ``Transform`` objects): list of transforms to compose.
+    """
+    Compose several transforms together. This transform does not support torchscript.
     """
 
     def __init__(self, transforms):
+        """
+        Args:
+            transforms (list): list of transformations to compose.
+        """
+
         self.transforms = transforms
 
-    def __call__(self, item):
+    def forward(self, input):
+        """
+        Args:
+            input (:obj:): input object to transform.
+
+        Returns:
+            (:obj:): transformed output object.
+        """
         for t in self.transforms:
-            item = t(item)
-        return item
+            input = t(input)
+        return input
 
     def __repr__(self):
         format_string = self.__class__.__name__ + "("
@@ -111,43 +124,48 @@ class Compose:
         return format_string
 
 
-class ToGraphSignal:
-    """Convert raw data and labels to PyTorch tensor."""
+class ToGEGraphSignal:
+    """
+    Make a tensor a group equivariant graph signal with shape (C, V) where C corresponds to the number of channels
+    and V the number of vertices. The initial signal is repeated along the symmetric layers, such that the final number
+    of vertices is V = L * Vin.
+    """
 
     def __init__(self, num_layers):
         """
-        Initialization.
-
         Args:
-            num_layers (int): .
+            num_layers (int): number of symmetric layers.
         """
         self.num_layers = num_layers
 
-    def __call__(self, item):
-        """Function call operator to change type.
+    def forward(self, input):
+        """
         Args:
-            item (`torch.Tensor`): input that needs to be transformed.
+            input (`torch.Tensor`): input tensor to convert.
+
         Returns:
-            `torch.Tensor`: sample of size (1, features, vertices).
+            (`torch.Tensor`): output tensor with shape (C, V).
         """
 
-        if item.ndim < 2:
-            item = item.unsqueeze(0)
+        if input.ndim < 2:
+            input = input.unsqueeze(0)
 
-        C, *_ = item.shape
+        C, *_ = input.shape
 
-        return item.reshape(C, -1).unsqueeze(1).expand(-1, self.num_layers, -1).reshape(C, -1)
+        return input.reshape(C, -1).unsqueeze(1).expand(-1, self.num_layers, -1).reshape(C, -1)
 
 
 class BoolToInt:
-    """Convert raw data and labels to PyTorch tensor."""
+    """
+    Convert BoolTensor with shape (B, C, ...) to IntTensor with shape (B, 1, ...).
+    """
 
-    def __call__(self, item):
-        """Function call operator to change type.
+    def forward(self, input):
+        """
         Args:
-            item (`torch.Tensor`): input that needs to be transformed.
+            input (`torch.Tensor`): input tensor to convert.
         Returns:
-            `torch.Tensor`: sample of size (1, features, vertices).
+            (`torch.Tensor`): output tensor.
         """
 
-        return item.int().argmax(dim=0)
+        return input.int().argmax(dim=0)
