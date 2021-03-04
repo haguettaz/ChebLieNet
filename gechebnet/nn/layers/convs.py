@@ -98,7 +98,7 @@ class ChebConv(nn.Module):
         Returns:
             (Tensor): convolved tensor.
         """
-        laplacian = self.graph.get_laplacian(norm=True, device=x.device)
+        laplacian = self.graph.get_laplacian(rescale=True, device=x.device)
         x = cheb_conv(x, self.weight, laplacian)  # (B, Cin, V) -> (V, B, Cout)
 
         if self.bias is not None:
