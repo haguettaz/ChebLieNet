@@ -4,24 +4,41 @@ from PIL import Image
 
 
 def _is_numpy(item):
+    """
+    Check if item is a numpy object.
+
+    Args:
+        item (:obj:): item.
+
+    Returns:
+        (bool): True if item is a numpy object.
+    """
     return isinstance(item, np.ndarray)
 
 
 def _is_pil_image(item):
+    """
+    Check if item is a ``PIL Image``.
+
+    Args:
+        item (:obj:): item.
+
+    Returns:
+        (bool): True if item is a ``PIL Image``.
+    """
     return isinstance(item, Image.Image)
 
 
 def pil_to_tensor(item):
-    """Convert a ``PIL Image`` to a tensor of the same type.
+    """
+    Convert a ``PIL Image`` to a tensor of the same type.
     This function does not support torchscript.
 
-    See :class:`~torchvision.transforms.PILToTensor` for more details.
-
     Args:
-        item (PIL Image): Image to be converted to tensor.
+        item (:obj:``PIL Image``): image to be converted to tensor.
 
     Returns:
-        Tensor: Converted image.
+        (Tensor): converted image.
     """
     if not _is_pil_image(item):
         raise TypeError("item should be PIL Image. Got {}".format(type(item)))

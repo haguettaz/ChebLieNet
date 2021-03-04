@@ -36,12 +36,12 @@ def build_config(anisotropic: bool) -> dict:
         "eps": 0.1 if anisotropic else 1.0,
         "K": 8,
         "nalpha": 6 if anisotropic else 1,
-        "xi_0": 1 if not anisotropic else 2.67500,
-        "xi_1": 1 if not anisotropic else 0.76429,
-        "xi_2": 1 if not anisotropic else 0.19815,
-        "xi_3": 1 if not anisotropic else 0.05,
-        "xi_4": 1 if not anisotropic else 0.01253,
-        "xi_5": 1 if not anisotropic else 0.00313,
+        "xi_0": 2.67500 if anisotropic else 1.0,
+        "xi_1": 0.76429 if anisotropic else 1.0,
+        "xi_2": 0.19815 if anisotropic else 1.0,
+        "xi_3": 0.05 if anisotropic else 1.0,
+        "xi_4": 0.01253 if anisotropic else 1.0,
+        "xi_5": 0.00313 if anisotropic else 1.0,
     }
 
 

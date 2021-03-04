@@ -1,33 +1,48 @@
 import itertools
 import os
+from typing import Optional
 
 import numpy as np
 from torch.utils.data import Dataset
 from torchvision.datasets.utils import download_and_extract_archive
 
+from .transforms import Compose
+
 
 class ARTCDataset(Dataset):
-    """Dataset for reduced atmospheric river and tropical cyclone dataset."""
+    """
+    Dataset for reduced atmospheric river and tropical cyclone dataset.
+
+    Credits. https://github.com/deepsphere/deepsphere-pytorch
+    """
 
     resource = "http://island.me.berkeley.edu/ugscnn/data/climate_sphere_l5.zip"
 
-    def __init__(self, path_to_data, indices=None, transform_data=None, transform_labels=None, download=False):
+    def __init__(
+        self,
+        path_to_data: str,
+        indices: Optional[list] = None,
+        transform_image: Optional[Compose] = None,
+        transform_target: Optional[Compose] = None,
+        download: Optional[bool] = False,
+    ):
         """
         Initialization.
 
         Args:
-            path_to_data (str): Path to the data or desired place the data will be downloaded to.
-            indices (list): List of indices representing the subset of the data used for the current dataset.
-            transform_data (:obj:`transform.Compose`): List of torchvision transforms for the data.
-            transform_labels (:obj:`transform.Compose`): List of torchvision transforms for the labels.
-            download (bool): Flag to decide if data should be downloaded or not.
+            path_to_data (str): path to data directory.
+            indices (list, optional): list of indices representing the subset of the data used for the current dataset.
+            transform_image (:obj:`Compose`, optional): data' transformations.
+            transform_target (:obj:`Compose`, optional): labels' transformations.
+            download (bool, optional): if True, downloads the dataset from the internet and puts it in data directory.
+                If dataset is already downloaded, it is not downloaded again.. Defaults to False.
         """
         self.path_to_data = path_to_data
         if download:
             self.download()
         self.files = indices if indices is not None else os.listdir(self.path_to_data)
-        self.transform_data = transform_data
-        self.transform_labels = transform_labels
+        self.transform_image = transform_image
+        self.transform_target = transform_target
 
     @property
     def indices(self):
@@ -35,7 +50,7 @@ class ARTCDataset(Dataset):
         Get files.
 
         Returns:
-            (list): List of strings, which represent the files contained in the dataset.
+            (list): list of strings, which represent the files contained in the dataset.
         """
         return self.files
 
@@ -44,7 +59,7 @@ class ARTCDataset(Dataset):
         Get length of dataset.
 
         Returns:
-            (int): Number of files contained in the dataset.
+            (int): number of files contained in the dataset.
         """
         return len(self.files)
 
@@ -53,28 +68,28 @@ class ARTCDataset(Dataset):
         Get an item from the dataset.
 
         Args:
-            idx (int): The index of the desired datapoint.
+            idx (int): index of the desired datapoint.
 
         Returns:
-            obj, obj: The data and labels corresponding to the desired index. The type depends on the applied transforms.
+            (tuple): (image, target) where target is index of the target class.
         """
         item = np.load(os.path.join(self.path_to_data, self.files[idx]))
-        data, labels = item["data"], item["labels"]
-        if self.transform_data:
-            data = self.transform_data(data)
-        if self.transform_labels:
-            labels = self.transform_labels(labels)
-        return data, labels
+        image, target = item["data"], item["labels"]
+        if self.transform_image:
+            image = self.transform_image(image)
+        if self.transform_target:
+            target = self.transform_target(target)
+        return image, target
 
     def get_runs(self, runs):
         """
         Get datapoints corresponding to specific runs.
 
         Args:
-            runs (list): List of desired runs.
+            runs (list): list of desired runs.
 
         Returns:
-            (list): List of strings, which represents the files in the dataset, which belong to one of the desired runs.
+            (list): list of strings, which represents the files in the dataset, which belong to one of the desired runs.
         """
         files = []
         for file in self.files:

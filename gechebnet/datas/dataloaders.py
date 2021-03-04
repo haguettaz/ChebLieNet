@@ -1,4 +1,7 @@
+# coding=utf-8
+
 import math
+import os
 from typing import Optional, Tuple
 
 import torch
@@ -12,7 +15,7 @@ from ..utils.utils import shuffle_tensor
 from .datasets import ARTCDataset
 from .transforms import BoolToInt, Compose, Normalize, Random90Rotation, ToGraphSignal, ToTensor
 
-# mean and std per channels on the training sets for the normalization
+# computed mean and std on the training sets.
 MNIST_MEAN, MNIST_STD = (0.1307,), (0.3081,)
 STL10_MEAN, STL10_STD = (0.4472, 0.4396, 0.4050), (0.2606, 0.2567, 0.2700)
 CIFAR10_MEAN, CIFAR10_STD = (0.4914, 0.4822, 0.4465), (0.2470, 0.2435, 0.2616)
@@ -62,16 +65,17 @@ def get_train_val_loaders(
     path_to_data: Optional[str] = "data",
 ) -> Tuple[DataLoader, DataLoader]:
     """
-    Gets train and validation dataloaders.
+    Returns train and validation dataloaders.
 
     Args:
-        dataset (str): name of the dataset.
-        batch_size (int, optional): size of a batch. Defaults to 32.
-        val_ratio (float, optional): ratio of validation samples. Defaults to 0.2.
-        path_to_data (str, optional): path to data folder to download dataset into. Defaults to "data".
+        dataset (str): dataset's name.
+        batch_size (int, optional): batch's size. Defaults to 32.
+        val_ratio (float, optional): validation samples' ratio. Defaults to 0.2.
+        num_layers (int, optional): number of symmetric's layers. Defaults to 6.
+        path_to_data (str, optional): path to data folder. Defaults to "data".
 
     Raises:
-        ValueError: dataset has to be 'mnist', 'cifar10' or 'stl10',
+        ValueError: dataset has to be 'mnist', 'cifar10', 'stl10' or 'artc',
 
     Returns:
         (DataLoader): training dataloader.
@@ -79,7 +83,7 @@ def get_train_val_loaders(
     """
 
     if dataset not in {"mnist", "stl10", "cifar10", "artc"}:
-        raise ValueError(f"{dataset} is not a valid value for dataset: must be 'mnist', 'stl10' or 'cifar10'.")
+        raise ValueError(f"{dataset} is not a valid value for dataset: must be 'mnist', 'stl10', 'cifar10' or 'artc'.")
 
     if dataset == "mnist":
         dataset = MNIST(
@@ -107,7 +111,7 @@ def get_train_val_loaders(
 
     elif dataset == "artc":
         dataset = ARTCDataset(
-            path_to_data,
+            os.path.join(path_to_data, "data_train"),
             transform_data=Compose([ToTensor(), Normalize(ARTC_MEAN, ARTC_STD), ToGraphSignal(num_layers)]),
             transform_labels=Compose([ToTensor(), BoolToInt()]),
             download=True,
@@ -294,7 +298,7 @@ def get_test_loader(
 
     elif dataset == "artc":
         dataset = ARTCDataset(
-            path_to_data,
+            os.path.join(path_to_data, "data_test"),
             transform_data=Compose([ToTensor(), Normalize(ARTC_MEAN, ARTC_STD), ToGraphSignal(num_layers)]),
             transform_labels=Compose([ToTensor(), BoolToInt()]),
             download=True,
