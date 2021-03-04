@@ -112,8 +112,8 @@ def get_train_val_loaders(
     elif dataset == "artc":
         dataset = ARTCDataset(
             os.path.join(path_to_data, "data_train"),
-            transform_data=Compose([ToTensor(), Normalize(ARTC_MEAN, ARTC_STD), ToGraphSignal(num_layers)]),
-            transform_labels=Compose([ToTensor(), BoolToInt()]),
+            transform_image=Compose([ToTensor(), Normalize(ARTC_MEAN, ARTC_STD), ToGraphSignal(num_layers)]),
+            transform_target=Compose([ToTensor(), BoolToInt()]),
             download=True,
         )
 
@@ -299,8 +299,8 @@ def get_test_loader(
     elif dataset == "artc":
         dataset = ARTCDataset(
             os.path.join(path_to_data, "data_test"),
-            transform_data=Compose([ToTensor(), Normalize(ARTC_MEAN, ARTC_STD), ToGraphSignal(num_layers)]),
-            transform_labels=Compose([ToTensor(), BoolToInt()]),
+            transform_image=Compose([ToTensor(), Normalize(ARTC_MEAN, ARTC_STD), ToGraphSignal(num_layers)]),
+            transform_target=Compose([ToTensor(), BoolToInt()]),
             download=True,
         )
 
