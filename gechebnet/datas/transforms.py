@@ -28,7 +28,7 @@ class Random90Rotation(nn.Module):
         """
         return random.randint(0, 3)
 
-    def forward(self, input):
+    def __call__(self, input):
         """
         Args:
             input (`PILImage` or `Tensor`): input to rotate.
@@ -58,7 +58,7 @@ class Normalize:
         self.mean = Tensor(mean).unsqueeze(1)
         self.std = Tensor(std).unsqueeze(1)
 
-    def forward(self, input):
+    def __call__(self, input):
         """
         Args:
             input (`Tensor`): input tensor with size (C, V) to be normalized.
@@ -74,7 +74,7 @@ class ToTensor:
     Convert input object to PyTorch tensor.
     """
 
-    def forward(self, input):
+    def __call__(self, input):
         """
         Args:
             input (:obj:): input object to convert.
@@ -105,7 +105,7 @@ class Compose:
 
         self.transforms = transforms
 
-    def forward(self, input):
+    def __call__(self, input):
         """
         Args:
             input (:obj:): input object to transform.
@@ -140,7 +140,7 @@ class ToGEGraphSignal:
         """
         self.num_layers = num_layers
 
-    def forward(self, input):
+    def __call__(self, input):
         """
         Args:
             input (`torch.Tensor`): input tensor to convert.
@@ -162,7 +162,7 @@ class BoolToInt:
     Convert BoolTensor with shape (B, C, ...) to IntTensor with shape (B, 1, ...).
     """
 
-    def forward(self, input):
+    def __call__(self, input):
         """
         Args:
             input (`torch.BoolTensor`): input tensor to convert.
