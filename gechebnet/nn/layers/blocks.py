@@ -97,10 +97,10 @@ class ResidualBlock(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         """
         Args:
-            x (Tensor): input tensor.
+            x (`torch.Tensor`): input tensor.
 
         Returns:
-            (Tensor): output tensor.
+            (`torch.Tensor`): output tensor.
         """
         x = self.bn1(x)
         out = self.relu1(self.conv1(x))

@@ -5,12 +5,12 @@ import torch
 import wandb
 from gechebnet.datas.dataloaders import get_test_equivariance_dataloaders, get_train_val_dataloaders
 from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
-from gechebnet.engines.utils import sample_edges, sample_nodes, prepare_batch, wandb_log
+from gechebnet.engines.utils import prepare_batch, sample_edges, sample_nodes, wandb_log
 from gechebnet.graphs.graphs import RandomSubGraph, SE2GEGraph
 from gechebnet.liegroups.se2 import se2_uniform_sampling
-from gechebnet.nn.models.utils import capacity
 from gechebnet.nn.models.chebnets import WideResGEChebNet
 from gechebnet.nn.models.convnets import WideResConvNet
+from gechebnet.nn.models.utils import capacity
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
 from ignite.metrics import Accuracy, Loss
@@ -35,9 +35,9 @@ def build_config(anisotropic: bool, coupled_sym: bool, cnn: bool) -> dict:
         return {"kernel_size": 3}
 
     return {
-        "R": 4,
+        "R": 2,
         "eps": 0.1 if anisotropic else 1.0,
-        "K": 16 if anisotropic else 8,
+        "K": 8,
         "ntheta": 6 if anisotropic else 1,
         "xi": 1 if not anisotropic else 0.00022 if coupled_sym else 1e6,
     }
