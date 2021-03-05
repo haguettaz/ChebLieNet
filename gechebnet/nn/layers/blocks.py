@@ -52,8 +52,8 @@ class BasicBlock(nn.Module):
             kernel_size (int): kernel size.
         """
         super(BasicBlock, self).__init__()
-        self.bn = nn.BatchNorm1d(in_channels)
         self.conv = conv(in_channels, out_channels, kernel_size, bias=True, *args, **kwargs)
+        self.bn = nn.BatchNorm1d(out_channels)
         self.relu = nn.ReLU()
 
     def forward(self, x):
@@ -64,7 +64,7 @@ class BasicBlock(nn.Module):
         Returns:
             (`torch.Tensor`): output tensor.
         """
-        return self.relu(self.conv(self.bn(x)))
+        return self.relu(self.bn(self.conv(x)))
 
 
 class ResidualBlock(nn.Module):
@@ -82,12 +82,12 @@ class ResidualBlock(nn.Module):
         """
         super(ResidualBlock, self).__init__()
 
-        self.bn1 = nn.BatchNorm1d(in_channels)
-        self.relu1 = nn.ReLU()
         self.conv1 = conv(in_channels, out_channels, kernel_size, bias=True, *args, **kwargs)
+        self.bn1 = nn.BatchNorm1d(out_channels)
+        self.relu1 = nn.ReLU()
+        self.conv2 = conv(out_channels, out_channels, kernel_size, bias=True, *args, **kwargs)
         self.bn2 = nn.BatchNorm1d(out_channels)
         self.relu2 = nn.ReLU()
-        self.conv2 = conv(out_channels, out_channels, kernel_size, bias=True, *args, **kwargs)
 
         self.equalInOut = in_channels == out_channels
 
@@ -102,10 +102,9 @@ class ResidualBlock(nn.Module):
         Returns:
             (`torch.Tensor`): output tensor.
         """
-        x = self.bn1(x)
-        out = self.relu1(self.conv1(x))
+        out = self.relu1(self.bn1(self.conv1(x)))
 
         if self.equalInOut:
-            return self.relu2(x + self.conv2(self.bn2(out)))
+            return self.relu2(self.bn2(x + self.conv2(out)))
 
-        return self.relu2(self.convShortcut(x) + self.conv2(self.bn2(out)))
+        return self.relu2(self.bn2(self.convShortcut(x) + self.conv2(out)))
