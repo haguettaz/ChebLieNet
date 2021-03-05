@@ -109,12 +109,12 @@ def train(config=None):
             "stl10",
             batch_size=args.batch_size,
             val_ratio=0.0,
-            num_layers=args.ntheta,
+            num_layers=config.ntheta,
             path_to_data=args.path_to_data,
         )
 
         (classic_test_loader, rotated_test_loader, flipped_test_loader,) = get_equiv_test_loaders(
-            "stl10", batch_size=args.batch_size, num_layers=args.ntheta, path_to_data=args.path_to_data
+            "stl10", batch_size=args.batch_size, num_layers=config.ntheta, path_to_data=args.path_to_data
         )
 
         # Load engines
