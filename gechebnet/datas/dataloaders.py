@@ -83,7 +83,7 @@ def get_train_val_loaders(dataset, batch_size=32, val_ratio=0.2, num_layers=6, p
             path_to_data,
             train=True,
             download=True,
-            transform=Compose([ToTensor(), Normalize(MNIST_MEAN, MNIST_STD), ToGEGraphSignal(num_layers)]),
+            transform=Compose([ToTensor(), ToGEGraphSignal(num_layers), Normalize(MNIST_MEAN, MNIST_STD)]),
         )
 
     elif dataset == "cifar10":
@@ -91,7 +91,7 @@ def get_train_val_loaders(dataset, batch_size=32, val_ratio=0.2, num_layers=6, p
             path_to_data,
             train=True,
             download=True,
-            transform=Compose([ToTensor(), Normalize(CIFAR10_MEAN, CIFAR10_STD), ToGEGraphSignal(num_layers)]),
+            transform=Compose([ToTensor(), ToGEGraphSignal(num_layers), Normalize(CIFAR10_MEAN, CIFAR10_STD)]),
         )
 
     elif dataset == "stl10":
@@ -99,13 +99,13 @@ def get_train_val_loaders(dataset, batch_size=32, val_ratio=0.2, num_layers=6, p
             path_to_data,
             split="test",  # we use test set as training set since it has more samples
             download=True,
-            transform=Compose([ToTensor(), Normalize(STL10_MEAN, STL10_STD), ToGEGraphSignal(num_layers)]),
+            transform=Compose([ToTensor(), ToGEGraphSignal(num_layers), Normalize(STL10_MEAN, STL10_STD)]),
         )
 
     elif dataset == "artc":
         dataset = ARTCDataset(
             os.path.join(path_to_data, "data_train"),
-            transform_image=Compose([ToTensor(), Normalize(ARTC_MEAN, ARTC_STD), ToGEGraphSignal(num_layers)]),
+            transform_image=Compose([ToTensor(), ToGEGraphSignal(num_layers), Normalize(ARTC_MEAN, ARTC_STD)]),
             transform_target=Compose([ToTensor(), BoolToInt()]),
             download=True,
         )
@@ -152,14 +152,14 @@ def get_equiv_test_loaders(dataset, batch_size=32, num_layers=6, path_to_data="d
             path_to_data,
             train=False,
             download=True,
-            transform=Compose([ToTensor(), Normalize(MNIST_MEAN, MNIST_STD), ToGEGraphSignal(num_layers)]),
+            transform=Compose([ToTensor(), ToGEGraphSignal(num_layers), Normalize(MNIST_MEAN, MNIST_STD)]),
         )
         rotated_dataset = MNIST(
             path_to_data,
             train=False,
             download=True,
             transform=Compose(
-                [RandomRotation(180), ToTensor(), Normalize(MNIST_MEAN, MNIST_STD), ToGEGraphSignal(num_layers)]
+                [RandomRotation(180), ToTensor(), ToGEGraphSignal(num_layers), Normalize(MNIST_MEAN, MNIST_STD)]
             ),
         )
         flipped_dataset = MNIST(
@@ -171,8 +171,8 @@ def get_equiv_test_loaders(dataset, batch_size=32, num_layers=6, path_to_data="d
                     RandomHorizontalFlip(p=0.5),
                     ToTensor(),
                     RandomVerticalFlip(p=0.5),
-                    Normalize(MNIST_MEAN, MNIST_STD),
                     ToGEGraphSignal(num_layers),
+                    Normalize(MNIST_MEAN, MNIST_STD),
                 ]
             ),
         )
@@ -182,14 +182,14 @@ def get_equiv_test_loaders(dataset, batch_size=32, num_layers=6, path_to_data="d
             path_to_data,
             train=False,
             download=True,
-            transform=Compose([ToTensor(), Normalize(CIFAR10_MEAN, CIFAR10_STD), ToGEGraphSignal(num_layers)]),
+            transform=Compose([ToTensor(), ToGEGraphSignal(num_layers), Normalize(CIFAR10_MEAN, CIFAR10_STD)]),
         )
         rotated_dataset = CIFAR10(
             path_to_data,
             train=False,
             download=True,
             transform=Compose(
-                [Random90Rotation(), ToTensor(), Normalize(CIFAR10_MEAN, CIFAR10_STD), ToGEGraphSignal(num_layers)]
+                [Random90Rotation(), ToTensor(), ToGEGraphSignal(num_layers), Normalize(CIFAR10_MEAN, CIFAR10_STD)]
             ),
         )
         flipped_dataset = CIFAR10(
@@ -201,8 +201,8 @@ def get_equiv_test_loaders(dataset, batch_size=32, num_layers=6, path_to_data="d
                     RandomHorizontalFlip(p=0.5),
                     RandomVerticalFlip(p=0.5),
                     ToTensor(),
-                    Normalize(CIFAR10_MEAN, CIFAR10_STD),
                     ToGEGraphSignal(num_layers),
+                    Normalize(CIFAR10_MEAN, CIFAR10_STD),
                 ]
             ),
         )
@@ -211,14 +211,14 @@ def get_equiv_test_loaders(dataset, batch_size=32, num_layers=6, path_to_data="d
             path_to_data,
             split="train",
             download=True,
-            transform=Compose([ToTensor(), Normalize(STL10_MEAN, STL10_STD), ToGEGraphSignal(num_layers)]),
+            transform=Compose([ToTensor(), ToGEGraphSignal(num_layers), Normalize(STL10_MEAN, STL10_STD)]),
         )
         rotated_dataset = STL10(
             path_to_data,
             split="train",
             download=True,
             transform=Compose(
-                [Random90Rotation(), ToTensor(), Normalize(STL10_MEAN, STL10_STD), ToGEGraphSignal(num_layers)]
+                [Random90Rotation(), ToTensor(), ToGEGraphSignal(num_layers), Normalize(STL10_MEAN, STL10_STD)]
             ),
         )
         flipped_dataset = STL10(
@@ -230,8 +230,8 @@ def get_equiv_test_loaders(dataset, batch_size=32, num_layers=6, path_to_data="d
                     RandomHorizontalFlip(p=0.5),
                     RandomVerticalFlip(p=0.5),
                     ToTensor(),
-                    Normalize(STL10_MEAN, STL10_STD),
                     ToGEGraphSignal(num_layers),
+                    Normalize(STL10_MEAN, STL10_STD),
                 ]
             ),
         )
@@ -269,7 +269,7 @@ def get_test_loader(dataset, batch_size=32, num_layers=6, path_to_data="data"):
             path_to_data,
             train=False,
             download=True,
-            transform=Compose([ToTensor(), Normalize(MNIST_MEAN, MNIST_STD), ToGEGraphSignal(num_layers)]),
+            transform=Compose([ToTensor(), ToGEGraphSignal(num_layers), Normalize(MNIST_MEAN, MNIST_STD)]),
         )
 
     elif dataset == "cifar10":
@@ -277,7 +277,7 @@ def get_test_loader(dataset, batch_size=32, num_layers=6, path_to_data="data"):
             path_to_data,
             train=False,
             download=True,
-            transform=Compose([ToTensor(), Normalize(CIFAR10_MEAN, CIFAR10_STD), ToGEGraphSignal(num_layers)]),
+            transform=Compose([ToTensor(), ToGEGraphSignal(num_layers), Normalize(CIFAR10_MEAN, CIFAR10_STD)]),
         )
 
     elif dataset == "stl10":
@@ -285,13 +285,13 @@ def get_test_loader(dataset, batch_size=32, num_layers=6, path_to_data="data"):
             path_to_data,
             split="train",
             download=True,
-            transform=Compose([ToTensor(), Normalize(STL10_MEAN, STL10_STD), ToGEGraphSignal(num_layers)]),
+            transform=Compose([ToTensor(), ToGEGraphSignal(num_layers), Normalize(STL10_MEAN, STL10_STD)]),
         )
 
     elif dataset == "artc":
         dataset = ARTCDataset(
             os.path.join(path_to_data, "data_test"),
-            transform_image=Compose([ToTensor(), Normalize(ARTC_MEAN, ARTC_STD), ToGEGraphSignal(num_layers)]),
+            transform_image=Compose([ToTensor(), ToGEGraphSignal(num_layers), Normalize(ARTC_MEAN, ARTC_STD)]),
             transform_target=Compose([ToTensor(), BoolToInt()]),
             download=True,
         )
