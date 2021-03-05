@@ -81,7 +81,7 @@ def create_supervised_evaluator(graph, model, metrics=None, device=None, prepare
     device = device or torch.device("cpu")
 
     prepare_batch = prepare_batch if prepare_batch is not None else lambda x, y: (x, y)
-    output_transform = output_transform if output_transform is not None else lambda x, y, y_pred, loss: (y_pred, y)
+    output_transform = output_transform if output_transform is not None else lambda x, y, y_pred: (y_pred, y)
 
     def _inference(engine, batch):
         """
