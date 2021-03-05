@@ -21,7 +21,7 @@ def prepare_batch(batch, graph, device):
     return image[..., graph.sub_node_index].to(device), target.to(device)
 
 
-def wandb_log(trainer, evaluator, data_loader, graph):
+def wandb_log(trainer, evaluator, data_loader):
     """
     Launch the evaluator ignite's engine and log performance with wandb.
 
