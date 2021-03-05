@@ -3,7 +3,7 @@ import math
 
 import torch
 import wandb
-from gechebnet.data.dataloader import get_train_val_dataloaders
+from gechebnet.data.dataloader import get_train_val_loaders
 from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engine.utils import prepare_batch, set_sparse_laplacian, wandb_log
 from gechebnet.graph.graph import SE2GEGraph
@@ -127,11 +127,11 @@ def train(config=None):
         scheduler = LRScheduler(step_scheduler)
 
         # Loads data loaders
-        train_loader, val_loader = get_train_val_dataloaders(
+        train_loader, val_loader = get_train_val_loaders(
             "mnist",
             batch_size=args.batch_size,
             val_ratio=0.3,
-            data_path=args.data_path,
+            path_to_data=args.path_to_data,
         )
 
         # Loads engines
@@ -180,7 +180,7 @@ def train(config=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-f", "--data_path", type=str)
+    parser.add_argument("-f", "--path_to_data", type=str)
     parser.add_argument("-N", "--num_experiments", type=int)
     parser.add_argument("-E", "--max_epochs", type=int)
     parser.add_argument("--out_channels", type=int, default=10)

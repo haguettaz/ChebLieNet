@@ -3,7 +3,7 @@ import os
 
 import torch
 import wandb
-from gechebnet.datas.dataloaders import get_test_equivariance_dataloaders, get_train_val_dataloaders
+from gechebnet.datas.dataloaders import get_test_equiv_loaders, get_train_val_loaders
 from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engines.utils import sample_edges, sample_nodes, prepare_batch, wandb_log
 from gechebnet.graphs.graphs import RandomSubGraph, SE2GEGraph
@@ -111,18 +111,18 @@ def train(config=None):
         optimizer = Adam(model.parameters(), lr=args.lr)
 
         # Load dataloaders
-        train_loader, _ = get_train_val_dataloaders(
+        train_loader, _ = get_train_val_loaders(
             "cifar10",
             batch_size=args.batch_size,
             val_ratio=0.0,
-            data_path=args.data_path,
+            path_to_data=args.path_to_data,
         )
 
         (
             classic_test_loader,
             rotated_test_loader,
             flipped_test_loader,
-        ) = get_test_equivariance_dataloaders("cifar10", batch_size=args.batch_size, data_path=args.data_path)
+        ) = get_test_equiv_loaders("cifar10", batch_size=args.batch_size, path_to_data=args.path_to_data)
 
         # Load engines
         trainer = create_supervised_trainer(
