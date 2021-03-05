@@ -8,6 +8,7 @@ from gechebnet.engines.engines import create_supervised_evaluator, create_superv
 from gechebnet.engines.utils import prepare_batch, sample_edges, sample_nodes, wandb_log
 from gechebnet.graphs.graphs import RandomSubGraph, SE2GEGraph
 from gechebnet.liegroups.se2 import se2_uniform_sampling
+from gechebnet.nn.layers.pools import CubicPool
 from gechebnet.nn.models.chebnets import WideResGEChebNet
 from gechebnet.nn.models.convnets import WideResConvNet
 from gechebnet.nn.models.utils import capacity
@@ -31,7 +32,7 @@ def build_config(anisotropic: bool, coupled_sym: bool) -> dict:
     """
 
     return {
-        "R": 2,
+        "kernel_size": 2,
         "eps": 0.1 if anisotropic else 1.0,
         "K": 8,
         "ntheta": 6 if anisotropic else 1,
@@ -88,12 +89,13 @@ def train(config=None):
 
         # Loads group equivariant Chebnet
         model = WideResGEChebNet(
+            3,
+            10,
+            config.kernel_size,
+            CubicPool,
             sub_graph_lvl0,
             sub_graph_lvl1,
             sub_graph_lvl2,
-            3,
-            10,
-            config.R,
             args.depth,
             args.widen_factor,
         ).to(device)
@@ -107,14 +109,13 @@ def train(config=None):
             "stl10",
             batch_size=args.batch_size,
             val_ratio=0.0,
+            num_layers=args.ntheta,
             path_to_data=args.path_to_data,
         )
 
-        (
-            classic_test_loader,
-            rotated_test_loader,
-            flipped_test_loader,
-        ) = get_equiv_test_loaders("stl10", batch_size=args.batch_size, path_to_data=args.path_to_data)
+        (classic_test_loader, rotated_test_loader, flipped_test_loader,) = get_equiv_test_loaders(
+            "stl10", batch_size=args.batch_size, num_layers=args.ntheta, path_to_data=args.path_to_data
+        )
 
         # Load engines
         trainer = create_supervised_trainer(

@@ -43,7 +43,7 @@ class WideResGEChebNet(nn.Module):
         super(WideResGEChebNet, self).__init__()
 
         if (depth - 2) % 6:
-            raise ValueError(f"{depth} is not a valid value for {depth}")
+            raise ValueError(f"{depth} is not a valid value for depth")
 
         hidden_channels = [16, 16 * widen_factor, 32 * widen_factor, 64 * widen_factor]
         num_layers = (depth - 2) // 6
