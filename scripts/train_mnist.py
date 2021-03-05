@@ -3,7 +3,7 @@ import os
 
 import torch
 import wandb
-from gechebnet.datas.dataloaders import get_test_equiv_loaders, get_train_val_loaders
+from gechebnet.datas.dataloaders import get_equiv_test_loaders, get_train_val_loaders
 from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engines.utils import sample_edges, sample_nodes, prepare_batch, wandb_log
 from gechebnet.graphs.graphs import RandomSubGraph, SE2GEGraph
@@ -122,7 +122,7 @@ def train(config=None):
             classic_test_loader,
             rotated_test_loader,
             flipped_test_loader,
-        ) = get_test_equiv_loaders("mnist", batch_size=args.batch_size, path_to_data=args.path_to_data)
+        ) = get_equiv_test_loaders("mnist", batch_size=args.batch_size, path_to_data=args.path_to_data)
 
         # Load engines
         trainer = create_supervised_trainer(
