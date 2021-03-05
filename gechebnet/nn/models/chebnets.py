@@ -48,20 +48,20 @@ class WideResGEChebNet(nn.Module):
         hidden_channels = [16, 16 * widen_factor, 32 * widen_factor, 64 * widen_factor]
         num_layers = (depth - 2) // 6
 
-        self.conv = ChebConv(in_channels, hidden_channels[0], kernel_size=kernel_size, bias=True, graph=graph_lvl0)
+        self.conv = ChebConv(in_channels, hidden_channels[0], kernel_size=kernel_size, bias=True, graph=graph_lvl2)
         self.relu = nn.ReLU(inplace=True)
 
-        self.pool0_1 = None if pool is None else pool(kernel_size=(1, 2), size=graph_lvl0.size)
-        self.pool1_2 = None if pool is None else pool(kernel_size=(1, 2), size=graph_lvl1.size)
+        self.pool2_1 = None if pool is None else pool(kernel_size=(1, 2), size=graph_lvl2.size)
+        self.pool1_0 = None if pool is None else pool(kernel_size=(1, 2), size=graph_lvl1.size)
 
         self.block2 = NetworkBlock(
-            hidden_channels[0], hidden_channels[1], num_layers, ResidualBlock, ChebConv, kernel_size, graph=graph_lvl0
+            hidden_channels[0], hidden_channels[1], num_layers, ResidualBlock, ChebConv, kernel_size, graph=graph_lvl2
         )
         self.block1 = NetworkBlock(
             hidden_channels[1], hidden_channels[2], num_layers, ResidualBlock, ChebConv, kernel_size, graph=graph_lvl1
         )
         self.block0 = NetworkBlock(
-            hidden_channels[2], hidden_channels[3], num_layers, ResidualBlock, ChebConv, kernel_size, graph=graph_lvl2
+            hidden_channels[2], hidden_channels[3], num_layers, ResidualBlock, ChebConv, kernel_size, graph=graph_lvl0
         )
 
         # output layer : global average pooling + fc
@@ -83,9 +83,11 @@ class WideResGEChebNet(nn.Module):
         out = self.conv(x)
 
         out = self.block2(out)
-        out = out if self.pool2_1 is None else self.pool2_1(out)
+        if not self.pool2_1 is None:
+            out = self.pool2_1(out)
         out = self.block1(out)
-        out = out if self.pool1_0 is None else self.pool1_0(out)
+        if not self.pool1_0 is None:
+            out = self.pool1_0(out)
         out = self.block0(out)
 
         out = self.globalpool(out).contiguous().view(B, -1)
