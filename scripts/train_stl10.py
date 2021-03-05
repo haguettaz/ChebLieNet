@@ -202,7 +202,7 @@ if __name__ == "__main__":
     parser.add_argument("--cuda", action="store_true", default=False)
     args = parser.parse_args()
 
-    config = build_config(anisotropic=args.anisotropic, coupled_sym=args.coupled_sym)
+    config = build_config(anisotropic=args.anisotropic)
 
     for _ in range(args.num_experiments):
         train(config)
