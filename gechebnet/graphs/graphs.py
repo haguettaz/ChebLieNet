@@ -313,8 +313,8 @@ class GEGraph(Graph):
         """
         _, V = uniform_sampling.shape
 
-        for k, d in self.group_dim.items():
-            setattr(self, f"node_{k}", uniform_sampling[d])
+        for dim, name in enumerate(self.group_dim):
+            setattr(self, f"node_{name}", uniform_sampling[dim])
 
         self.node_index = torch.arange(V)
 
@@ -410,7 +410,7 @@ class SE2GEGraph(GEGraph):
         Returns:
             (dict): mapping from dimensions' names to dimensions' indices.
         """
-        return {"x": 0, "y": 1, "theta": 2}
+        return ["x", "y", "theta"]
 
     @property
     def size(self):
@@ -536,7 +536,7 @@ class SO3GEGraph(GEGraph):
         Returns:
             (dict): mapping from dimensions' names to dimensions' indices.
         """
-        return {"alpha": 0, "beta": 1, "gamma": 2}
+        return ["alpha", "beta", "gamma"]
 
     @property
     def size(self):

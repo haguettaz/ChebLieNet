@@ -92,7 +92,7 @@ class WideResGEChebNet(nn.Module):
 
         out = self.globalpool(out).contiguous().view(B, -1)
         out = self.fc(out)
-        return self.logsoftmax(x)
+        return self.logsoftmax(out)
 
 
 class ChebEncoder(nn.Module):
