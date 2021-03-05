@@ -1,7 +1,7 @@
-from typing import Optional
+# coding=utf-8
 
 import torch
-from torch import Tensor, nn
+from torch import nn
 
 from ...graphs.graphs import Graph
 from ..layers.blocks import NetworkBlock, ResidualBlock
@@ -9,28 +9,31 @@ from ..layers.convs import ChebConv
 
 
 class WideResGEChebNet(nn.Module):
+    """
+    A Wide Residual Group Equivariant ChebNet for image classification.
+    """
+
     def __init__(
         self,
-        in_channels: int,
-        out_channels: int,
-        R: int,
-        pool: nn.Module,
-        graph_lvl0: Graph,
-        graph_lvl1: Graph,
-        graph_lvl2: Graph,
-        depth: int,
-        widen_factor: Optional[int] = 1,
+        in_channels,
+        out_channels,
+        kernel_size,
+        pool,
+        graph_lvl0,
+        graph_lvl1,
+        graph_lvl2,
+        depth,
+        widen_factor=1,
     ):
         """
-        Initialization.
-
         Args:
-            graph_lvl0 (Graph): graph at level 0.
-            graph_lvl1 (Graph): graph at level 1.
-            graph_lvl2 (Graph): graph at level 2.
             in_channels (int): number of input channels.
             out_channels (int): number of output channels.
-            R (int): order of the Chebyshev polynomials.
+            kernel_size (int): order of the Chebyshev polynomials.
+            pool (`torch.nn.Module`): pooling layers.
+            graph_lvl0 (`Graph`): graph at level 0, the coarsenest graph.
+            graph_lvl1 (`Graph`): graph at level 1.
+            graph_lvl2 (`Graph`): graph at level 2, the finest graph.
             depth (int): depth of the neural network.
             widen_factor (int, optional): widen factor of the neural network. Defaults to 1.
 
@@ -66,15 +69,13 @@ class WideResGEChebNet(nn.Module):
         self.fc = nn.Linear(hidden_channels[3], out_channels)
         self.logsoftmax = nn.LogSoftmax(dim=1)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x):
         """
-        Forward pass.
-
         Args:
-            x (Tensor): input tensor.
+            x (`torch.Tensor`): input tensor.
 
         Returns:
-            (Tensor): output tensor.
+            (`torch.Tensor`): output tensor.
         """
 
         B, *_ = x.shape
@@ -92,36 +93,38 @@ class WideResGEChebNet(nn.Module):
         return self.logsoftmax(x)
 
 
-class Encoder(nn.Module):
+class ChebEncoder(nn.Module):
     """
-    Basic class for encoder network.
+    A Chebyschev encoder consisting in sequential Chebyschev convolution plus pooling layers.
     """
 
     def __init__(
         self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: int,
-        pool: nn.Module,
-        graph_lvl0: Graph,
-        graph_lvl1: Graph,
-        graph_lvl2: Graph,
-        graph_lvl3: Graph,
-        graph_lvl4: Graph,
-        graph_lvl5: Graph,
+        in_channels,
+        out_channels,
+        kernel_size,
+        pool,
+        graph_lvl0,
+        graph_lvl1,
+        graph_lvl2,
+        graph_lvl3,
+        graph_lvl4,
+        graph_lvl5,
     ):
         """
-        Initialization.
-
         Args:
             in_channels (int): number of input channels.
             out_channels (int): number of output channels.
-            num_layers (int): number of layers of the network block.
-            block (nn.Module): type of block constituting the network block.
-            conv (nn.Module): convolutional layer.
-            kernel_size (int): kernel size.
+            kernel_size (int): order of the Chebyshev polynomials.
+            pool (`torch.nn.Module`): pooling layers.
+            graph_lvl0 (`Graph`): graph at level 0, the coarsenest graph.
+            graph_lvl1 (`Graph`): graph at level 1.
+            graph_lvl2 (`Graph`): graph at level 2.
+            graph_lvl3 (`Graph`): graph at level 3.
+            graph_lvl4 (`Graph`): graph at level 4.
+            graph_lvl5 (`Graph`): graph at level 5, the finest graph.
         """
-        super(Encoder, self).__init__()
+        super(ChebEncoder, self).__init__()
 
         self.conv = ChebConv(in_channels, 16, kernel_size=kernel_size, bias=True, graph=graph_lvl5)
         self.relu = nn.ReLU(inplace=True)
@@ -142,15 +145,13 @@ class Encoder(nn.Module):
         self.pool1_0 = pool(kernel_size=(1, 2), size=graph_lvl1.size)
         self.block0 = ResidualBlock(256, 256, ChebConv, kernel_size, graph=graph_lvl0)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x):
         """
-        Forward pass.
-
         Args:
-            x (Tensor): input tensor.
+            x (`torch.Tensor`): input tensor.
 
         Returns:
-            (Tensor): output tensor.
+            (`torch.Tensor`): encoded tensor.
         """
         x_enc5 = self.block5(self.relu(self.conv(x)))
         x_enc4 = self.block4(self.pool5_4(x_enc5))
@@ -162,37 +163,40 @@ class Encoder(nn.Module):
         return x_enc0, x_enc1, x_enc2, x_enc3, x_enc4, x_enc5
 
 
-class Decoder(nn.Module):
+class ChebDecoder(nn.Module):
     """
-    Basic class for encoder network.
+    A Chebyschev decoder consisting in sequential Chebyschev convolution plus unpooling layers.
     """
 
     def __init__(
         self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: int,
-        pool: nn.Module,
-        unpool: nn.Module,
-        graph_lvl0: Graph,
-        graph_lvl1: Graph,
-        graph_lvl2: Graph,
-        graph_lvl3: Graph,
-        graph_lvl4: Graph,
-        graph_lvl5: Graph,
+        in_channels,
+        out_channels,
+        kernel_size,
+        pool,
+        unpool,
+        graph_lvl0,
+        graph_lvl1,
+        graph_lvl2,
+        graph_lvl3,
+        graph_lvl4,
+        graph_lvl5,
     ):
         """
-        Initialization.
-
         Args:
             in_channels (int): number of input channels.
             out_channels (int): number of output channels.
-            num_layers (int): number of layers of the network block.
-            block (nn.Module): type of block constituting the network block.
-            conv (nn.Module): convolutional layer.
-            kernel_size (int): kernel size.
+            kernel_size (int): order of the Chebyshev polynomials.
+            pool (`torch.nn.Module`): pooling layers.
+            unpool (`torch.nn.Module`): unpooling layers.
+            graph_lvl0 (`Graph`): graph at level 0, the coarsenest graph.
+            graph_lvl1 (`Graph`): graph at level 1.
+            graph_lvl2 (`Graph`): graph at level 2.
+            graph_lvl3 (`Graph`): graph at level 3.
+            graph_lvl4 (`Graph`): graph at level 4.
+            graph_lvl5 (`Graph`): graph at level 5, the finest graph.
         """
-        super(Decoder, self).__init__()
+        super(ChebDecoder, self).__init__()
 
         self.unpool0_1 = unpool(kernel_size=(1, 2), size=graph_lvl0.size)
         self.unpool1_2 = unpool(kernel_size=(1, 2), size=graph_lvl1.size)
@@ -207,20 +211,18 @@ class Decoder(nn.Module):
         self.block4 = ResidualBlock(128, 32, ChebConv, kernel_size, graph=graph_lvl4)
         self.block5 = ResidualBlock(64, 16, ChebConv, kernel_size, graph=graph_lvl5)
 
-        # pool the symmetry axis
+        # pool on layers to break the symmetry axis
         self.pool5 = pool((graph_lvl5.size[0], 1), graph_lvl5.size)
         self.conv = ChebConv(16, out_channels, kernel_size=1, bias=False, graph=graph_lvl5)
         self.logsoftmax = nn.LogSoftmax(dim=1)
 
-    def forward(self, x_enc0: Tensor, x_enc1: Tensor, x_enc2: Tensor, x_enc3: Tensor, x_enc4: Tensor, x_enc5) -> Tensor:
+    def forward(self, x_enc0, x_enc1, x_enc2, x_enc3, x_enc4, x_enc5):
         """
-        Forward pass.
-
         Args:
-            x (Tensor): input tensor.
+            x (`torch.Tensor`): input tensor.
 
         Returns:
-            (Tensor): output tensor.
+            (`torch.Tensor`): decoded tensor.
         """
         x_dec1 = self.block1(torch.cat((self.unpool0_1(x_enc0), x_enc1), dim=1))
         x_dec2 = self.block2(torch.cat((self.unpool1_2(x_dec1), x_enc2), dim=1))
@@ -234,37 +236,40 @@ class Decoder(nn.Module):
 
 class UChebNet(nn.Module):
     """
-    Basic class for encoder network.
+    A U-Net like ChebNet architecture for image segmentation.
     """
 
     def __init__(
         self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: int,
-        pool: nn.Module,
-        unpool: nn.Module,
-        graph_lvl0: Graph,
-        graph_lvl1: Graph,
-        graph_lvl2: Graph,
-        graph_lvl3: Graph,
-        graph_lvl4: Graph,
-        graph_lvl5: Graph,
+        in_channels,
+        out_channels,
+        kernel_size,
+        pool,
+        unpool,
+        graph_lvl0,
+        graph_lvl1,
+        graph_lvl2,
+        graph_lvl3,
+        graph_lvl4,
+        graph_lvl5,
     ):
         """
-        Initialization.
-
         Args:
             in_channels (int): number of input channels.
             out_channels (int): number of output channels.
-            num_layers (int): number of layers of the network block.
-            block (nn.Module): type of block constituting the network block.
-            conv (nn.Module): convolutional layer.
-            kernel_size (int): kernel size.
+            kernel_size (int): order of the Chebyshev polynomials.
+            pool (`torch.nn.Module`): pooling layers.
+            unpool (`torch.nn.Module`): unpooling layers.
+            graph_lvl0 (`Graph`): graph at level 0, the coarsenest graph.
+            graph_lvl1 (`Graph`): graph at level 1.
+            graph_lvl2 (`Graph`): graph at level 2.
+            graph_lvl3 (`Graph`): graph at level 3.
+            graph_lvl4 (`Graph`): graph at level 4.
+            graph_lvl5 (`Graph`): graph at level 5, the finest graph.
         """
         super(UChebNet, self).__init__()
 
-        self.encoder = Encoder(
+        self.encoder = ChebEncoder(
             in_channels,
             out_channels,
             kernel_size,
@@ -276,7 +281,7 @@ class UChebNet(nn.Module):
             graph_lvl4,
             graph_lvl5,
         )
-        self.decoder = Decoder(
+        self.decoder = ChebDecoder(
             in_channels,
             out_channels,
             kernel_size,
@@ -290,15 +295,13 @@ class UChebNet(nn.Module):
             graph_lvl5,
         )
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x):
         """
-        Forward pass.
-
         Args:
-            x (Tensor): input tensor.
+            x (`torch.Tensor`): input tensor.
 
         Returns:
-            (Tensor): output tensor.
+            (`torch.Tensor`): output tensor.
         """
 
         x_enc0, x_enc1, x_enc2, x_enc3, x_enc4, x_enc5 = self.encoder(x)

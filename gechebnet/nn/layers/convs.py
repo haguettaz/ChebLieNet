@@ -1,27 +1,26 @@
-"""Chebyshev convolution layer.
-"""
+# coding=utf-8
+
 
 import math
-from typing import Optional
 
 import torch
-from torch import FloatTensor, Tensor, nn
-from torch.sparse import FloatTensor as SparseFloatTensor
-
-from ...graphs.graphs import Graph
+from torch import nn
 
 
-def cheb_conv(x: FloatTensor, weights: FloatTensor, laplacian: Optional[SparseFloatTensor] = None) -> FloatTensor:
+def cheb_conv(x, weights, laplacian=None):
     """
-    Chebyshev convolution.
+    A Chebyschev convolution as defined in https://arxiv.org/pdf/1606.09375.pdf
 
     Args:
-        x (FloatTensor): data input in format (B, Cin, V).
-        laplacian (SparseFloatTensor): symmetric normalized laplacian.
-        weights (FloatTensor): layer's weights in format (kernel_size, Cin, Cout).
+        x (`torch.FloatTensor`): data input in format (B, Cin, V).
+        weights (`torch.FloatTensor`): layer's weights in format (R, Cin, Cout).
+        laplacian (`torch.sparse.FloatTensor`, optional): symmetric normalized laplacian. Defaults to None
+
+    Raises:
+        ValueError: the graph laplacian can only be None if R == 1.
 
     Returns:
-        (FloatTensor): convolved data input in format (V, B, Cout).
+        (`torch.FloatTensor`): convolved data input in format (V, B, Cout).
     """
 
     B, Cin, V = x.shape  # (B, Cin, V)
@@ -49,25 +48,28 @@ def cheb_conv(x: FloatTensor, weights: FloatTensor, laplacian: Optional[SparseFl
 
 
 class ChebConv(nn.Module):
-    """Graph convolutional layer."""
+    """
+    A Chebyschev convolutional layer.
+    """
 
     def __init__(
         self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: int,
-        graph: Graph,
+        in_channels,
+        out_channels,
+        kernel_size,
+        graph,
         bias=True,
     ):
         """
-        Initialization of the Chebyshev layer.
-
         Args:
             graph (Graph): graph.
             in_channels (int): number of input channels.
             out_channels (int): number of output channels.
             kernel_size (int): order of the Chebyshev polynomials.
             bias (bool, optional): True if bias in the convolution. Defaults to True.
+
+        Raises:
+            ValueError: the kernel size must be strictly positive.
         """
         super().__init__()
 
@@ -79,24 +81,22 @@ class ChebConv(nn.Module):
         self.out_channels = out_channels
         self.kernel_size = kernel_size
 
-        self.weight = nn.Parameter(FloatTensor(kernel_size, in_channels, out_channels))
+        self.weight = nn.Parameter(torch.FloatTensor(kernel_size, in_channels, out_channels))
         nn.init.kaiming_normal_(self.weight, mode="fan_in")
 
         if bias:
-            self.bias = nn.Parameter(FloatTensor(out_channels))
+            self.bias = nn.Parameter(torch.FloatTensor(out_channels))
             nn.init.constant_(self.bias, 0.01)
         else:
             self.register_parameter("bias", None)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x):
         """
-        Forward pass.
-
         Args:
-            x (Tensor): input tensor.
+            x (`torch.Tensor`): input tensor.
 
         Returns:
-            (Tensor): convolved tensor.
+            (`torch.Tensor`): convolved tensor.
         """
         laplacian = self.graph.get_laplacian(rescale=True, device=x.device)
         x = cheb_conv(x, self.weight, laplacian)  # (B, Cin, V) -> (V, B, Cout)
@@ -107,7 +107,7 @@ class ChebConv(nn.Module):
         x = x.permute(1, 2, 0).contiguous()  # (B, Cout, V)
         return x
 
-    def extra_repr(self) -> str:
+    def extra_repr(self):
         """
         Extra representation of the Chebyschev convolutional layer.
 

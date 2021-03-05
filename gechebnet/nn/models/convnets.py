@@ -1,28 +1,25 @@
-from typing import Optional
+# coding=utf-8
 
-from torch import Tensor, nn
+from torch import nn
 
 from ..layers.blocks import NetworkBlock, ResidualBlock
-from ..layers.pools import CubicPooling
 
 
 class WideResConvNet(nn.Module):
     """
-    Wide Residual Convolutional Neural Networks.
+    A Wide Residual Convolutional Neural Networks.
     """
 
     def __init__(
         self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: int,
-        depth: int,
-        widen_factor: Optional[int] = 1,
-        pool: Optional[bool] = False,
+        in_channels,
+        out_channels,
+        kernel_size,
+        depth,
+        widen_factor=1,
+        pool=False,
     ):
         """
-        Initialization.
-
         Args:
             in_channels (int): number of input channels.
             out_channels (int): number of output channels.
@@ -71,15 +68,13 @@ class WideResConvNet(nn.Module):
         self.fc = nn.Linear(hidden_channels[3], out_channels)
         self.logsoftmax = nn.LogSoftmax(dim=1)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x):
         """
-        Forward pass.
-
         Args:
-            x (Tensor): input tensor.
+            x (`torch.Tensor`): input tensor.
 
         Returns:
-            (Tensor): output tensor.
+            (`torch.Tensor`): output tensor.
         """
 
         B, *_ = x.shape

@@ -1,20 +1,20 @@
-import math
-from typing import Tuple, Union
+# coding=utf-8
 
-from torch import Tensor, nn
+import math
+
+from torch import nn
 
 
 class CubicPool(nn.Module):
     """
-    Basic class for general pooling on a cubic graph - well-adapted for SE(2) group.
+    A cubic pooling layer - well-suited for SE(2) group.
     """
 
-    def __init__(self, kernel_size: Tuple[int, int], size: Tuple[int, int, int]):
+    def __init__(self, kernel_size, size):
         """
-        Initialization.
-
         Args:
-            kernel_size (tuple of int): pooling reduction in format (spatial_red, sym_red).
+            kernel_size (tuple of ints): pooling reduction in format (L_pool, F_pool).
+            size (tuple of ints): dimensions of the cube in format (L, H, W) where H * W = F
         """
         super(CubicPool, self).__init__()
 
@@ -22,15 +22,13 @@ class CubicPool(nn.Module):
         self.shortcut = kernel_size == (1, 1)
         self.maxpool = nn.MaxPool3d((kernel_size[0], kernel_size[1], kernel_size[1]))
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x):
         """
-        Forward pass.
-
         Args:
-            x (Tensor): input tensor.
+            x (`torch.Tensor`): input tensor.
 
         Returns:
-            (Tensor): output tensor.
+            (`torch.Tensor`): pooled tensor.
         """
         if self.shortcut:
             return x
@@ -44,20 +42,16 @@ class CubicPool(nn.Module):
 
 class IcosahedralPool(nn.Module):
     """
-    Basic class for general pooling on a spherical graph - well-adapted for SO(3) group.
+    An hyper-icosahedral pooling layer - well-suited for SO(3) group.
     Pooling is based on the assumption the vertices are sorted the same way as Max Jiang.
     See: https://github.com/maxjiang93/ugscnn/blob/master/meshcnn/mesh.py
     """
 
-    def __init__(self, kernel_size: Tuple[int, int], size: Tuple[int, int]):
+    def __init__(self, kernel_size, size):
         """
-        Initialization.
-
         Args:
-            Lin (int): input depth.
-            Lout (int): ouput depth.
-            lvlin (int): input icosahedron level.
-            lvlout (int): output icosahedron level.
+            kernel_size (tuple of ints): pooling reduction in format (L_pool, F_pool).
+            size (tuple of ints): dimensions of the hyper-icosahedre in format (L, F).
         """
         super(IcosahedralPool, self).__init__()
 
@@ -71,15 +65,13 @@ class IcosahedralPool(nn.Module):
 
         self.maxpool = nn.MaxPool2d((kernel_size[0], 1))
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x):
         """
-        Forward pass.
-
         Args:
-            x (Tensor): input tensor.
+            x (`torch.Tensor`): input tensor.
 
         Returns:
-            (Tensor): output tensor.
+            (`torch.Tensor`): pooled tensor.
         """
 
         if self.spatial_shortcut and self.sym_shortcut:

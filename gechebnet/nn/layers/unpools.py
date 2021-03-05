@@ -1,22 +1,22 @@
+# coding=utf-8
+
 import math
-from typing import Tuple, Union
 
 import torch
 import torch.nn.functional as F
-from torch import Tensor, nn
+from torch import nn
 
 
 class CubicUnpool(nn.Module):
     """
-    Basic class for general unpooling on a cubic graph - well-adapted for SE(2) group.
+    A cubic unpooling layer - well-suited for SE(2) group.
     """
 
-    def __init__(self, kernel_size: Tuple[int, int], size: Tuple[int, int, int]):
+    def __init__(self, kernel_size, size):
         """
-        Initialization.
-
         Args:
-            kernel_size (tuple of int): pooling reduction in format (spatial_red, sym_red).
+            kernel_size (tuple of ints): unpooling reduction in format (L_pool, F_pool).
+            size (tuple of ints): dimensions of the cube in format (L, H, W) where H * W = F
         """
         super(CubicUnpool, self).__init__()
 
@@ -26,15 +26,13 @@ class CubicUnpool(nn.Module):
 
         self.avgunpool = nn.AdaptiveAvgPool3d(self.dim_out)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x):
         """
-        Forward pass.
-
         Args:
-            x (Tensor): input tensor.
+            x (`torch.Tensor`): input tensor.
 
         Returns:
-            (Tensor): output tensor.
+            (`torch.Tensor`): pooled tensor.
         """
         if self.shortcut:
             return x
@@ -50,20 +48,16 @@ class CubicUnpool(nn.Module):
 
 class IcosahedralUnpool(nn.Module):
     """
-    Basic class for general unpooling on a spherical graph - well-adapted for SO(3) group.
+    An hyper-icosahedral pooling layer - well-suited for SO(3) group.
     Pooling is based on the assumption the vertices are sorted the same way as Max Jiang.
     See: https://github.com/maxjiang93/ugscnn/blob/master/meshcnn/mesh.py
     """
 
-    def __init__(self, kernel_size: Tuple[int, int], size: Tuple[int, int]):
+    def __init__(self, kernel_size, size):
         """
-        Initialization.
-
         Args:
-            Lin (int): input depth.
-            Lout (int): ouput depth.
-            lvlin (int): input icosahedron level.
-            lvlout (int): output icosahedron level.
+            kernel_size (tuple of ints): pooling reduction in format (L_pool, F_pool).
+            size (tuple of ints): dimensions of the hyper-icosahedre in format (L, F).
         """
         super(IcosahedralUnpool, self).__init__()
 
@@ -77,15 +71,13 @@ class IcosahedralUnpool(nn.Module):
 
         self.maxunpool = nn.AdaptiveAvgPool2d(self.dim_out)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x):
         """
-        Forward pass.
-
         Args:
-            x (Tensor): input tensor.
+            x (`torch.Tensor`): input tensor.
 
         Returns:
-            (Tensor): output tensor.
+            (`torch.Tensor`): unpooled tensor.
         """
 
         if self.spatial_shortcut and self.sym_shortcut:

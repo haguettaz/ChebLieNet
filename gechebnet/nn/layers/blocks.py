@@ -1,35 +1,22 @@
-import torch
-from torch import Tensor, nn
+# coding=utf-8
 
-from ...graphs.graphs import Graph
-from .convs import ChebConv
+import torch
+from torch import nn
 
 
 class NetworkBlock(nn.Module):
     """
-    Network block with 2d convolutions.
+    A neural network block consisting in a sequence of convolutional layer blocks.
     """
 
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        num_layers: int,
-        block: nn.Module,
-        conv: nn.Module,
-        kernel_size: int,
-        *args,
-        **kwargs
-    ):
+    def __init__(self, in_channels, out_channels, num_layers, block, conv, kernel_size, *args, **kwargs):
         """
-        Initialization.
-
         Args:
             in_channels (int): number of input channels.
             out_channels (int): number of output channels.
             num_layers (int): number of layers of the network block.
-            block (nn.Module): type of block constituting the network block.
-            conv (nn.Module): convolutional layer.
+            block (`torch.nn.Module`): type of block constituting the network block.
+            conv (`torch.nn.Module`): convolutional layer.
             kernel_size (int): kernel size.
         """
         super(NetworkBlock, self).__init__()
@@ -40,32 +27,28 @@ class NetworkBlock(nn.Module):
             ]
         )
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x):
         """
-        Forward pass.
-
         Args:
-            x (Tensor): input tensor.
+            x (`torch.Tensor`): input tensor.
 
         Returns:
-            (Tensor): output tensor.
+            (`torch.Tensor`): output tensor.
         """
         return self.layers(x)
 
 
 class BasicBlock(nn.Module):
     """
-    Basic block composed of batch normalization, convolutional layer and ReLU activation function.
+    A basic neural network block with batch normalization, convolutional layer and ReLU activation function.
     """
 
-    def __init__(self, in_channels: int, out_channels: int, conv: nn.Module, kernel_size: int, *args, **kwargs):
+    def __init__(self, in_channels, out_channels, conv, kernel_size, *args, **kwargs):
         """
-        Initialization.
-
         Args:
             in_channels (int): number of input channels.
             out_channels (int): number of output channels.
-            conv (nn.Module): convolutional layer.
+            conv (`torch.nn.Module`): convolutional layer.
             kernel_size (int): kernel size.
         """
         super(BasicBlock, self).__init__()
@@ -73,32 +56,28 @@ class BasicBlock(nn.Module):
         self.conv = conv(in_channels, out_channels, kernel_size, bias=True, *args, **kwargs)
         self.relu = nn.ReLU()
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x):
         """
-        Forward pass.
-
         Args:
-            x (Tensor): input tensor.
+            x (`torch.Tensor`): input tensor.
 
         Returns:
-            (Tensor): output tensor.
+            (`torch.Tensor`): output tensor.
         """
         return self.relu(self.conv(self.bn(x)))
 
 
 class ResidualBlock(nn.Module):
     """
-    Residual block composed of batch normalization, 2 convolutional layers and ReLU activation function.
+    A residual neural network block with batch normalization, convolutional layers and ReLU activation function.
     """
 
-    def __init__(self, in_channels: int, out_channels: int, conv: nn.Module, kernel_size: int, *args, **kwargs):
+    def __init__(self, in_channels, out_channels, conv, kernel_size, *args, **kwargs):
         """
-        Initialization.
-
         Args:
             in_channels (int): number of input channels.
             out_channels (int): number of output channels.
-            conv (nn.Module): convolutional layer.
+            conv (`torch.nn.Module`): convolutional layer.
             kernel_size (int): kernel size.
         """
         super(ResidualBlock, self).__init__()
@@ -117,8 +96,6 @@ class ResidualBlock(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         """
-        Forward pass.
-
         Args:
             x (Tensor): input tensor.
 
@@ -127,7 +104,7 @@ class ResidualBlock(nn.Module):
         """
         x = self.bn1(x)
         out = self.relu1(self.conv1(x))
-        
+
         if self.equalInOut:
             return self.relu2(x + self.conv2(self.bn2(out)))
 

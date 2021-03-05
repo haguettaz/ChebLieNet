@@ -1,14 +1,14 @@
-from torch import nn
+# coding=utf-8
 
 
-def capacity(model: nn.Module) -> int:
+def capacity(model):
     """
-    Returns the capacity of the model, i.e. its number of trainable parameters.
+    Return the capacity of the model, i.e. its number of trainable parameters.
 
     Args:
-        (nn.Module): model-
+        (`torch.nn.Module`): model.
 
     Returns:
-        (int): model's capacity.
+        (int): capacity of the model.
     """
     return sum(p.numel() for p in model.parameters())
