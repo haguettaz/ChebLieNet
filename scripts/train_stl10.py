@@ -19,13 +19,12 @@ from torch.nn.functional import nll_loss
 from torch.optim import Adam
 
 
-def build_config(anisotropic: bool, coupled_sym: bool) -> dict:
+def build_config(anisotropic: bool) -> dict:
     """
     Gets training configuration.
 
     Args:
         anisotropic (bool): if True, uses an anisotropic graph manifold.
-        coupled_sym (bool): if True, uses coupled symmetric layers.
 
     Returns:
         (dict): configuration dictionnary.
@@ -36,9 +35,9 @@ def build_config(anisotropic: bool, coupled_sym: bool) -> dict:
         "eps": 0.1 if anisotropic else 1.0,
         "K": 8,
         "ntheta": 6 if anisotropic else 1,
-        "xi_0": 1 if not anisotropic else 2.048 / (24 ** 2) if coupled_sym else 1e6,
-        "xi_1": 1 if not anisotropic else 2.048 / (48 ** 2) if coupled_sym else 1e6,
-        "xi_2": 1 if not anisotropic else 2.048 / (96 ** 2) if coupled_sym else 1e6,
+        "xi_0": 1 if not anisotropic else 2.048 / (24 ** 2),
+        "xi_1": 1 if not anisotropic else 2.048 / (48 ** 2),
+        "xi_2": 1 if not anisotropic else 2.048 / (96 ** 2),
     }
 
 
@@ -195,7 +194,6 @@ if __name__ == "__main__":
     parser.add_argument("--max_epochs", type=int)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--anisotropic", action="store_true", default=False)
-    parser.add_argument("--coupled_sym", action="store_true", default=False)
     parser.add_argument("--depth", type=int, default=14)
     parser.add_argument("--widen_factor", type=int, default=4)
     parser.add_argument("--sample_edges", action="store_true", default=False)
