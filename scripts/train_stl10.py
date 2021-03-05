@@ -195,8 +195,8 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--anisotropic", action="store_true", default=False)
     parser.add_argument("--coupled_sym", action="store_true", default=False)
-    parser.add_argument("--depth", type=int, default=8)
-    parser.add_argument("--widen_factor", type=int, default=2)
+    parser.add_argument("--depth", type=int, default=14)
+    parser.add_argument("--widen_factor", type=int, default=4)
     parser.add_argument("--sample_edges", action="store_true", default=False)
     parser.add_argument("--edges_rate", type=float, default=1.0)  # rate of edges to sample
     parser.add_argument("--lr", type=float, default=1e-3)
