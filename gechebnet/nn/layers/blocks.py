@@ -94,7 +94,7 @@ class ResidualBlock(nn.Module):
         if not self.equalInOut:
             self.convShortcut = conv(in_channels, out_channels, kernel_size=1, bias=False, *args, **kwargs)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x):
         """
         Args:
             x (`torch.Tensor`): input tensor.
