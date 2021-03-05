@@ -5,12 +5,12 @@ import torch
 import wandb
 from gechebnet.datas.dataloaders import get_equiv_test_loaders, get_train_val_loaders
 from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
-from gechebnet.engines.utils import sample_edges, sample_nodes, prepare_batch, wandb_log
+from gechebnet.engines.utils import prepare_batch, sample_edges, sample_nodes, wandb_log
 from gechebnet.graphs.graphs import RandomSubGraph, SE2GEGraph
 from gechebnet.liegroups.se2 import se2_uniform_sampling
-from gechebnet.nn.models.utils import capacity
 from gechebnet.nn.models.chebnets import WideResGEChebNet
 from gechebnet.nn.models.convnets import WideResConvNet
+from gechebnet.nn.models.utils import capacity
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
 from ignite.metrics import Accuracy, Loss
@@ -18,28 +18,27 @@ from torch.nn.functional import nll_loss
 from torch.optim import Adam
 
 
-def build_config(anisotropic: bool, coupled_sym: bool, cnn: bool) -> dict:
+def build_config(anisotropic: bool, pool: bool) -> dict:
     """
     Gets training configuration.
 
     Args:
         anisotropic (bool): if True, use an anisotropic graph manifold.
         coupled_sym (bool): if True, use coupled symmetric layers.
-        cnn (bool): if True, use a convolutional neural network.
+        pool (bool): if True, use a pooling layers.
 
     Returns:
         (dict): configuration dictionnary.
     """
 
-    if cnn:
-        return {"kernel_size": 3}
-
     return {
-        "R": 4,
+        "kernel_size": 4,
         "eps": 0.1 if anisotropic else 1.0,
-        "K": 16 if anisotropic else 8,
+        "K": 8,
         "ntheta": 6 if anisotropic else 1,
-        "xi": 1 if not anisotropic else 0.002 if coupled_sym else 1e6,
+        "xi_0": 1 if not anisotropic else 2.048 / (8 ** 2) if pool else 2.048 / (32 ** 2),
+        "xi_1": 1 if not anisotropic else 2.048 / (16 ** 2) if pool else 2.048 / (32 ** 2),
+        "xi_2": 1 if not anisotropic else 2.048 / (32 ** 2),
     }
 
 

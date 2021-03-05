@@ -35,9 +35,9 @@ def build_config(anisotropic: bool, coupled_sym: bool, cnn: bool) -> dict:
         return {"kernel_size": 3}
 
     return {
-        "R": 4,
+        "kernel_size": 2,
         "eps": 0.1 if anisotropic else 1.0,
-        "K": 16 if anisotropic else 8,
+        "K": 8,
         "ntheta": 6 if anisotropic else 1,
         "xi": 1.0 if not anisotropic else 2.048 / (28 ** 2) if coupled_sym else 1e6,
     }
@@ -65,22 +65,20 @@ def train(config=None):
             model = WideResConvNet(1, 10, config.kernel_size, args.depth, args.widen_factor, args.pool).to(device)
 
         else:
-            uniform_sampling_lvl0 = se2_uniform_sampling(7 if args.pool else 28, 7 if args.pool else 28, config.ntheta)
+            uniform_sampling_lvl0 = se2_uniform_sampling(28, 28, config.ntheta)
             graph_lvl0 = SE2GEGraph(
                 uniform_sampling_lvl0,
                 K=config.K,
-                sigmas=(1.0, config.eps, config.xi * 16 if args.pool else config.xi),
+                sigmas=(1.0, config.eps, config.xi),
                 path_to_graph=args.path_to_graph,
             )
             sub_graph_lvl0 = RandomSubGraph(graph_lvl0)
 
-            uniform_sampling_lvl1 = se2_uniform_sampling(
-                14 if args.pool else 28, 14 if args.pool else 28, config.ntheta
-            )
+            uniform_sampling_lvl1 = se2_uniform_sampling(28, 28, config.ntheta)
             graph_lvl1 = SE2GEGraph(
                 uniform_sampling_lvl1,
                 K=config.K,
-                sigmas=(1.0, config.eps, config.xi * 4 if args.pool else config.xi),
+                sigmas=(1.0, config.eps, config.xi),
                 path_to_graph=args.path_to_graph,
             )
             sub_graph_lvl1 = RandomSubGraph(graph_lvl1)
@@ -96,14 +94,15 @@ def train(config=None):
 
             # Loads group equivariant Chebnet
             model = WideResGEChebNet(
-                sub_graph_lvl0,
-                sub_graph_lvl1,
-                sub_graph_lvl2,
-                1,
-                10,
-                config.R,
-                args.depth,
-                args.widen_factor,
+                in_channels=1,
+                out_channels=10,
+                kernel_size=config.kernel_size,
+                pool=None,
+                graph_lvl0=sub_graph_lvl0,
+                graph_lvl1=sub_graph_lvl1,
+                graph_lvl2=sub_graph_lvl2,
+                depth=args.depth,
+                widen_factor=args.widen_factor,
             ).to(device)
 
         wandb.log({"capacity": capacity(model)})
@@ -198,7 +197,7 @@ def train(config=None):
         ProgressBar(persist=False, desc="Evaluation").attach(rotated_evaluator)
 
         flipped_evaluator = create_supervised_evaluator(
-            graph=sub_graph_lvl1 if not args.cnn else None,
+            graph=sub_graph_lvl2 if not args.cnn else None,
             model=model,
             metrics=flipped_metrics,
             device=device,
@@ -218,8 +217,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--path_to_graph", type=str)
     parser.add_argument("--path_to_data", type=str)
-    parser.add_argument("-N", "--num_experiments", type=int)
-    parser.add_argument("-E", "--max_epochs", type=int)
+    parser.add_argument("--num_experiments", type=int)
+    parser.add_argument("--max_epochs", type=int)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--cnn", action="store_true", default=False)
     parser.add_argument("--anisotropic", action="store_true", default=False)
@@ -227,10 +226,9 @@ if __name__ == "__main__":
     parser.add_argument("--depth", type=int, default=8)
     parser.add_argument("--widen_factor", type=int, default=2)
     parser.add_argument("--sample_edges", action="store_true", default=False)
-    parser.add_argument("--edges_rate", type=float, default=1.0)  # rate of edges or nodes to sample
+    parser.add_argument("--edges_rate", type=float, default=1.0)  # rate of edges to sample
     parser.add_argument("--sample_nodes", action="store_true", default=False)
-    parser.add_argument("--nodes_rate", type=float, default=1.0)  # rate of edges or nodes to sample
-    parser.add_argument("--pool", action="store_true", default=False)
+    parser.add_argument("--nodes_rate", type=float, default=1.0)  # rate of nodes to sample
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--cuda", action="store_true", default=False)
     args = parser.parse_args()
