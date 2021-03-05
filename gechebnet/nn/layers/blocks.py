@@ -22,7 +22,7 @@ class NetworkBlock(nn.Module):
         super(NetworkBlock, self).__init__()
         self.layers = nn.Sequential(
             *[
-                block(out_channels if i > 0 else in_channels, out_channels, conv, kernel_size * args, **kwargs)
+                block(out_channels if i > 0 else in_channels, out_channels, conv, kernel_size, *args, **kwargs)
                 for i in range(num_layers)
             ]
         )

@@ -89,15 +89,15 @@ def train(config=None):
 
         # Loads group equivariant Chebnet
         model = WideResGEChebNet(
-            3,
-            10,
-            config.kernel_size,
-            CubicPool,
-            sub_graph_lvl0,
-            sub_graph_lvl1,
-            sub_graph_lvl2,
-            args.depth,
-            args.widen_factor,
+            in_channels=3,
+            out_channels=10,
+            kernel_size=config.kernel_size,
+            pool=CubicPool,
+            graph_lvl0=sub_graph_lvl0,
+            graph_lvl1=sub_graph_lvl1,
+            graph_lvl2=sub_graph_lvl2,
+            depth=args.depth,
+            widen_factor=args.widen_factor,
         ).to(device)
 
         wandb.log({"capacity": capacity(model)})
