@@ -65,7 +65,7 @@ def train(config=None):
         graph_lvl0 = SE2GEGraph(
             uniform_sampling_lvl0,
             K=config.K,
-            sigmas=(1.0, config.eps, config.xi * 16 if args.pool else config.xi),
+            sigmas=(1.0, config.eps, config.xi_0),
             path_to_graph=args.path_to_graph,
         )
         sub_graph_lvl0 = RandomSubGraph(graph_lvl0)
@@ -74,7 +74,7 @@ def train(config=None):
         graph_lvl1 = SE2GEGraph(
             uniform_sampling_lvl1,
             K=config.K,
-            sigmas=(1.0, config.eps, config.xi * 4 if args.pool else config.xi),
+            sigmas=(1.0, config.eps, config.xi_1),
             path_to_graph=args.path_to_graph,
         )
         sub_graph_lvl1 = RandomSubGraph(graph_lvl1)
@@ -83,7 +83,7 @@ def train(config=None):
         graph_lvl2 = SE2GEGraph(
             uniform_sampling_lvl2,
             K=config.K,
-            sigmas=(1.0, config.eps, config.xi),
+            sigmas=(1.0, config.eps, config.xi_2),
             path_to_graph=args.path_to_graph,
         )
         sub_graph_lvl2 = RandomSubGraph(graph_lvl2)
