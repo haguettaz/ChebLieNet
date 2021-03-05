@@ -415,16 +415,19 @@ class SE2GEGraph(GEGraph):
     @property
     def size(self):
         """
-        Return number of vertices as a tuple (L, F) where L referes to the number of
-        layers and F to its number of fibers.
+        Return number of vertices as a tuple (L, H, W) where L referes to the number of
+        layers and F = H x W to its number of fibers.
 
         Warning: it is not compatible with nodes' compression.
 
         Returns:
             (tuple): number of layers and fibers.
         """
-        nsym = self.node_theta.unique().nelement()
-        return (nsym, self.num_nodes // nsym)
+        return (
+            self.node_theta.unique().nelement(),
+            self.node_y.unique().nelement(),
+            self.node_x.unique().nelement(),
+        )
 
     def cartesian_pos(self, axis=None):
         """
