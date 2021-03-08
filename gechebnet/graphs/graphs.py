@@ -9,8 +9,7 @@ import torch
 from tqdm import tqdm
 
 from ..liegroups.se2 import se2_matrix, se2_riemannian_sqdist
-from ..liegroups.so3 import (alphabetagamma2xyz, so3_matrix,
-                             so3_riemannian_sqdist, xyz2betagamma)
+from ..liegroups.so3 import alphabetagamma2xyz, so3_matrix, so3_riemannian_sqdist, xyz2betagamma
 from .gsp import get_fourier_basis, get_laplacian, get_rescaled_laplacian
 from .utils import remove_duplicated_edges, to_undirected
 
@@ -249,26 +248,19 @@ class RandomSubGraph(Graph):
         num_samples = math.floor(rate * self.graph.num_nodes)
         sampled_nodes, _ = torch.multinomial(torch.ones(self.graph.num_nodes), num_samples).sort()
 
-        print(num_samples)
-
         self.node_index = torch.arange(num_samples)
 
-        print(self.node_index)
         self.sub_node_index = sampled_nodes.clone()
 
         for attr in self.graph.node_attributes:
             setattr(self, attr, getattr(self.graph, attr)[sampled_nodes])
 
-        # selects edges between sampled nodes
+        # selects edges between sampled nodes and resets the edge indices with the current node mapping
         node_mapping = torch.empty(self.graph.num_nodes, dtype=torch.long).fill_(-1)
         node_mapping[self.graph.node_index[sampled_nodes]] = self.node_index
-
-        print(node_mapping)
         edge_index = node_mapping[self.graph.edge_index]
-        print(edge_index)
         mask = (edge_index[0] >= 0) & (edge_index[1] >= 0)
         self.edge_index = edge_index[:, mask]
-        print(self.edge_index)
         self.edge_weight = self.graph.edge_weight[mask]
         self.edge_sqdist = self.graph.edge_sqdist[mask]
 
@@ -316,7 +308,6 @@ class RandomSubGraph(Graph):
             (tuple): tuple of nodes' attributes
         """
         return self.graph.node_attributes
-
 
 
 class GEGraph(Graph):
