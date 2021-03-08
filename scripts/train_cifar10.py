@@ -33,7 +33,7 @@ def build_config(anisotropic: bool, pool: bool) -> dict:
     """
 
     return {
-        "kernel_size": 2,
+        "kernel_size": 4,
         "eps": 0.1 if anisotropic else 1.0,
         "K": 8,
         "ntheta": 6 if anisotropic else 1,
