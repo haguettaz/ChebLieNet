@@ -36,6 +36,8 @@ def to_undirected(edge_index, edge_attr, self_loop=False):
     edge_index = torch.cat((edge_index, edge_index_inverse), dim=-1)
     edge_attr = torch.cat((edge_attr, edge_attr), dim=-1)
 
+    print(edge_attr.shape)
+
     if self_loop:
         return edge_index, edge_attr
 
