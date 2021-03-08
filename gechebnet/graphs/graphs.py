@@ -197,6 +197,7 @@ class RandomSubGraph(Graph):
         """
         Reinitialize random sub-graph nodes and edges' attributes.
         """
+        print("Reinit graph...")
         if hasattr(self, "laplacian"):
             del self.laplacian
 
@@ -209,6 +210,7 @@ class RandomSubGraph(Graph):
         self.edge_index = self.graph.edge_index.clone()
         self.edge_weight = self.graph.edge_weight.clone()
         self.edge_sqdist = self.graph.edge_sqdist.clone()
+        print("Done!")
 
     def edge_sampling(self, rate):
         """
@@ -219,6 +221,7 @@ class RandomSubGraph(Graph):
         Args:
             rate (float): rate of edges to sample.
         """
+        print("Sample edges...")
         # samples N (undirected) edges from the original graph based on their weights
         edge_attr = torch.stack((self.graph.edge_weight, self.graph.edge_sqdist))
         edge_index, edge_attr = remove_duplicated_edges(self.graph.edge_index, edge_attr)
@@ -232,6 +235,7 @@ class RandomSubGraph(Graph):
         self.edge_index = edge_index
         self.edge_weight = edge_attr[0]
         self.edge_sqdist = edge_attr[1]
+        print("Done!")
 
     def node_sampling(self, rate):
         """
@@ -244,6 +248,7 @@ class RandomSubGraph(Graph):
         Args:
             rate (float): rate of nodes to sample.
         """
+        print("Sample nodes...")
         # samples N nodes from the original graph
         num_samples = math.floor(rate * self.graph.num_nodes)
         sampled_nodes, _ = torch.multinomial(torch.ones(self.graph.num_nodes), num_samples).sort()
@@ -263,6 +268,7 @@ class RandomSubGraph(Graph):
         self.edge_index = edge_index[:, mask]
         self.edge_weight = self.graph.edge_weight[mask]
         self.edge_sqdist = self.graph.edge_sqdist[mask]
+        print("Done!")
 
     def cartesian_pos(self, axis=None):
         """
