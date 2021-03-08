@@ -49,8 +49,6 @@ def sample_edges(trainer, graph, rate):
 
     graph.reinit()
     graph.edge_sampling(rate)
-    wandb.log({"num_nodes": graph.num_nodes, "epoch": trainer.state.epoch})
-    wandb.log({"num_edges": graph.num_edges, "epoch": trainer.state.epoch})
 
 
 def sample_nodes(trainer, graph, rate):
@@ -65,5 +63,3 @@ def sample_nodes(trainer, graph, rate):
     """
     graph.reinit()
     graph.node_sampling(rate)
-    wandb.log({"num_nodes": graph.num_nodes, "epoch": trainer.state.epoch})
-    wandb.log({"num_edges": graph.num_edges, "epoch": trainer.state.epoch})

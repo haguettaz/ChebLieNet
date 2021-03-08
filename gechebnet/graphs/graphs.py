@@ -228,9 +228,7 @@ class RandomSubGraph(Graph):
         num_samples = math.ceil(rate * edge_attr[0].nelement())
         sampled_edges = torch.multinomial(edge_attr[0], num_samples)
 
-        edge_index, edge_attr = to_undirected(
-            edge_index[:, sampled_edges], edge_attr[:, sampled_edges], self_loop=False
-        )
+        edge_index, edge_attr = to_undirected(edge_index[:, sampled_edges], edge_attr[sampled_edges], self_loop=False)
 
         self.edge_index = edge_index
         self.edge_weight = edge_attr[0]
