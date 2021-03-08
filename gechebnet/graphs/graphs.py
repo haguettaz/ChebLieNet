@@ -9,7 +9,8 @@ import torch
 from tqdm import tqdm
 
 from ..liegroups.se2 import se2_matrix, se2_riemannian_sqdist
-from ..liegroups.so3 import alphabetagamma2xyz, so3_matrix, so3_riemannian_sqdist, xyz2betagamma
+from ..liegroups.so3 import (alphabetagamma2xyz, so3_matrix,
+                             so3_riemannian_sqdist, xyz2betagamma)
 from .gsp import get_fourier_basis, get_laplacian, get_rescaled_laplacian
 from .utils import remove_duplicated_edges, to_undirected
 
@@ -124,32 +125,50 @@ class Graph:
         """
 
         os.makedirs(path_to_graph, exist_ok=True)
-        for attr in self.node_attributes:
-            torch.save(getattr(self, attr), os.path.join(path_to_graph, f"{self.str_repr}_{attr}.pt"))
-        for attr in self.edge_attributes:
-            torch.save(getattr(self, attr), os.path.join(path_to_graph, f"{self.str_repr}_{attr}.pt"))
+
+        torch.save(self.node_index, os.path.join(path_to_graph, f"{self.str_repr}_node_index.pt"))
+
+        torch.save(self.edge_index, os.path.join(path_to_graph, f"{self.str_repr}_edge_index.pt"))
+        torch.save(self.edge_sqdist, os.path.join(path_to_graph, f"{self.str_repr}_edge_sqdist.pt"))
+        torch.save(self.edge_weight, os.path.join(path_to_graph, f"{self.str_repr}_edge_weight.pt"))
+
+        for node_attr in self.node_attributes:
+            torch.save(getattr(self, node_attr), os.path.join(path_to_graph, f"{self.str_repr}_{node_attr}.pt"))
 
     def load(self, path_to_graph):
         """
         Load graph's attributes.
         """
 
-        for attr in self.node_attributes:
-            setattr(self, attr, torch.load(os.path.join(path_to_graph, f"{self.str_repr}_{attr}.pt")))
-        for attr in self.edge_attributes:
-            setattr(self, attr, torch.load(os.path.join(path_to_graph, f"{self.str_repr}_{attr}.pt")))
+        self.node_index = torch.load(os.path.join(path_to_graph, f"{self.str_repr}_node_index.pt"))
+
+        self.edge_index = torch.load(os.path.join(path_to_graph, f"{self.str_repr}_edge_index.pt"))
+        self.edge_sqdist = torch.load(os.path.join(path_to_graph, f"{self.str_repr}_edge_sqdist.pt"))
+        self.edge_weight = torch.load(os.path.join(path_to_graph, f"{self.str_repr}_edge_weight.pt"))
+
+        for node_attr in self.node_attributes:
+            setattr(self, node_attr, torch.load(os.path.join(path_to_graph, f"{self.str_repr}_{node_attr}.pt")))
 
     def check_graph_exists(self, path_to_graph):
         """
         Returns:
             (bool): True if the graph exists in the graphs' directory.
         """
-        for attr in self.node_attributes:
-            if not os.path.exists(os.path.join(path_to_graph, f"{self.str_repr}_{attr}.pt")):
-                return False
 
-        for attr in self.edge_attributes:
-            if not os.path.exists(os.path.join(path_to_graph, f"{self.str_repr}_{attr}.pt")):
+        if not os.path.exists(os.path.join(path_to_graph, f"{self.str_repr}_node_index.pt")):
+            return False
+
+        if not os.path.exists(os.path.join(path_to_graph, f"{self.str_repr}_edge_index.pt")):
+            return False
+
+        if not os.path.exists(os.path.join(path_to_graph, f"{self.str_repr}_edge_weight.pt")):
+            return False
+
+        if not os.path.exists(os.path.join(path_to_graph, f"{self.str_repr}_edge_sqdist.pt")):
+            return False
+
+        for node_attr in self.node_attributes:
+            if not os.path.exists(os.path.join(path_to_graph, f"{self.str_repr}_{node_attr}.pt")):
                 return False
 
         return True
@@ -165,13 +184,15 @@ class RandomSubGraph(Graph):
         self.graph = graph
         self.lie_group = self.graph.lie_group
 
-        for attr in graph.node_attributes:
-            setattr(self, attr, getattr(graph, attr))
-
-        for attr in graph.edge_attributes:
-            setattr(self, attr, getattr(graph, attr))
-
+        self.node_index = self.graph.node_index.clone()
         self.sub_node_index = self.node_index.clone()
+
+        for attr in self.graph.node_attributes:
+            setattr(self, attr, getattr(graph, attr))
+
+        self.edge_index = self.graph.edge_index.clone()
+        self.edge_weight = self.graph.edge_weight.clone()
+        self.edge_sqdist = self.graph.edge_sqdist.clone()
 
     def reinit(self):
         """
@@ -180,13 +201,15 @@ class RandomSubGraph(Graph):
         if hasattr(self, "laplacian"):
             del self.laplacian
 
+        self.node_index = self.graph.node_index.clone()
+        self.sub_node_index = self.node_index.clone()
+
         for attr in self.graph.node_attributes:
             setattr(self, attr, getattr(self.graph, attr))
 
-        for attr in self.graph.edge_attributes:
-            setattr(self, attr, getattr(self.graph, attr))
-
-        self.sub_node_index = self.node_index.clone()
+        self.edge_index = self.graph.edge_index.clone()
+        self.edge_weight = self.graph.edge_weight.clone()
+        self.edge_sqdist = self.graph.edge_sqdist.clone()
 
     def edge_sampling(self, rate):
         """
@@ -225,19 +248,27 @@ class RandomSubGraph(Graph):
         # samples N nodes from the original graph
         num_samples = math.floor(rate * self.graph.num_nodes)
         sampled_nodes, _ = torch.multinomial(torch.ones(self.graph.num_nodes), num_samples).sort()
+
+        print(num_samples)
+
         self.node_index = torch.arange(num_samples)
+
+        print(self.node_index)
         self.sub_node_index = sampled_nodes.clone()
 
         for attr in self.graph.node_attributes:
             setattr(self, attr, getattr(self.graph, attr)[sampled_nodes])
 
-        # selects edges between sampled nodes.
+        # selects edges between sampled nodes
         node_mapping = torch.empty(self.graph.num_nodes, dtype=torch.long).fill_(-1)
         node_mapping[self.graph.node_index[sampled_nodes]] = self.node_index
 
+        print(node_mapping)
         edge_index = node_mapping[self.graph.edge_index]
+        print(edge_index)
         mask = (edge_index[0] >= 0) & (edge_index[1] >= 0)
         self.edge_index = edge_index[:, mask]
+        print(self.edge_index)
         self.edge_weight = self.graph.edge_weight[mask]
         self.edge_sqdist = self.graph.edge_sqdist[mask]
 
@@ -275,6 +306,17 @@ class RandomSubGraph(Graph):
             (tuple): number of layers and fibers.
         """
         return self.graph.size
+
+    @property
+    def node_attributes(self):
+        """
+        Returns the graph's nodes attributes.
+
+        Returns:
+            (tuple): tuple of nodes' attributes
+        """
+        return self.graph.node_attributes
+
 
 
 class GEGraph(Graph):
@@ -458,17 +500,7 @@ class SE2GEGraph(GEGraph):
         Returns:
             (tuple): tuple of nodes' attributes
         """
-        return ("node_index", "node_x", "node_y", "node_theta")
-
-    @property
-    def edge_attributes(self):
-        """
-        Returns the graph's edges attributes.
-
-        Returns:
-            (tuple): tuple of edges' attributes
-        """
-        return ("edge_index", "edge_weight", "edge_sqdist")
+        return ("node_x", "node_y", "node_theta")
 
 
 class SO3GEGraph(GEGraph):
@@ -583,14 +615,4 @@ class SO3GEGraph(GEGraph):
         Returns:
             (tuple): tuple of nodes' attributes
         """
-        return ("node_index", "node_alpha", "node_beta", "node_gamma")
-
-    @property
-    def edge_attributes(self):
-        """
-        Returns the graph's edges attributes.
-
-        Returns:
-            (tuple): tuple of edges' attributes
-        """
-        return ("edge_index", "edge_weight", "edge_sqdist")
+        return ("node_alpha", "node_beta", "node_gamma")
