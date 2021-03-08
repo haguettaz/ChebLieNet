@@ -207,16 +207,16 @@ def train(config=None):
 
         # consider all nodes and edges for the evaluation
         if args.sample_edges or args.sample_nodes:
-            classic_evaluator.add_event_handler(
-                Events.EPOCH_STARTED,
+            trainer.add_event_handler(
+                Events.EPOCH_COMPLETED,
                 sub_graph_lvl0.reinit,
             )
-            rotated_evaluator.add_event_handler(
-                Events.EPOCH_STARTED,
+            trainer.add_event_handler(
+                Events.EPOCH_COMPLETED,
                 sub_graph_lvl1.reinit,
             )
-            flipped_evaluator.add_event_handler(
-                Events.EPOCH_STARTED,
+            trainer.add_event_handler(
+                Events.EPOCH_COMPLETED,
                 sub_graph_lvl2.reinit,
             )
 
