@@ -65,32 +65,15 @@ def train(config=None):
             model = WideResConvNet(1, 10, config.kernel_size, args.depth, args.widen_factor, args.pool).to(device)
 
         else:
-            uniform_sampling_lvl0 = se2_uniform_sampling(28, 28, config.ntheta)
-            graph_lvl0 = SE2GEGraph(
-                uniform_sampling_lvl0,
-                K=config.K,
-                sigmas=(1.0, config.eps, config.xi),
-                path_to_graph=args.path_to_graph,
-            )
-            sub_graph_lvl0 = RandomSubGraph(graph_lvl0)
 
-            uniform_sampling_lvl1 = se2_uniform_sampling(28, 28, config.ntheta)
-            graph_lvl1 = SE2GEGraph(
-                uniform_sampling_lvl1,
+            uniform_sampling = se2_uniform_sampling(28, 28, config.ntheta)
+            graph = SE2GEGraph(
+                uniform_sampling,
                 K=config.K,
                 sigmas=(1.0, config.eps, config.xi),
                 path_to_graph=args.path_to_graph,
             )
-            sub_graph_lvl1 = RandomSubGraph(graph_lvl1)
-
-            uniform_sampling_lvl2 = se2_uniform_sampling(28, 28, config.ntheta)
-            graph_lvl2 = SE2GEGraph(
-                uniform_sampling_lvl2,
-                K=config.K,
-                sigmas=(1.0, config.eps, config.xi),
-                path_to_graph=args.path_to_graph,
-            )
-            sub_graph_lvl2 = RandomSubGraph(graph_lvl2)
+            sub_graph = RandomSubGraph(graph)
 
             # Loads group equivariant Chebnet
             model = WideResGEChebNet(
@@ -98,9 +81,9 @@ def train(config=None):
                 out_channels=10,
                 kernel_size=config.kernel_size,
                 pool=None,
-                graph_lvl0=sub_graph_lvl0,
-                graph_lvl1=sub_graph_lvl1,
-                graph_lvl2=sub_graph_lvl2,
+                graph_lvl0=sub_graph,
+                graph_lvl1=None,
+                graph_lvl2=None,
                 depth=args.depth,
                 widen_factor=args.widen_factor,
             ).to(device)
@@ -125,7 +108,7 @@ def train(config=None):
 
         # Load engines
         trainer = create_supervised_trainer(
-            graph=sub_graph_lvl1 if not args.cnn else None,
+            graph=sub_graph if not args.cnn else None,
             model=model,
             optimizer=optimizer,
             loss_fn=nll_loss,
@@ -138,19 +121,7 @@ def train(config=None):
             trainer.add_event_handler(
                 Events.ITERATION_STARTED,
                 sample_edges,
-                sub_graph_lvl0,
-                args.edges_rate,
-            )
-            trainer.add_event_handler(
-                Events.ITERATION_STARTED,
-                sample_edges,
-                sub_graph_lvl1,
-                args.edges_rate,
-            )
-            trainer.add_event_handler(
-                Events.ITERATION_STARTED,
-                sample_edges,
-                sub_graph_lvl2,
+                sub_graph,
                 args.edges_rate,
             )
 
@@ -158,19 +129,7 @@ def train(config=None):
             trainer.add_event_handler(
                 Events.EPOCH_STARTED,
                 sample_nodes,
-                sub_graph_lvl0,
-                args.nodes_rate,
-            )
-            trainer.add_event_handler(
-                Events.EPOCH_STARTED,
-                sample_nodes,
-                sub_graph_lvl1,
-                args.nodes_rate,
-            )
-            trainer.add_event_handler(
-                Events.EPOCH_STARTED,
-                sample_nodes,
-                sub_graph_lvl2,
+                sub_graph,
                 args.nodes_rate,
             )
 
@@ -179,7 +138,7 @@ def train(config=None):
         flipped_metrics = {"flipped_test_accuracy": Accuracy(), "flipped_test_loss": Loss(nll_loss)}
 
         classic_evaluator = create_supervised_evaluator(
-            graph=sub_graph_lvl2 if not args.cnn else None,
+            graph=sub_graph if not args.cnn else None,
             model=model,
             metrics=classic_metrics,
             device=device,
@@ -188,7 +147,7 @@ def train(config=None):
         ProgressBar(persist=False, desc="Evaluation").attach(classic_evaluator)
 
         rotated_evaluator = create_supervised_evaluator(
-            graph=sub_graph_lvl2 if not args.cnn else None,
+            graph=sub_graph if not args.cnn else None,
             model=model,
             metrics=rotated_metrics,
             device=device,
@@ -197,7 +156,7 @@ def train(config=None):
         ProgressBar(persist=False, desc="Evaluation").attach(rotated_evaluator)
 
         flipped_evaluator = create_supervised_evaluator(
-            graph=sub_graph_lvl2 if not args.cnn else None,
+            graph=sub_graph if not args.cnn else None,
             model=model,
             metrics=flipped_metrics,
             device=device,
@@ -209,15 +168,7 @@ def train(config=None):
         if args.sample_edges or args.sample_nodes:
             trainer.add_event_handler(
                 Events.EPOCH_COMPLETED,
-                sub_graph_lvl0.reinit,
-            )
-            trainer.add_event_handler(
-                Events.EPOCH_COMPLETED,
-                sub_graph_lvl1.reinit,
-            )
-            trainer.add_event_handler(
-                Events.EPOCH_COMPLETED,
-                sub_graph_lvl2.reinit,
+                sub_graph.reinit,
             )
 
         trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, classic_evaluator, classic_test_loader)

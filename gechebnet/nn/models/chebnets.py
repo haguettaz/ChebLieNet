@@ -20,9 +20,9 @@ class WideResGEChebNet(nn.Module):
         kernel_size,
         pool,
         graph_lvl0,
-        graph_lvl1,
-        graph_lvl2,
-        depth,
+        graph_lvl1=None,
+        graph_lvl2=None,
+        depth=8,
         widen_factor=1,
     ):
         """
@@ -32,9 +32,9 @@ class WideResGEChebNet(nn.Module):
             kernel_size (int): order of the Chebyshev polynomials.
             pool (`torch.nn.Module`): pooling layers.
             graph_lvl0 (`Graph`): graph at level 0, the coarsenest graph.
-            graph_lvl1 (`Graph`): graph at level 1.
-            graph_lvl2 (`Graph`): graph at level 2, the finest graph.
-            depth (int): depth of the neural network.
+            graph_lvl1 (`Graph`): graph at level 1. Defaults to None.
+            graph_lvl2 (`Graph`): graph at level 2, the finest graph. Defaults to None.
+            depth (int): depth of the neural network. Defaults to 8.
             widen_factor (int, optional): widen factor of the neural network. Defaults to 1.
 
         Raises:
@@ -45,20 +45,41 @@ class WideResGEChebNet(nn.Module):
         if (depth - 2) % 6:
             raise ValueError(f"{depth} is not a valid value for depth")
 
+        if pool and (graph_lvl1 is None or graph_lvl2 is None):
+            raise ValueError(f"Incompatible value for pool and graphs")
+
         hidden_channels = [16, 16 * widen_factor, 32 * widen_factor, 64 * widen_factor]
         num_layers = (depth - 2) // 6
 
-        self.conv = ChebConv(in_channels, hidden_channels[0], kernel_size=kernel_size, bias=True, graph=graph_lvl2)
+        self.conv = ChebConv(
+            in_channels,
+            hidden_channels[0],
+            kernel_size=kernel_size,
+            bias=True,
+            graph=graph_lvl2 if pool else graph_lvl0,
+        )
         self.relu = nn.ReLU(inplace=True)
 
         self.pool2_1 = None if pool is None else pool(kernel_size=(1, 2), size=graph_lvl2.size)
         self.pool1_0 = None if pool is None else pool(kernel_size=(1, 2), size=graph_lvl1.size)
 
         self.block2 = NetworkBlock(
-            hidden_channels[0], hidden_channels[1], num_layers, ResidualBlock, ChebConv, kernel_size, graph=graph_lvl2
+            hidden_channels[0],
+            hidden_channels[1],
+            num_layers,
+            ResidualBlock,
+            ChebConv,
+            kernel_size,
+            graph=graph_lvl2 if pool else graph_lvl0,
         )
         self.block1 = NetworkBlock(
-            hidden_channels[1], hidden_channels[2], num_layers, ResidualBlock, ChebConv, kernel_size, graph=graph_lvl1
+            hidden_channels[1],
+            hidden_channels[2],
+            num_layers,
+            ResidualBlock,
+            ChebConv,
+            kernel_size,
+            graph=graph_lvl1 if pool else graph_lvl0,
         )
         self.block0 = NetworkBlock(
             hidden_channels[2], hidden_channels[3], num_layers, ResidualBlock, ChebConv, kernel_size, graph=graph_lvl0
