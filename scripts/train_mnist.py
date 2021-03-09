@@ -117,22 +117,6 @@ def train(config=None):
         )
         ProgressBar(persist=False, desc="Training").attach(trainer)
 
-        if args.sample_edges:
-            trainer.add_event_handler(
-                Events.ITERATION_STARTED,
-                sample_edges,
-                sub_graph,
-                args.edges_rate,
-            )
-
-        if args.sample_nodes:
-            trainer.add_event_handler(
-                Events.EPOCH_STARTED,
-                sample_nodes,
-                sub_graph,
-                args.nodes_rate,
-            )
-
         classic_metrics = {"classic_test_accuracy": Accuracy(), "classic_test_loss": Loss(nll_loss)}
         rotated_metrics = {"rotated_test_accuracy": Accuracy(), "rotated_test_loss": Loss(nll_loss)}
         flipped_metrics = {"flipped_test_accuracy": Accuracy(), "flipped_test_loss": Loss(nll_loss)}
@@ -164,12 +148,31 @@ def train(config=None):
         )
         ProgressBar(persist=False, desc="Evaluation").attach(flipped_evaluator)
 
-        # consider all nodes and edges for the evaluation
         if args.sample_edges or args.sample_nodes:
+            trainer.add_event_handler(
+                Events.ITERATION_STARTED,
+                sub_graph.reinit,
+            )
+
+            # consider all nodes and edges for the evaluation
             trainer.add_event_handler(
                 Events.EPOCH_COMPLETED,
                 sub_graph.reinit,
             )
+
+            if args.sample_nodes:
+                trainer.add_event_handler(
+                    Events.ITERATION_STARTED,
+                    sub_graph.node_sampling,
+                    args.nodes_rate,
+                )
+
+            if args.sample_edges:
+                trainer.add_event_handler(
+                    Events.ITERATION_STARTED,
+                    sub_graph.edge_sampling,
+                    args.edges_rate,
+                )
 
         trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, classic_evaluator, classic_test_loader)
         trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, rotated_evaluator, rotated_test_loader)
