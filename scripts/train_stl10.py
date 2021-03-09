@@ -3,14 +3,13 @@ import os
 
 import torch
 import wandb
-from gechebnet.datas.dataloaders import get_equiv_test_loaders, get_train_val_loaders
+from gechebnet.datas.dataloaders import get_test_loader, get_train_val_loaders
 from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
-from gechebnet.engines.utils import prepare_batch, sample_edges, sample_nodes, wandb_log
+from gechebnet.engines.utils import prepare_batch, wandb_log
 from gechebnet.graphs.graphs import RandomSubGraph, SE2GEGraph
 from gechebnet.liegroups.se2 import se2_uniform_sampling
 from gechebnet.nn.layers.pools import CubicPool
 from gechebnet.nn.models.chebnets import WideResGEChebNet
-from gechebnet.nn.models.convnets import WideResConvNet
 from gechebnet.nn.models.utils import capacity
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
@@ -112,7 +111,7 @@ def train(config=None):
             path_to_data=args.path_to_data,
         )
 
-        (classic_test_loader, rotated_test_loader, flipped_test_loader,) = get_equiv_test_loaders(
+        test_loader = get_test_loader(
             "stl10", batch_size=args.batch_size, num_layers=config.ntheta, path_to_data=args.path_to_data
         )
 
@@ -127,75 +126,18 @@ def train(config=None):
         )
         ProgressBar(persist=False, desc="Training").attach(trainer)
 
-        if args.sample_edges:
-            trainer.add_event_handler(
-                Events.ITERATION_STARTED,
-                sample_edges,
-                sub_graph_lvl0,
-                args.edges_rate,
-            )
-            trainer.add_event_handler(
-                Events.ITERATION_STARTED,
-                sample_edges,
-                sub_graph_lvl1,
-                args.edges_rate,
-            )
-            trainer.add_event_handler(
-                Events.ITERATION_STARTED,
-                sample_edges,
-                sub_graph_lvl2,
-                args.edges_rate,
-            )
+        metrics = {"test_accuracy": Accuracy(), "test_loss": Loss(nll_loss)}
 
-        classic_metrics = {"classic_test_accuracy": Accuracy(), "classic_test_loss": Loss(nll_loss)}
-        rotated_metrics = {"rotated_test_accuracy": Accuracy(), "rotated_test_loss": Loss(nll_loss)}
-        flipped_metrics = {"flipped_test_accuracy": Accuracy(), "flipped_test_loss": Loss(nll_loss)}
-
-        classic_evaluator = create_supervised_evaluator(
+        evaluator = create_supervised_evaluator(
             graph=sub_graph_lvl2,
             model=model,
-            metrics=classic_metrics,
+            metrics=metrics,
             device=device,
             prepare_batch=prepare_batch,
         )
-        ProgressBar(persist=False, desc="Evaluation").attach(classic_evaluator)
+        ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
 
-        rotated_evaluator = create_supervised_evaluator(
-            graph=sub_graph_lvl2,
-            model=model,
-            metrics=rotated_metrics,
-            device=device,
-            prepare_batch=prepare_batch,
-        )
-        ProgressBar(persist=False, desc="Evaluation").attach(rotated_evaluator)
-
-        flipped_evaluator = create_supervised_evaluator(
-            graph=sub_graph_lvl2,
-            model=model,
-            metrics=flipped_metrics,
-            device=device,
-            prepare_batch=prepare_batch,
-        )
-        ProgressBar(persist=False, desc="Evaluation").attach(flipped_evaluator)
-
-        # consider all edges for the evaluation
-        if args.sample_edges:
-            trainer.add_event_handler(
-                Events.EPOCH_COMPLETED,
-                sub_graph_lvl0.reinit,
-            )
-            trainer.add_event_handler(
-                Events.EPOCH_COMPLETED,
-                sub_graph_lvl1.reinit,
-            )
-            trainer.add_event_handler(
-                Events.EPOCH_COMPLETED,
-                sub_graph_lvl2.reinit,
-            )
-
-        trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, classic_evaluator, classic_test_loader)
-        trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, rotated_evaluator, rotated_test_loader)
-        trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, flipped_evaluator, flipped_test_loader)
+        trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, evaluator, test_loader)
 
         # Launchs training
         trainer.run(train_loader, max_epochs=args.max_epochs)
@@ -211,8 +153,6 @@ if __name__ == "__main__":
     parser.add_argument("--anisotropic", action="store_true", default=False)
     parser.add_argument("--depth", type=int, default=14)
     parser.add_argument("--widen_factor", type=int, default=4)
-    parser.add_argument("--sample_edges", action="store_true", default=False)
-    parser.add_argument("--edges_rate", type=float, default=1.0)  # rate of edges to sample
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--cuda", action="store_true", default=False)
     args = parser.parse_args()
