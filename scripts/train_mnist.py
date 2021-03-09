@@ -12,7 +12,8 @@ from gechebnet.nn.models.chebnets import WideResGEChebNet
 from gechebnet.nn.models.convnets import WideResConvNet
 from gechebnet.nn.models.utils import capacity
 from ignite.contrib.handlers import ProgressBar
-from ignite.engine import Events
+from ignite.engine import Engine, Events
+from ignite.handlers import Checkpoint, DiskSaver
 from ignite.metrics import Accuracy, Loss
 from torch.nn.functional import nll_loss
 from torch.optim import Adam
@@ -174,6 +175,13 @@ def train(config=None):
                     args.edges_rate,
                 )
 
+        if args.save_models:
+            gst = lambda *_: trainer.state.epoch
+            handler = Checkpoint(
+                {"model": model}, DiskSaver(args.path_to_model, create_dir=True), n_saved=2, global_step_transform=gst
+            )
+            trainer.add_event_handler(Events.EPOCH_COMPLETED, handler)
+
         trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, classic_evaluator, classic_test_loader)
         trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, rotated_evaluator, rotated_test_loader)
         trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, flipped_evaluator, flipped_test_loader)
@@ -200,6 +208,8 @@ if __name__ == "__main__":
     parser.add_argument("--nodes_rate", type=float, default=1.0)  # rate of nodes to sample
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--cuda", action="store_true", default=False)
+    parser.add_argument("--save_models", action="store_true", default=False)
+    parser.add_argument("--path_to_model", type=str)
     args = parser.parse_args()
 
     config = build_config(anisotropic=args.anisotropic, coupled_sym=args.coupled_sym, cnn=args.cnn)

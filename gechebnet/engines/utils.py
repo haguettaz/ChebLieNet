@@ -18,7 +18,10 @@ def prepare_batch(batch, graph, device):
     """
     image, target = batch
 
-    return image[..., graph.sub_node_index].to(device), target.to(device)
+    if hasattr(graph, "sub_node_index"):
+        return image[..., graph.sub_node_index].to(device), target.to(device)
+
+    return image.to(device), target.to(device)
 
 
 def wandb_log(trainer, evaluator, data_loader):

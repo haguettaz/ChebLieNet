@@ -157,44 +157,6 @@ def train(config=None):
         )
         ProgressBar(persist=False, desc="Training").attach(trainer)
 
-        if args.sample_edges:
-            trainer.add_event_handler(
-                Events.ITERATION_STARTED,
-                sample_edges,
-                sub_graph_lvl0,
-                args.edges_rate,
-            )
-            trainer.add_event_handler(
-                Events.ITERATION_STARTED,
-                sample_edges,
-                sub_graph_lvl1,
-                args.edges_rate,
-            )
-            trainer.add_event_handler(
-                Events.ITERATION_STARTED,
-                sample_edges,
-                sub_graph_lvl2,
-                args.edges_rate,
-            )
-            trainer.add_event_handler(
-                Events.ITERATION_STARTED,
-                sample_edges,
-                sub_graph_lvl3,
-                args.edges_rate,
-            )
-            trainer.add_event_handler(
-                Events.ITERATION_STARTED,
-                sample_edges,
-                sub_graph_lvl4,
-                args.edges_rate,
-            )
-            trainer.add_event_handler(
-                Events.ITERATION_STARTED,
-                sample_edges,
-                sub_graph_lvl5,
-                args.edges_rate,
-            )
-
         cm = ConfusionMatrix(num_classes=3)
         precision = Precision(average=False)
         recall = Recall(average=False)
@@ -229,9 +191,6 @@ if __name__ == "__main__":
     parser.add_argument("--max_epochs", type=int)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--anisotropic", action="store_true", default=False)
-    parser.add_argument("--coupled_sym", action="store_true", default=False)
-    parser.add_argument("--sample_edges", action="store_true", default=False)
-    parser.add_argument("--edges_rate", type=float, default=1.0)  # rate of edges to sample
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--cuda", action="store_true", default=False)
     args = parser.parse_args()
