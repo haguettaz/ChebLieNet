@@ -38,7 +38,7 @@ def build_config(anisotropic: bool, coupled_sym: bool, cnn: bool) -> dict:
     return {
         "kernel_size": 4,
         "eps": 0.1 if anisotropic else 1.0,
-        "K": 8,
+        "K": 16,
         "ntheta": 6 if anisotropic else 1,
         "xi": 1.0 if not anisotropic else 2.048 / (28 ** 2) if coupled_sym else 1e6,
     }
@@ -178,7 +178,7 @@ def train(config=None):
         if args.save_models:
             gst = lambda *_: trainer.state.epoch
             handler = Checkpoint(
-                {"model": model}, DiskSaver(args.path_to_model, create_dir=True), n_saved=2, global_step_transform=gst
+                {"model": model}, DiskSaver(args.path_to_model, create_dir=True), n_saved=20, global_step_transform=gst
             )
             trainer.add_event_handler(Events.EPOCH_COMPLETED, handler)
 
