@@ -178,7 +178,7 @@ def train(config=None):
         if args.save_models:
             gst = lambda *_: trainer.state.epoch
             handler = Checkpoint(
-                {"model": model}, DiskSaver(args.path_to_model, create_dir=True), n_saved=20, global_step_transform=gst
+                {"model": model}, DiskSaver(args.path_to_model, create_dir=True), n_saved=5, global_step_transform=gst
             )
             trainer.add_event_handler(Events.EPOCH_COMPLETED, handler)
 
