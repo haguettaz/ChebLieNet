@@ -60,8 +60,8 @@ class WideResGEChebNet(nn.Module):
         )
         self.relu = nn.ReLU(inplace=True)
 
-        self.pool2_1 = None if pool is None else pool(kernel_size=(1, 2), size=graph_lvl2.size)
-        self.pool1_0 = None if pool is None else pool(kernel_size=(1, 2), size=graph_lvl1.size)
+        self.pool2_1 = None if pool is None else pool(kernel_size=(1, 2), size=graph_lvl2.dim)
+        self.pool1_0 = None if pool is None else pool(kernel_size=(1, 2), size=graph_lvl1.dim)
 
         self.block2 = NetworkBlock(
             hidden_channels[0],
@@ -153,19 +153,19 @@ class ChebEncoder(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.block5 = ResidualBlock(16, 32, ChebConv, kernel_size, graph=graph_lvl5)
 
-        self.pool5_4 = pool(kernel_size=(1, 2), size=graph_lvl5.size)
+        self.pool5_4 = pool(kernel_size=(1, 2), size=graph_lvl5.dim)
         self.block4 = ResidualBlock(32, 64, ChebConv, kernel_size, graph=graph_lvl4)
 
-        self.pool4_3 = pool(kernel_size=(1, 2), size=graph_lvl4.size)
+        self.pool4_3 = pool(kernel_size=(1, 2), size=graph_lvl4.dim)
         self.block3 = ResidualBlock(64, 128, ChebConv, kernel_size, graph=graph_lvl3)
 
-        self.pool3_2 = pool(kernel_size=(1, 2), size=graph_lvl3.size)
+        self.pool3_2 = pool(kernel_size=(1, 2), size=graph_lvl3.dim)
         self.block2 = ResidualBlock(128, 256, ChebConv, kernel_size, graph=graph_lvl2)
 
-        self.pool2_1 = pool(kernel_size=(1, 2), size=graph_lvl2.size)
+        self.pool2_1 = pool(kernel_size=(1, 2), size=graph_lvl2.dim)
         self.block1 = ResidualBlock(256, 256, ChebConv, kernel_size, graph=graph_lvl1)
 
-        self.pool1_0 = pool(kernel_size=(1, 2), size=graph_lvl1.size)
+        self.pool1_0 = pool(kernel_size=(1, 2), size=graph_lvl1.dim)
         self.block0 = ResidualBlock(256, 256, ChebConv, kernel_size, graph=graph_lvl0)
 
     def forward(self, x):
@@ -221,11 +221,11 @@ class ChebDecoder(nn.Module):
         """
         super(ChebDecoder, self).__init__()
 
-        self.unpool0_1 = unpool(kernel_size=(1, 2), size=graph_lvl0.size)
-        self.unpool1_2 = unpool(kernel_size=(1, 2), size=graph_lvl1.size)
-        self.unpool2_3 = unpool(kernel_size=(1, 2), size=graph_lvl2.size)
-        self.unpool3_4 = unpool(kernel_size=(1, 2), size=graph_lvl3.size)
-        self.unpool4_5 = unpool(kernel_size=(1, 2), size=graph_lvl4.size)
+        self.unpool0_1 = unpool(kernel_size=(1, 2), size=graph_lvl0.dim)
+        self.unpool1_2 = unpool(kernel_size=(1, 2), size=graph_lvl1.dim)
+        self.unpool2_3 = unpool(kernel_size=(1, 2), size=graph_lvl2.dim)
+        self.unpool3_4 = unpool(kernel_size=(1, 2), size=graph_lvl3.dim)
+        self.unpool4_5 = unpool(kernel_size=(1, 2), size=graph_lvl4.dim)
 
         self.block0 = ResidualBlock(256, 256, ChebConv, kernel_size, graph=graph_lvl0)
         self.block1 = ResidualBlock(512, 256, ChebConv, kernel_size, graph=graph_lvl1)
@@ -235,7 +235,7 @@ class ChebDecoder(nn.Module):
         self.block5 = ResidualBlock(64, 16, ChebConv, kernel_size, graph=graph_lvl5)
 
         # pool on layers to break the symmetry axis
-        self.pool5 = pool((graph_lvl5.size[0], 1), graph_lvl5.size)
+        self.pool5 = pool((graph_lvl5.dim[0], 1), graph_lvl5.dim)
         self.conv = ChebConv(16, out_channels, kernel_size=1, bias=False, graph=graph_lvl5)
         self.logsoftmax = nn.LogSoftmax(dim=1)
 

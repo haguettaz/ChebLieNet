@@ -183,7 +183,7 @@ if __name__ == "__main__":
     parser.add_argument("-N", "--num_experiments", type=int)
     parser.add_argument("-E", "--max_epochs", type=int)
     parser.add_argument("-D", "--dataset", type=str, choices=["mnist", "stl10"])
-    parser.add_argument("-G", "--lie_group", type=str, choices=["se2", "so3"])
+    parser.add_argument("-G", "--manifold", type=str, choices=["se2", "so3"])
     parser.add_argument("--in_channels", type=int, default=1)
     parser.add_argument("--out_channels", type=int, default=10)
     parser.add_argument("--batch_size", type=int, default=16)

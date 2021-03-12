@@ -6,8 +6,8 @@ import wandb
 from gechebnet.datas.dataloaders import get_test_loader, get_train_val_loaders
 from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engines.utils import prepare_batch, sample_edges, wandb_log
+from gechebnet.geometry.so3 import so3_uniform_sampling
 from gechebnet.graphs.graphs import RandomSubGraph, SO3GEGraph
-from gechebnet.liegroups.so3 import so3_uniform_sampling
 from gechebnet.nn.layers.pools import IcosahedralPool
 from gechebnet.nn.layers.unpools import IcosahedralUnpool
 from gechebnet.nn.models.chebnets import UChebNet
@@ -36,12 +36,12 @@ def build_config(anisotropic: bool) -> dict:
         "eps": 0.1 if anisotropic else 1.0,
         "K": 8,
         "nalpha": 6 if anisotropic else 1,
-        "xi_0": 32.1 / (10 * 4 ** 0 + 2) if anisotropic else 1.0,
-        "xi_1": 32.1 / (10 * 4 ** 1 + 2) if anisotropic else 1.0,
-        "xi_2": 32.1 / (10 * 4 ** 2 + 2) if anisotropic else 1.0,
-        "xi_3": 32.1 / (10 * 4 ** 3 + 2) if anisotropic else 1.0,
-        "xi_4": 32.1 / (10 * 4 ** 4 + 2) if anisotropic else 1.0,
-        "xi_5": 32.1 / (10 * 4 ** 5 + 2) if anisotropic else 1.0,
+        "xi_0": 50.0 / (10 * 4 ** 0 + 2) if anisotropic else 1.0,
+        "xi_1": 50.0 / (10 * 4 ** 1 + 2) if anisotropic else 1.0,
+        "xi_2": 50.0 / (10 * 4 ** 2 + 2) if anisotropic else 1.0,
+        "xi_3": 50.0 / (10 * 4 ** 3 + 2) if anisotropic else 1.0,
+        "xi_4": 50.0 / (10 * 4 ** 4 + 2) if anisotropic else 1.0,
+        "xi_5": 50.0 / (10 * 4 ** 5 + 2) if anisotropic else 1.0,
     }
 
 

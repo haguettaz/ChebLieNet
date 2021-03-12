@@ -7,7 +7,7 @@ from gechebnet.datas.dataloaders import get_equiv_test_loaders, get_train_val_lo
 from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engines.utils import prepare_batch, sample_edges, sample_nodes, wandb_log
 from gechebnet.graphs.graphs import RandomSubGraph, SE2GEGraph
-from gechebnet.liegroups.se2 import se2_uniform_sampling
+from gechebnet.geometry.se2 import se2_uniform_sampling
 from gechebnet.nn.layers.pools import CubicPool
 from gechebnet.nn.models.chebnets import WideResGEChebNet
 from gechebnet.nn.models.convnets import WideResConvNet

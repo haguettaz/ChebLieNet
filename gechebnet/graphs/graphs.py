@@ -1,5 +1,6 @@
 # coding=utf-8
 
+import hashlib
 import math
 import os
 import sys
@@ -8,8 +9,13 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from ..liegroups.se2 import se2_matrix, se2_riemannian_sqdist
-from ..liegroups.so3 import alphabetagamma2xyz, so3_matrix, so3_riemannian_sqdist, xyz2betagamma
+from ..geometry.se import (r2_matrix, r2_riemannian_sqdist,
+                           r2_uniform_sampling, se2_matrix,
+                           se2_riemannian_sqdist, se2_uniform_sampling)
+from ..geometry.so import (s2_matrix, s2_riemannian_sqdist,
+                           s2_uniform_sampling, so3_matrix,
+                           so3_riemannian_sqdist, so3_uniform_sampling)
+from ..geometry.utils import betagamma2xyz, xyz2betagamma
 from .gsp import get_fourier_basis, get_laplacian, get_rescaled_laplacian
 from .utils import remove_duplicated_edges, to_undirected
 
@@ -108,7 +114,7 @@ class Graph:
         Returns:
             (bool): True if the graph is connected, i.e. it does not contain isolated vertex.
         """
-        return (self.node_index.repeat(1, self.num_edges) == self.edge_index[0]).sum(dim=1).min() > 0
+        return torch.allclose(self.edge_index.unique(), self.node_index.unique())
 
     @property
     def is_undirected(self):
@@ -116,7 +122,10 @@ class Graph:
         Returns:
             (bool): True if the graph is undirected.
         """
-        return torch.allclose(self.edge_index[0].sort(), self.edge_index[1].sort())
+        edge_out, _ = self.edge_index[0].sort()
+        edge_in, _ = self.edge_index[1].sort()
+
+        return torch.allclose(edge_out, edge_in)
 
     def save(self, path_to_graph):
         """
@@ -125,28 +134,31 @@ class Graph:
 
         os.makedirs(path_to_graph, exist_ok=True)
 
-        torch.save(self.node_index, os.path.join(path_to_graph, f"{self.str_repr}_node_index.pt"))
+        torch.save(self.node_index, os.path.join(path_to_graph, f"{self.hash_repr()}_node_index.pt"))
 
-        torch.save(self.edge_index, os.path.join(path_to_graph, f"{self.str_repr}_edge_index.pt"))
-        torch.save(self.edge_sqdist, os.path.join(path_to_graph, f"{self.str_repr}_edge_sqdist.pt"))
-        torch.save(self.edge_weight, os.path.join(path_to_graph, f"{self.str_repr}_edge_weight.pt"))
+        torch.save(self.edge_index, os.path.join(path_to_graph, f"{self.hash_repr()}_edge_index.pt"))
+        torch.save(self.edge_sqdist, os.path.join(path_to_graph, f"{self.hash_repr()}_edge_sqdist.pt"))
+        torch.save(self.edge_weight, os.path.join(path_to_graph, f"{self.hash_repr()}_edge_weight.pt"))
 
         for node_attr in self.node_attributes:
-            torch.save(getattr(self, node_attr), os.path.join(path_to_graph, f"{self.str_repr}_{node_attr}.pt"))
+            torch.save(getattr(self, node_attr), os.path.join(path_to_graph, f"{self.hash_repr()}_{node_attr}.pt"))
 
     def load(self, path_to_graph):
         """
         Load graph's attributes.
         """
 
-        self.node_index = torch.load(os.path.join(path_to_graph, f"{self.str_repr}_node_index.pt"))
+        self.node_index = torch.load(os.path.join(path_to_graph, f"{self.hash_repr()}_node_index.pt"))
 
-        self.edge_index = torch.load(os.path.join(path_to_graph, f"{self.str_repr}_edge_index.pt"))
-        self.edge_sqdist = torch.load(os.path.join(path_to_graph, f"{self.str_repr}_edge_sqdist.pt"))
-        self.edge_weight = torch.load(os.path.join(path_to_graph, f"{self.str_repr}_edge_weight.pt"))
+        self.edge_index = torch.load(os.path.join(path_to_graph, f"{self.hash_repr()}_edge_index.pt"))
+        self.edge_sqdist = torch.load(os.path.join(path_to_graph, f"{self.hash_repr()}_edge_sqdist.pt"))
+        self.edge_weight = torch.load(os.path.join(path_to_graph, f"{self.hash_repr()}_edge_weight.pt"))
 
         for node_attr in self.node_attributes:
-            setattr(self, node_attr, torch.load(os.path.join(path_to_graph, f"{self.str_repr}_{node_attr}.pt")))
+            setattr(self, node_attr, torch.load(os.path.join(path_to_graph, f"{self.hash_repr()}_{node_attr}.pt")))
+
+    def hash_repr(self):
+        return hashlib.sha256(self.str_repr.encode("utf-8")).hexdigest()
 
     def check_graph_exists(self, path_to_graph):
         """
@@ -154,20 +166,20 @@ class Graph:
             (bool): True if the graph exists in the graphs' directory.
         """
 
-        if not os.path.exists(os.path.join(path_to_graph, f"{self.str_repr}_node_index.pt")):
+        if not os.path.exists(os.path.join(path_to_graph, f"{self.hash_repr()}_node_index.pt")):
             return False
 
-        if not os.path.exists(os.path.join(path_to_graph, f"{self.str_repr}_edge_index.pt")):
+        if not os.path.exists(os.path.join(path_to_graph, f"{self.hash_repr()}_edge_index.pt")):
             return False
 
-        if not os.path.exists(os.path.join(path_to_graph, f"{self.str_repr}_edge_weight.pt")):
+        if not os.path.exists(os.path.join(path_to_graph, f"{self.hash_repr()}_edge_weight.pt")):
             return False
 
-        if not os.path.exists(os.path.join(path_to_graph, f"{self.str_repr}_edge_sqdist.pt")):
+        if not os.path.exists(os.path.join(path_to_graph, f"{self.hash_repr()}_edge_sqdist.pt")):
             return False
 
         for node_attr in self.node_attributes:
-            if not os.path.exists(os.path.join(path_to_graph, f"{self.str_repr}_{node_attr}.pt")):
+            if not os.path.exists(os.path.join(path_to_graph, f"{self.hash_repr()}_{node_attr}.pt")):
                 return False
 
         return True
@@ -181,7 +193,7 @@ class RandomSubGraph(Graph):
         """
 
         self.graph = graph
-        self.lie_group = self.graph.lie_group
+        self.manifold = self.graph.manifold
 
         self.node_index = self.graph.node_index.clone()
         self.sub_node_index = self.node_index.clone()
@@ -293,19 +305,6 @@ class RandomSubGraph(Graph):
         return x[self.sub_node_index], y[self.sub_node_index], z[self.sub_node_index]
 
     @property
-    def size(self):
-        """
-        Return number of vertices as a tuple (L, F) where L referes to the number of
-        layers and F to its number of fibers.
-
-        Warning: it is not compatible with nodes' compression.
-
-        Returns:
-            (tuple): number of layers and fibers.
-        """
-        return self.graph.size
-
-    @property
     def node_attributes(self):
         """
         Returns the graph's nodes attributes.
@@ -321,7 +320,7 @@ class GEGraph(Graph):
     Basic class for an (anisotropic) group equivariant graph.
     """
 
-    def __init__(self, uniform_sampling, sigmas, K, path_to_graph):
+    def __init__(self, size, sigmas, K, path_to_graph):
         """
         Args:
             uniform_sampling (`torch.Tensor`): uniform sampling on the group manifold in format (D, V) where
@@ -331,6 +330,11 @@ class GEGraph(Graph):
         """
         super().__init__()
 
+        self.size = size
+        self.sigmas = sigmas
+        self.K = K
+        self.str_repr = f"{self.manifold}-{self.size}-{self.K}-{self.sigmas}"
+
         if self.check_graph_exists(path_to_graph):
             print("Graph already exists: LOADING...")
             self.load(path_to_graph)
@@ -338,24 +342,24 @@ class GEGraph(Graph):
 
         else:
             print("Graph does not already exist: INITIALIZATION...")
-            self._initnodes(uniform_sampling)
-            self._initedges(sigmas, K)
+            self._initnodes(size)
+            self._initedges(self.sigmas, self.K)
             print("Done!")
             self.save(path_to_graph)
             print("Saved!")
 
-    def _initnodes(self, uniform_sampling):
+    def _initnodes(self, size):
         """
         Args:
-            uniform_sampling (`torch.Tensor`): uniform sampling on the group manifold in format (D, V) where
-                V corresponds to the number of samples points and D to the dimension of the group.
+            uniform_sampling (tuple of `torch.Tensor`): tuple of uniform sampling on the group manifold, one element
+                of the tuple correspond to one dimension.
         """
-        _, V = uniform_sampling.shape
 
-        for dim, name in enumerate(self.group_dim):
-            setattr(self, f"node_{name}", uniform_sampling[dim])
+        samples = self.uniform_sampling(size)
+        self.node_index = torch.arange(len(samples[0]))
 
-        self.node_index = torch.arange(V)
+        for dim, dim_samples in zip(self.group_dim, samples):
+            setattr(self, f"node_{dim}", dim_samples)
 
     def _initedges(self, sigmas, K):
         """
@@ -391,7 +395,7 @@ class SE2GEGraph(GEGraph):
     SE(2) riemannian distances between group elements.
     """
 
-    def __init__(self, uniform_sampling, sigmas, K, path_to_graph):
+    def __init__(self, size, sigmas, K, path_to_graph):
         """
         Args:
             uniform_sampling (`torch.FloatTensor`): uniform sampling on the SE(2) group manifold in format (D, V)
@@ -400,11 +404,18 @@ class SE2GEGraph(GEGraph):
             K (int): number of neighbors.
             path_to_graph (str): path to the folder to save graph.
         """
+        self.manifold = "se2"
 
-        self.str_repr = f"SE2GEGraph-V{uniform_sampling.size(1)}-E{uniform_sampling.size(1)*K}-Re{sigmas[0]}_{sigmas[1]}_{sigmas[2]}"
-        self.lie_group = "se2"
+        if len(size) != 3:
+            raise ValueError(f"size must be 3-dimensional")
 
-        super().__init__(uniform_sampling, sigmas, K, path_to_graph)
+        if len(sigmas) != 3:
+            raise ValueError(f"sigmas must be 3-dimensional")
+
+        super().__init__(size, sigmas, K, path_to_graph)
+
+    def uniform_sampling(self, size):
+        return se2_uniform_sampling(*size)
 
     def riemannian_sqdist(self, Gg, Gh, Re):
         """
@@ -452,21 +463,8 @@ class SE2GEGraph(GEGraph):
         return ["x", "y", "theta"]
 
     @property
-    def size(self):
-        """
-        Return number of vertices as a tuple (L, H, W) where L referes to the number of
-        layers and F = H x W to its number of fibers.
-
-        Warning: it is not compatible with nodes' compression.
-
-        Returns:
-            (tuple): number of layers and fibers.
-        """
-        return (
-            self.node_theta.unique().nelement(),
-            self.node_y.unique().nelement(),
-            self.node_x.unique().nelement(),
-        )
+    def dim(self):
+        return self.size[2], self.size[0] * self.size[1]
 
     def cartesian_pos(self, axis=None):
         """
@@ -500,6 +498,116 @@ class SE2GEGraph(GEGraph):
         return ("node_x", "node_y", "node_theta")
 
 
+class R2GEGraph(GEGraph):
+    """
+    Object representing a SE(2) group equivariant graph. It can be considered as a discretization of
+    the SE(2) group where vertices corresponds to group elements and edges are proportional to the anisotropic
+    SE(2) riemannian distances between group elements.
+    """
+
+    def __init__(self, size, sigmas, K, path_to_graph):
+        """
+        Args:
+            uniform_sampling (`torch.FloatTensor`): uniform sampling on the SE(2) group manifold in format (D, V)
+                where V corresponds to the number of samples points and D to the dimension of the group.
+            sigmas (tuple of floats): anisotropy's coefficients.
+            K (int): number of neighbors.
+            path_to_graph (str): path to the folder to save graph.
+        """
+        self.manifold = "r2"
+
+        if len(size) != 2:
+            raise ValueError(f"size must be 2-dimensional")
+
+        if len(sigmas) != 3:
+            raise ValueError(f"sigmas must be 3-dimensional")
+
+        super().__init__(size, sigmas, K, path_to_graph)
+
+    def uniform_sampling(self, size):
+        return r2_uniform_sampling(*size)
+
+    def riemannian_sqdist(self, Gg, Gh, Re):
+        """
+        Return the riemannian squared distance between GL(3) group elements Gg and Gh according to the
+        riemannian metric Re.
+
+        Args:
+            Gg (`torch.FloatTensor`): GL(3) group elements.
+            Gh (`torch.FloatTensor`): GL(3) group elements.
+            Re (`torch.FloatTensor`): riemannian metric.
+
+        Returns:
+            (`torch.FloatTensor`): squared riemannian distance.
+        """
+        return r2_riemannian_sqdist(Gg, Gh, Re)
+
+    @property
+    def group_element(self):
+        """
+        Return the group elements of graph's vertices.
+
+        Returns:
+            (`torch.FloatTensor`): SE(2) group's elements.
+        """
+        return self.node_x, self.node_y
+
+    @property
+    def general_linear_group_element(self):
+        """
+        Return the general linear group elements of graph's vertices.
+
+        Returns:
+            (`torch.FloatTensor`): GL(3) group's elements.
+        """
+        return r2_matrix(self.node_x, self.node_y)
+
+    @property
+    def group_dim(self):
+        """
+        Return the name of the group's dimensions.
+
+        Returns:
+            (dict): mapping from dimensions' names to dimensions' indices.
+        """
+        return ["x", "y"]
+
+    @property
+    def dim(self):
+        return 1, self.size[0] * self.size[1]
+
+    def cartesian_pos(self, axis=None):
+        """
+        Return the cartesian positions of the graph's vertices.
+
+        Args:
+            axis (str, optional): cartesian axis. If None, return all axis. Defaults to None.
+
+        Returns:
+            (`torch.FloatTensor`, optional): x positions.
+            (`torch.FloatTensor`, optional): y positions.
+            (`torch.FloatTensor`, optional): z positions.
+        """
+        if axis is None:
+            return self.node_x, self.node_y, torch.zeros(self.num_nodes)
+        if axis == "x":
+            return self.node_x
+        if axis == "y":
+            return self.node_y
+        if axis == "z":
+            return torch.zeros(self.num_nodes)
+
+    @property
+    def node_attributes(self):
+        """
+        Returns the graph's nodes attributes.
+
+        Returns:
+            (tuple): tuple of nodes' attributes
+        """
+        return ("node_x", "node_y")
+
+
 class SO3GEGraph(GEGraph):
     """
     Object representing a SO(3) group equivariant graph. It can be considered as a discretization of
@@ -507,7 +615,7 @@ class SO3GEGraph(GEGraph):
     SO(3) riemannian distances between group elements.
     """
 
-    def __init__(self, uniform_sampling, sigmas, K, path_to_graph):
+    def __init__(self, size, sigmas, K, path_to_graph):
         """
         Args:
             uniform_sampling (`torch.FloatTensor`): uniform sampling on the SO(3) group manifold in format (D, V)
@@ -517,10 +625,18 @@ class SO3GEGraph(GEGraph):
             path_to_graph (str): path to the folder to save graph.
         """
 
-        self.str_repr = f"SO3GEGraph-V{uniform_sampling.size(1)}-E{uniform_sampling.size(1)*K}-Re{sigmas[0]}_{sigmas[1]}_{sigmas[2]}"
-        self.lie_group = "so3"
+        self.manifold = "so3"
 
-        super().__init__(uniform_sampling, sigmas, K, path_to_graph)
+        if len(size) != 2:
+            raise ValueError(f"size must be 2-dimensional")
+
+        if len(sigmas) != 3:
+            raise ValueError(f"sigmas must be 3-dimensional")
+
+        super().__init__(size, sigmas, K, path_to_graph)
+
+    def uniform_sampling(self, size):
+        return so3_uniform_sampling(*size)
 
     def riemannian_sqdist(self, Gg, Gh, Re):
         """
@@ -568,18 +684,8 @@ class SO3GEGraph(GEGraph):
         return ["alpha", "beta", "gamma"]
 
     @property
-    def size(self):
-        """
-        Return number of vertices as a tuple (L, F) where L referes to the number of
-        layers and F to its number of fibers.
-
-        Warning: it is not compatible with nodes' compression.
-
-        Returns:
-            (tuple): number of layers and fibers.
-        """
-        nsym = self.node_alpha.unique().nelement()
-        return (nsym, self.num_nodes // nsym)
+    def dim(self):
+        return self.size[1], self.size[0]
 
     def cartesian_pos(self, axis=None):
         """
@@ -593,14 +699,14 @@ class SO3GEGraph(GEGraph):
             (`torch.FloatTensor`, optional): y positions.
             (`torch.FloatTensor`, optional): z positions.
         """
-        x, y, z = alphabetagamma2xyz(self.node_alpha, self.node_beta, self.node_gamma)
 
-        if axis == "x":
-            return x
-        if axis == "y":
-            return y
-        if axis == "z":
-            return z
+        if not axis is None:
+            return (2 * math.pi + self.node_alpha) * betagamma2xyz(self.node_beta, self.node_gamma, axis)
+
+        x, y, z = betagamma2xyz(self.node_beta, self.node_gamma, axis)
+        x *= 2 * math.pi + self.node_alpha
+        y *= 2 * math.pi + self.node_alpha
+        z *= 2 * math.pi + self.node_alpha
 
         return x, y, z
 
@@ -613,3 +719,107 @@ class SO3GEGraph(GEGraph):
             (tuple): tuple of nodes' attributes
         """
         return ("node_alpha", "node_beta", "node_gamma")
+
+
+class S2GEGraph(GEGraph):
+    """
+    Object representing a SO(3) group equivariant graph. It can be considered as a discretization of
+    the SO(3) group where nodes corresponds to group elements and edges are proportional to the anisotropic
+    SO(3) riemannian distances between group elements.
+    """
+
+    def __init__(self, size, sigmas, K, path_to_graph):
+        """
+        Args:
+            uniform_sampling (`torch.FloatTensor`): uniform sampling on the SO(3) group manifold in format (D, V)
+                where V corresponds to the number of samples points and D to the dimension of the group.
+            sigmas (tuple of floats): anisotropy's coefficients.
+            K (int): number of neighbors.
+            path_to_graph (str): path to the folder to save graph.
+        """
+
+        self.manifold = "s2"
+
+        if len(size) != 1:
+            raise ValueError(f"size must be 1-dimensional")
+
+        if len(sigmas) != 3:
+            raise ValueError(f"sigmas must be 2-dimensional")
+
+        super().__init__(size, sigmas, K, path_to_graph)
+
+    def uniform_sampling(self, size):
+        return s2_uniform_sampling(*size)
+
+    def riemannian_sqdist(self, Gg, Gh, Re):
+        """
+        Return the riemannian squared distance between GL(3) group elements Gg and Gh according to the
+        riemannian metric Re.
+
+        Args:
+            Gg (`torch.FloatTensor`): GL(3) group elements.
+            Gh (`torch.FloatTensor`): GL(3) group elements.
+            Re (`torch.FloatTensor`): riemannian metric.
+
+        Returns:
+            (`torch.FloatTensor`): squared riemannian distance.
+        """
+        return s2_riemannian_sqdist(Gg, Gh, Re)
+
+    @property
+    def group_element(self):
+        """
+        Return the group elements of graph's vertices.
+
+        Returns:
+            (`torch.FloatTensor`): SO(3) group's elements.
+        """
+        return self.node_beta, self.node_gamma
+
+    @property
+    def general_linear_group_element(self):
+        """
+        Return the general linear group elements of graph's vertices.
+
+        Returns:
+            (`torch.FloatTensor`): GL(3) group's elements.
+        """
+        return s2_matrix(self.node_beta, self.node_gamma)
+
+    @property
+    def group_dim(self):
+        """
+        Return the name of the group's dimensions.
+
+        Returns:
+            (dict): mapping from dimensions' names to dimensions' indices.
+        """
+        return ["beta", "gamma"]
+
+    @property
+    def dim(self):
+        return 1, self.size[0]
+
+    def cartesian_pos(self, axis=None):
+        """
+        Return the cartesian positions of the graph's vertices.
+
+        Args:
+            axis (str, optional): cartesian axis. If None, return all axis. Defaults to None.
+
+        Returns:
+            (`torch.FloatTensor`, optional): x positions.
+            (`torch.FloatTensor`, optional): y positions.
+            (`torch.FloatTensor`, optional): z positions.
+        """
+        return betagamma2xyz(self.node_beta, self.node_gamma, axis)
+
+    @property
+    def node_attributes(self):
+        """
+        Returns the graph's nodes attributes.
+
+        Returns:
+            (tuple): tuple of nodes' attributes
+        """
+        return ("node_beta", "node_gamma")

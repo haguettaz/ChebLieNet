@@ -48,7 +48,7 @@ def visualize_graph_signal(graph, signal):
         y="Y",
         z="Z",
         color="signal",
-        hover_data=list(graph.node_attributes) + ["signal"],
+        hover_data=list(graph.node_attributes) + ["signal", "node_index"],
         color_continuous_scale="PiYG",
         color_continuous_midpoint=0.0,
     )
@@ -91,7 +91,7 @@ def visualize_graph_neighborhood(graph, node_index):
         y="Y",
         z="Z",
         color="weight",
-        hover_data=list(graph.node_attributes) + ["weight", "sqdist"],
+        hover_data=list(graph.node_attributes) + ["weight", "sqdist", "node_index"],
         color_continuous_scale="PuRd",
         range_color=[0, 1],
     )
