@@ -123,7 +123,7 @@ def train(config=None):
 
         # Load engines
         trainer = create_supervised_trainer(
-            graph=sub_graph if not args.cnn else None,
+            graph=sub_graph,
             model=model,
             optimizer=optimizer,
             loss_fn=nll_loss,
@@ -137,7 +137,7 @@ def train(config=None):
         flipped_metrics = {"flipped_test_accuracy": Accuracy(), "flipped_test_loss": Loss(nll_loss)}
 
         classic_evaluator = create_supervised_evaluator(
-            graph=sub_graph if not args.cnn else None,
+            graph=sub_graph,
             model=model,
             metrics=classic_metrics,
             device=device,
@@ -146,7 +146,7 @@ def train(config=None):
         ProgressBar(persist=False, desc="Evaluation").attach(classic_evaluator)
 
         rotated_evaluator = create_supervised_evaluator(
-            graph=sub_graph if not args.cnn else None,
+            graph=sub_graph,
             model=model,
             metrics=rotated_metrics,
             device=device,
@@ -155,7 +155,7 @@ def train(config=None):
         ProgressBar(persist=False, desc="Evaluation").attach(rotated_evaluator)
 
         flipped_evaluator = create_supervised_evaluator(
-            graph=sub_graph if not args.cnn else None,
+            graph=sub_graph,
             model=model,
             metrics=flipped_metrics,
             device=device,
