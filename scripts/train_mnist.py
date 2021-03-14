@@ -6,7 +6,6 @@ import wandb
 from gechebnet.datas.dataloaders import get_equiv_test_loaders, get_train_val_loaders
 from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engines.utils import prepare_batch, sample_edges, sample_nodes, wandb_log
-from gechebnet.geometry.se2 import se2_uniform_sampling
 from gechebnet.graphs.graphs import R2GEGraph, RandomSubGraph, SE2GEGraph
 from gechebnet.nn.models.chebnets import WideResSE2GEChebNet
 from gechebnet.nn.models.utils import capacity
