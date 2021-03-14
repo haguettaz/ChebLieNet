@@ -17,7 +17,7 @@ def visualize_graph(graph):
     for attr in graph.node_attributes:
         df[attr] = getattr(graph, attr)
 
-    fig = px.scatter_3d(df, x="X", y="Y", z="Z", hover_data=graph.node_attributes)
+    fig = px.scatter_3d(df, x="X", y="Y", z="Z", hover_data=list(graph.node_attributes) + ["node_index"])
 
     fig.update_traces(
         marker={"size": 5, "color": "crimson", "line": {"width": 2, "color": "DarkSlateGrey"}, "opacity": 1.0},

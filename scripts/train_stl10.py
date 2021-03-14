@@ -4,12 +4,12 @@ import os
 import torch
 import wandb
 from gechebnet.datas.dataloaders import get_test_loader, get_train_val_loaders
-from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
+from gechebnet.engines.engines import (create_supervised_evaluator,
+                                       create_supervised_trainer)
 from gechebnet.engines.utils import prepare_batch, wandb_log
-from gechebnet.graphs.graphs import RandomSubGraph, SE2GEGraph
-from gechebnet.geometry.se2 import se2_uniform_sampling
-from gechebnet.nn.layers.pools import CubicPool
-from gechebnet.nn.models.chebnets import WideResGEChebNet
+from gechebnet.graphs.graphs import R2GEGraph, SE2GEGraph
+from gechebnet.nn.layers.pools import SE2SpatialPool
+from gechebnet.nn.models.chebnets import WideResSE2GEChebNet
 from gechebnet.nn.models.utils import capacity
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
@@ -29,15 +29,27 @@ def build_config(anisotropic: bool) -> dict:
         (dict): configuration dictionnary.
     """
 
+    if not anisotropic:
+        return {
+            "kernel_size": 4,
+            "eps": 1.0,
+            "K": 8,
+            "ntheta": 1,
+            "xi_0": 1.0,
+            "xi_1": 1.0,
+            "xi_2": 1.0,
+        }
+
     return {
         "kernel_size": 4,
-        "eps": 0.1 if anisotropic else 1.0,
+        "eps": 0.1,
         "K": 8,
-        "ntheta": 6 if anisotropic else 1,
-        "xi_0": 1 if not anisotropic else 2.048 / (24 ** 2),
-        "xi_1": 1 if not anisotropic else 2.048 / (48 ** 2),
-        "xi_2": 1 if not anisotropic else 2.048 / (96 ** 2),
+        "ntheta": 6,
+        "xi_0": 2.048 / (24 ** 2),
+        "xi_1": 2.048 / (48** 2),
+        "xi_2": 2.048 / (96 ** 2),
     }
+
 
 
 def train(config=None):
@@ -58,44 +70,60 @@ def train(config=None):
         device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
         # Load model and optimizer
-        uniform_sampling_lvl0 = se2_uniform_sampling(24, 24, config.ntheta)
-        graph_lvl0 = SE2GEGraph(
-            uniform_sampling_lvl0,
-            K=config.K,
-            sigmas=(1.0, config.eps, config.xi_0),
-            path_to_graph=args.path_to_graph,
-        )
-        sub_graph_lvl0 = RandomSubGraph(graph_lvl0)
+        if args.anisotropic:
+            graph_lvl0 = SE2GEGraph(
+                [24, 24, config.ntheta],
+                K=config.K,
+                sigmas=(1.0, config.eps, config.xi_0),
+                path_to_graph=args.path_to_graph,
+            )
 
-        uniform_sampling_lvl1 = se2_uniform_sampling(48, 48, config.ntheta)
-        graph_lvl1 = SE2GEGraph(
-            uniform_sampling_lvl1,
-            K=config.K,
-            sigmas=(1.0, config.eps, config.xi_1),
-            path_to_graph=args.path_to_graph,
-        )
-        sub_graph_lvl1 = RandomSubGraph(graph_lvl1)
+            graph_lvl1 = SE2GEGraph(
+                [48, 48, config.ntheta],
+                K=config.K,
+                sigmas=(1.0, config.eps, config.xi_1),
+                path_to_graph=args.path_to_graph,
+            )
 
-        uniform_sampling_lvl2 = se2_uniform_sampling(96, 96, config.ntheta)
-        graph_lvl2 = SE2GEGraph(
-            uniform_sampling_lvl2,
-            K=config.K,
-            sigmas=(1.0, config.eps, config.xi_2),
-            path_to_graph=args.path_to_graph,
-        )
-        sub_graph_lvl2 = RandomSubGraph(graph_lvl2)
+            graph_lvl2 = SE2GEGraph(
+                [96, 96, config.ntheta],
+                K=config.K,
+                sigmas=(1.0, config.eps, config.xi_2),
+                path_to_graph=args.path_to_graph,
+            )
+        else:
+            graph_lvl0 = R2GEGraph(
+                24, 24, 1],
+                K=config.K,
+                sigmas=(1.0, config.eps, config.xi_0),
+                path_to_graph=args.path_to_graph,
+            )
+
+            graph_lvl1 = R2GEGraph(
+                [48, 48, 1],
+                K=config.K,
+                sigmas=(1.0, config.eps, config.xi_1),
+                path_to_graph=args.path_to_graph,
+            )
+
+            graph_lvl2 = R2GEGraph(
+                [96, 96, 1],
+                K=config.K,
+                sigmas=(1.0, config.eps, config.xi_2),
+                path_to_graph=args.path_to_graph,
+            )
 
         # Loads group equivariant Chebnet
-        model = WideResGEChebNet(
+        model = WideResSE2GEChebNet(
             in_channels=3,
             out_channels=10,
             kernel_size=config.kernel_size,
-            pool=CubicPool,
-            graph_lvl0=sub_graph_lvl0,
-            graph_lvl1=sub_graph_lvl1,
-            graph_lvl2=sub_graph_lvl2,
+            graph_lvl0=graph_lvl0,
+            graph_lvl1=graph_lvl1,
+            graph_lvl2=graph_lvl2,
             depth=args.depth,
             widen_factor=args.widen_factor,
+            reduction="max",
         ).to(device)
 
         wandb.log({"capacity": capacity(model)})

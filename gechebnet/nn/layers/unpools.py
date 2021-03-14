@@ -1,30 +1,76 @@
 # coding=utf-8
 
+import io
 import math
+import os
+import pkgutil
 
 import torch
-import torch.nn.functional as F
 from torch import nn
 
+from ...utils.utils import mod
 
-class CubicUnpool(nn.Module):
+
+def avg_unpool(x, index):
+    out = x[..., index].mean(dim=-1)
+    return out
+
+
+def max_unpool(x, index):
+    out, _ = x[..., index].max(dim=-1)
+    return out
+
+
+def rand_unpool(x, index):
+    N, K = index.shape
+    out = x[..., index[torch.arange(N), torch.randint(K, (N,))]]
+    return out
+
+
+class SE2SpatialUnpool(nn.Module):
     """
-    A cubic unpooling layer - well-suited for SE(2) group.
+    A SE(2) spatial unpooling layer. Required the nodes to be ordered L, H, W.
     """
 
-    def __init__(self, kernel_size, size):
+    def __init__(self, kernel_size, size, expansion):
         """
         Args:
-            kernel_size (tuple of ints): unpooling reduction in format (L_pool, F_pool).
-            size (tuple of ints): dimensions of the cube in format (L, H, W) where H * W = F
+            kernel_size (int): pooling reduction size.
+            size (sequence of ints): size in format (nx, ny, ntheta)
+            expansion (str): expansion operation.
         """
-        super(CubicUnpool, self).__init__()
+        super(SE2SpatialUnpool, self).__init__()
 
-        self.size = size  # format (L, H, W)
-        self.dim_out = (size[0] * kernel_size[0], size[1] * kernel_size[1], size[1] * kernel_size[1])
-        self.shortcut = kernel_size == (1, 1)
+        if expansion not in {"max", "avg", "rand"}:
+            raise ValueError(f"{expansion} is not a valid value for expansion, must be 'max' 'avg' or 'rand'.")
 
-        self.avgunpool = nn.AdaptiveAvgPool3d(self.dim_out)
+        self.index = self.get_expansion_index(size, kernel_size)
+
+        if expansion == "rand":
+            self.expansion = rand_unpool
+        elif expansion == "max":
+            self.expansion = max_unpool
+        else:
+            self.expansion = avg_unpool
+
+        self.shortcut = kernel_size == 1
+
+    def get_expansion_index(self, size, kernel_size):
+
+        nx, ny, ntheta = size
+
+        Fout = nx * kernel_size * ny * kernel_size
+        Vout = Fout * ntheta
+
+        indices = torch.arange(Vout)
+
+        ix = mod(indices, Fout) % (nx * kernel_size) // kernel_size
+        iy = mod(indices, Fout) // (nx * kernel_size * kernel_size)
+        itheta = indices // Fout
+
+        index = ix + nx * iy + nx * ny * itheta
+
+        return index.unsqueeze(1).long()
 
     def forward(self, x):
         """
@@ -37,39 +83,53 @@ class CubicUnpool(nn.Module):
         if self.shortcut:
             return x
 
-        B, C, *_ = x.shape
-
-        x = x.reshape(B, C, *self.size)
-
-        x = self.avgunpool(x)
-
-        return x.reshape(B, C, -1)
+        return self.expansion(x, self.index)
 
 
-class IcosahedralUnpool(nn.Module):
+class SO3SpatialUnpool(nn.Module):
     """
     An hyper-icosahedral pooling layer - well-suited for SO(3) group.
     Pooling is based on the assumption the vertices are sorted the same way as Max Jiang.
     See: https://github.com/maxjiang93/ugscnn/blob/master/meshcnn/mesh.py
     """
 
-    def __init__(self, kernel_size, size):
+    def __init__(self, kernel_size, size, expansion):
         """
         Args:
-            kernel_size (tuple of ints): pooling reduction in format (L_pool, F_pool).
-            size (tuple of ints): dimensions of the hyper-icosahedre in format (L, F).
+            kernel_size (int): pooling reduction in format (F_pool).
+            size (sequence of ints): dimensions of the hyper-icosahedre in format (L, F).
+            expansion (str): expansion operation.
         """
-        super(IcosahedralUnpool, self).__init__()
 
-        self.size = size  # (L, V)
-        lvl_in = int(math.log((size[1] - 2) / 10) / math.log(4))
-        lvl_out = lvl_in + int(math.log(kernel_size[1]) / math.log(2))
-        self.dim_out = (size[0] * kernel_size[0], int(10 * 4 ** lvl_out + 2))
+        super(SO3SpatialUnpool, self).__init__()
 
-        self.sym_shortcut = kernel_size[0] == 1
-        self.spatial_shortcut = kernel_size[1] == 1
+        if expansion not in {"max", "avg", "rand"}:
+            raise ValueError(f"{expansion} is not a valid value for expansion, must be 'max' 'avg' or 'rand'.")
 
-        self.maxunpool = nn.AdaptiveAvgPool2d(self.dim_out)
+        self.index = self.get_expansion_index(size, kernel_size)
+
+        if expansion == "rand":
+            self.expansion = rand_unpool
+        elif expansion == "max":
+            self.expansion = max_unpool
+        else:
+            self.expansion = avg_unpool
+
+        self.shortcut = kernel_size == 1
+
+    def get_expansion_index(self, size, kernel_size):
+        ns, nalpha = size
+
+        lvl_in = int(math.log((ns - 2) / 10) / math.log(4))
+        lvl_out = lvl_in + int(math.log(kernel_size) / math.log(2))
+
+        if lvl_out - lvl_in > 1:
+            raise NotImplementedError
+
+        pkl_data = pkgutil.get_data(__name__, os.path.join("s2_upsampling", f"expansion_lvl{lvl_in}_lvl{lvl_out}.pt"))
+        indices = torch.load(io.BytesIO(pkl_data))[None, :, :] + (torch.arange(nalpha) * ns)[:, None, None]
+
+        return indices.reshape(-1, 2)
 
     def forward(self, x):
         """
@@ -77,20 +137,9 @@ class IcosahedralUnpool(nn.Module):
             x (`torch.Tensor`): input tensor.
 
         Returns:
-            (`torch.Tensor`): unpooled tensor.
+            (`torch.Tensor`): pooled tensor.
         """
-
-        if self.spatial_shortcut and self.sym_shortcut:
+        if self.shortcut:
             return x
 
-        B, C, *_ = x.shape
-
-        x = x.reshape(B, C, *self.size)
-
-        if not self.spatial_shortcut:
-            x = F.pad(x, (0, self.dim_out[1] - self.size[1]), "constant", value=0.0)
-
-        if not self.sym_shortcut:
-            x = self.maxunpool(x)
-
-        return x.reshape(B, C, -1)
+        return self.expansion(x, self.index)

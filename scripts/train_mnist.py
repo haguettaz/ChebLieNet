@@ -6,10 +6,9 @@ import wandb
 from gechebnet.datas.dataloaders import get_equiv_test_loaders, get_train_val_loaders
 from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engines.utils import prepare_batch, sample_edges, sample_nodes, wandb_log
-from gechebnet.graphs.graphs import RandomSubGraph, SE2GEGraph
 from gechebnet.geometry.se2 import se2_uniform_sampling
-from gechebnet.nn.models.chebnets import WideResGEChebNet
-from gechebnet.nn.models.convnets import WideResConvNet
+from gechebnet.graphs.graphs import R2GEGraph, RandomSubGraph, SE2GEGraph
+from gechebnet.nn.models.chebnets import WideResSE2GEChebNet
 from gechebnet.nn.models.utils import capacity
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Engine, Events
@@ -19,7 +18,7 @@ from torch.nn.functional import nll_loss
 from torch.optim import Adam
 
 
-def build_config(anisotropic: bool, coupled_sym: bool, cnn: bool) -> dict:
+def build_config(anisotropic, coupled_sym):
     """
     Gets training configuration.
 
@@ -32,15 +31,30 @@ def build_config(anisotropic: bool, coupled_sym: bool, cnn: bool) -> dict:
         (dict): configuration dictionnary.
     """
 
-    if cnn:
-        return {"kernel_size": 3}
+    if not anisotropic:
+        return {
+            "kernel_size": 4,
+            "eps": 1.0,
+            "K": 8,
+            "ntheta": 1,
+            "xi": 1.0,
+        }
+
+    if coupled_sym:
+        return {
+            "kernel_size": 4,
+            "eps": 0.1,
+            "K": 8,
+            "ntheta": 6,
+            "xi": 1e6,
+        }
 
     return {
         "kernel_size": 4,
-        "eps": 0.1 if anisotropic else 1.0,
-        "K": 16,
-        "ntheta": 6 if anisotropic else 1,
-        "xi": 1.0 if not anisotropic else 2.048 / (28 ** 2) if coupled_sym else 1e6,
+        "eps": 0.1,
+        "K": 8,
+        "ntheta": 6,
+        "xi": 2.048 / (28 ** 2),
     }
 
 
@@ -62,32 +76,33 @@ def train(config=None):
         device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
         # Load model and optimizer
-        if args.cnn:
-            model = WideResConvNet(1, 10, config.kernel_size, args.depth, args.widen_factor, args.pool).to(device)
-
-        else:
-
-            uniform_sampling = se2_uniform_sampling(28, 28, config.ntheta)
+        if args.anisotropic:
             graph = SE2GEGraph(
-                uniform_sampling,
+                [28, 28, config.ntheta],
                 K=config.K,
-                sigmas=(1.0, config.eps, config.xi),
+                sigmas=(1.0, config.eps, config.xi_0),
                 path_to_graph=args.path_to_graph,
             )
-            sub_graph = RandomSubGraph(graph)
+        else:
+            graph = R2GEGraph(
+                [28, 28, 1],
+                K=config.K,
+                sigmas=(1.0, 1.0, 1.0),
+                path_to_graph=args.path_to_graph,
+            )
 
-            # Loads group equivariant Chebnet
-            model = WideResGEChebNet(
-                in_channels=1,
-                out_channels=10,
-                kernel_size=config.kernel_size,
-                pool=None,
-                graph_lvl0=sub_graph,
-                graph_lvl1=None,
-                graph_lvl2=None,
-                depth=args.depth,
-                widen_factor=args.widen_factor,
-            ).to(device)
+        # we use random sub graphs to evaluate the effect of edges and nodes' sampling
+        sub_graph = RandomSubGraph(graph)
+
+        # Loads group equivariant Chebnet
+        model = WideResSE2GEChebNet(
+            in_channels=1,
+            out_channels=10,
+            kernel_size=config.kernel_size,
+            graph_lvl0=sub_graph,
+            depth=args.depth,
+            widen_factor=args.widen_factor,
+        ).to(device)
 
         wandb.log({"capacity": capacity(model)})
 
@@ -197,7 +212,6 @@ if __name__ == "__main__":
     parser.add_argument("--num_experiments", type=int)
     parser.add_argument("--max_epochs", type=int)
     parser.add_argument("--batch_size", type=int, default=16)
-    parser.add_argument("--cnn", action="store_true", default=False)
     parser.add_argument("--anisotropic", action="store_true", default=False)
     parser.add_argument("--coupled_sym", action="store_true", default=False)
     parser.add_argument("--depth", type=int, default=8)
@@ -212,7 +226,7 @@ if __name__ == "__main__":
     parser.add_argument("--path_to_model", type=str)
     args = parser.parse_args()
 
-    config = build_config(anisotropic=args.anisotropic, coupled_sym=args.coupled_sym, cnn=args.cnn)
+    config = build_config(anisotropic=args.anisotropic, coupled_sym=args.coupled_sym)
 
     for _ in range(args.num_experiments):
         train(config)

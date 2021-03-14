@@ -74,6 +74,7 @@ def shuffle_tensor(input):
     return input[torch.randperm(input.nelement())]
 
 
+
 def sparsity_measure(input):
     """
     Returns the sparsity rate of the input sparse tensor, i.e. the rate of zero elements.

@@ -9,12 +9,22 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from ..geometry.se import (r2_matrix, r2_riemannian_sqdist,
-                           r2_uniform_sampling, se2_matrix,
-                           se2_riemannian_sqdist, se2_uniform_sampling)
-from ..geometry.so import (s2_matrix, s2_riemannian_sqdist,
-                           s2_uniform_sampling, so3_matrix,
-                           so3_riemannian_sqdist, so3_uniform_sampling)
+from ..geometry.se import (
+    r2_matrix,
+    r2_riemannian_sqdist,
+    r2_uniform_sampling,
+    se2_matrix,
+    se2_riemannian_sqdist,
+    se2_uniform_sampling,
+)
+from ..geometry.so import (
+    s2_matrix,
+    s2_riemannian_sqdist,
+    s2_uniform_sampling,
+    so3_matrix,
+    so3_riemannian_sqdist,
+    so3_uniform_sampling,
+)
 from ..geometry.utils import betagamma2xyz, xyz2betagamma
 from .gsp import get_fourier_basis, get_laplacian, get_rescaled_laplacian
 from .utils import remove_duplicated_edges, to_undirected
@@ -516,7 +526,7 @@ class R2GEGraph(GEGraph):
         """
         self.manifold = "r2"
 
-        if len(size) != 2:
+        if len(size) != 3:
             raise ValueError(f"size must be 2-dimensional")
 
         if len(sigmas) != 3:
@@ -525,7 +535,7 @@ class R2GEGraph(GEGraph):
         super().__init__(size, sigmas, K, path_to_graph)
 
     def uniform_sampling(self, size):
-        return r2_uniform_sampling(*size)
+        return r2_uniform_sampling(size[0], size[1])
 
     def riemannian_sqdist(self, Gg, Gh, Re):
         """
@@ -740,8 +750,8 @@ class S2GEGraph(GEGraph):
 
         self.manifold = "s2"
 
-        if len(size) != 1:
-            raise ValueError(f"size must be 1-dimensional")
+        if len(size) != 2:
+            raise ValueError(f"size must be 2-dimensional")
 
         if len(sigmas) != 3:
             raise ValueError(f"sigmas must be 2-dimensional")
@@ -749,7 +759,7 @@ class S2GEGraph(GEGraph):
         super().__init__(size, sigmas, K, path_to_graph)
 
     def uniform_sampling(self, size):
-        return s2_uniform_sampling(*size)
+        return s2_uniform_sampling(size[0])
 
     def riemannian_sqdist(self, Gg, Gh, Re):
         """

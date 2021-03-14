@@ -6,9 +6,11 @@ from torch import nn
 from ...graphs.graphs import Graph
 from ..layers.blocks import NetworkBlock, ResidualBlock
 from ..layers.convs import ChebConv
+from ..layers.pools import GlobalPool, SE2SpatialPool, SO3OrientationPool, SO3SpatialPool
+from ..layers.unpools import SO3SpatialUnpool
 
 
-class WideResGEChebNet(nn.Module):
+class WideResSE2GEChebNet(nn.Module):
     """
     A Wide Residual Group Equivariant ChebNet for image classification.
     """
@@ -18,19 +20,19 @@ class WideResGEChebNet(nn.Module):
         in_channels,
         out_channels,
         kernel_size,
-        pool,
         graph_lvl0,
         graph_lvl1=None,
         graph_lvl2=None,
         depth=8,
         widen_factor=1,
+        reduction=None,
     ):
         """
         Args:
             in_channels (int): number of input channels.
             out_channels (int): number of output channels.
             kernel_size (int): order of the Chebyshev polynomials.
-            pool (`torch.nn.Module`): pooling layers.
+            reduction (str): pooling reduction operation in "max", "avg" or "rand".
             graph_lvl0 (`Graph`): graph at level 0, the coarsenest graph.
             graph_lvl1 (`Graph`): graph at level 1. Defaults to None.
             graph_lvl2 (`Graph`): graph at level 2, the finest graph. Defaults to None.
@@ -40,12 +42,12 @@ class WideResGEChebNet(nn.Module):
         Raises:
             ValueError: depth must be compatible with the architecture.
         """
-        super(WideResGEChebNet, self).__init__()
+        super(WideResSE2GEChebNet, self).__init__()
 
         if (depth - 2) % 6:
             raise ValueError(f"{depth} is not a valid value for depth")
 
-        if pool and (graph_lvl1 is None or graph_lvl2 is None):
+        if not reduction is None and (graph_lvl1 is None or graph_lvl2 is None):
             raise ValueError(f"Incompatible value for pool and graphs")
 
         hidden_channels = [16, 16 * widen_factor, 32 * widen_factor, 64 * widen_factor]
@@ -56,12 +58,12 @@ class WideResGEChebNet(nn.Module):
             hidden_channels[0],
             kernel_size=kernel_size,
             bias=True,
-            graph=graph_lvl2 if pool else graph_lvl0,
+            graph=graph_lvl0 if reduction is None else graph_lvl2,
         )
         self.relu = nn.ReLU(inplace=True)
 
-        self.pool2_1 = None if pool is None else pool(kernel_size=(1, 2), size=graph_lvl2.dim)
-        self.pool1_0 = None if pool is None else pool(kernel_size=(1, 2), size=graph_lvl1.dim)
+        self.pool2_1 = None if reduction is None else SE2SpatialPool(2, graph_lvl2.size, reduction)
+        self.pool1_0 = None if reduction is None else SE2SpatialPool(2, graph_lvl1.size, reduction)
 
         self.block2 = NetworkBlock(
             hidden_channels[0],
@@ -70,7 +72,7 @@ class WideResGEChebNet(nn.Module):
             ResidualBlock,
             ChebConv,
             kernel_size,
-            graph=graph_lvl2 if pool else graph_lvl0,
+            graph=graph_lvl0 if reduction is None else graph_lvl2,
         )
         self.block1 = NetworkBlock(
             hidden_channels[1],
@@ -79,14 +81,14 @@ class WideResGEChebNet(nn.Module):
             ResidualBlock,
             ChebConv,
             kernel_size,
-            graph=graph_lvl1 if pool else graph_lvl0,
+            graph=graph_lvl0 if reduction is None else graph_lvl1,
         )
         self.block0 = NetworkBlock(
             hidden_channels[2], hidden_channels[3], num_layers, ResidualBlock, ChebConv, kernel_size, graph=graph_lvl0
         )
 
-        # output layer : global average pooling + fc
-        self.globalpool = nn.AdaptiveMaxPool1d(1)
+        # output layer : global max pooling + fc
+        self.globalpool = GlobalPool(graph_lvl0.num_nodes, "max")
         self.fc = nn.Linear(hidden_channels[3], out_channels)
         self.logsoftmax = nn.LogSoftmax(dim=1)
 
@@ -116,7 +118,7 @@ class WideResGEChebNet(nn.Module):
         return self.logsoftmax(out)
 
 
-class ChebEncoder(nn.Module):
+class SO3GEChebEncoder(nn.Module):
     """
     A Chebyschev encoder consisting in sequential Chebyschev convolution plus pooling layers.
     """
@@ -126,7 +128,6 @@ class ChebEncoder(nn.Module):
         in_channels,
         out_channels,
         kernel_size,
-        pool,
         graph_lvl0,
         graph_lvl1,
         graph_lvl2,
@@ -139,7 +140,6 @@ class ChebEncoder(nn.Module):
             in_channels (int): number of input channels.
             out_channels (int): number of output channels.
             kernel_size (int): order of the Chebyshev polynomials.
-            pool (`torch.nn.Module`): pooling layers.
             graph_lvl0 (`Graph`): graph at level 0, the coarsenest graph.
             graph_lvl1 (`Graph`): graph at level 1.
             graph_lvl2 (`Graph`): graph at level 2.
@@ -147,25 +147,25 @@ class ChebEncoder(nn.Module):
             graph_lvl4 (`Graph`): graph at level 4.
             graph_lvl5 (`Graph`): graph at level 5, the finest graph.
         """
-        super(ChebEncoder, self).__init__()
+        super(SO3GEChebEncoder, self).__init__()
 
         self.conv = ChebConv(in_channels, 16, kernel_size=kernel_size, bias=True, graph=graph_lvl5)
         self.relu = nn.ReLU(inplace=True)
         self.block5 = ResidualBlock(16, 32, ChebConv, kernel_size, graph=graph_lvl5)
 
-        self.pool5_4 = pool(kernel_size=(1, 2), size=graph_lvl5.dim)
+        self.pool5_4 = SO3SpatialPool(2, graph_lvl5.size, "max")
         self.block4 = ResidualBlock(32, 64, ChebConv, kernel_size, graph=graph_lvl4)
 
-        self.pool4_3 = pool(kernel_size=(1, 2), size=graph_lvl4.dim)
+        self.pool4_3 = SO3SpatialPool(2, graph_lvl4.size, "max")
         self.block3 = ResidualBlock(64, 128, ChebConv, kernel_size, graph=graph_lvl3)
 
-        self.pool3_2 = pool(kernel_size=(1, 2), size=graph_lvl3.dim)
+        self.pool3_2 = SO3SpatialPool(2, graph_lvl3.size, "max")
         self.block2 = ResidualBlock(128, 256, ChebConv, kernel_size, graph=graph_lvl2)
 
-        self.pool2_1 = pool(kernel_size=(1, 2), size=graph_lvl2.dim)
+        self.pool2_1 = SO3SpatialPool(2, graph_lvl2.size, "max")
         self.block1 = ResidualBlock(256, 256, ChebConv, kernel_size, graph=graph_lvl1)
 
-        self.pool1_0 = pool(kernel_size=(1, 2), size=graph_lvl1.dim)
+        self.pool1_0 = SO3SpatialPool(2, graph_lvl1.size, "max")
         self.block0 = ResidualBlock(256, 256, ChebConv, kernel_size, graph=graph_lvl0)
 
     def forward(self, x):
@@ -186,7 +186,7 @@ class ChebEncoder(nn.Module):
         return x_enc0, x_enc1, x_enc2, x_enc3, x_enc4, x_enc5
 
 
-class ChebDecoder(nn.Module):
+class SO3GEChebDecoder(nn.Module):
     """
     A Chebyschev decoder consisting in sequential Chebyschev convolution plus unpooling layers.
     """
@@ -196,8 +196,6 @@ class ChebDecoder(nn.Module):
         in_channels,
         out_channels,
         kernel_size,
-        pool,
-        unpool,
         graph_lvl0,
         graph_lvl1,
         graph_lvl2,
@@ -210,8 +208,6 @@ class ChebDecoder(nn.Module):
             in_channels (int): number of input channels.
             out_channels (int): number of output channels.
             kernel_size (int): order of the Chebyshev polynomials.
-            pool (`torch.nn.Module`): pooling layers.
-            unpool (`torch.nn.Module`): unpooling layers.
             graph_lvl0 (`Graph`): graph at level 0, the coarsenest graph.
             graph_lvl1 (`Graph`): graph at level 1.
             graph_lvl2 (`Graph`): graph at level 2.
@@ -219,13 +215,13 @@ class ChebDecoder(nn.Module):
             graph_lvl4 (`Graph`): graph at level 4.
             graph_lvl5 (`Graph`): graph at level 5, the finest graph.
         """
-        super(ChebDecoder, self).__init__()
+        super(SO3GEChebDecoder, self).__init__()
 
-        self.unpool0_1 = unpool(kernel_size=(1, 2), size=graph_lvl0.dim)
-        self.unpool1_2 = unpool(kernel_size=(1, 2), size=graph_lvl1.dim)
-        self.unpool2_3 = unpool(kernel_size=(1, 2), size=graph_lvl2.dim)
-        self.unpool3_4 = unpool(kernel_size=(1, 2), size=graph_lvl3.dim)
-        self.unpool4_5 = unpool(kernel_size=(1, 2), size=graph_lvl4.dim)
+        self.unpool0_1 = SO3SpatialUnpool(2, graph_lvl0.size, "max")
+        self.unpool1_2 = SO3SpatialUnpool(2, graph_lvl1.size, "max")
+        self.unpool2_3 = SO3SpatialUnpool(2, graph_lvl2.size, "max")
+        self.unpool3_4 = SO3SpatialUnpool(2, graph_lvl3.size, "max")
+        self.unpool4_5 = SO3SpatialUnpool(2, graph_lvl4.size, "max")
 
         self.block0 = ResidualBlock(256, 256, ChebConv, kernel_size, graph=graph_lvl0)
         self.block1 = ResidualBlock(512, 256, ChebConv, kernel_size, graph=graph_lvl1)
@@ -235,7 +231,7 @@ class ChebDecoder(nn.Module):
         self.block5 = ResidualBlock(64, 16, ChebConv, kernel_size, graph=graph_lvl5)
 
         # pool on layers to break the symmetry axis
-        self.pool5 = pool((graph_lvl5.dim[0], 1), graph_lvl5.dim)
+        self.pool5 = SO3OrientationPool(graph_lvl5.size[-1], graph_lvl5.size, "max")
         self.conv = ChebConv(16, out_channels, kernel_size=1, bias=False, graph=graph_lvl5)
         self.logsoftmax = nn.LogSoftmax(dim=1)
 
@@ -257,9 +253,9 @@ class ChebDecoder(nn.Module):
         return self.logsoftmax(x)
 
 
-class UChebNet(nn.Module):
+class SO3GEUChebNet(nn.Module):
     """
-    A U-Net like ChebNet architecture for image segmentation.
+    A U-Net like spherical ChebNet architecture for image segmentation on the sphere.
     """
 
     def __init__(
@@ -267,8 +263,6 @@ class UChebNet(nn.Module):
         in_channels,
         out_channels,
         kernel_size,
-        pool,
-        unpool,
         graph_lvl0,
         graph_lvl1,
         graph_lvl2,
@@ -281,8 +275,6 @@ class UChebNet(nn.Module):
             in_channels (int): number of input channels.
             out_channels (int): number of output channels.
             kernel_size (int): order of the Chebyshev polynomials.
-            pool (`torch.nn.Module`): pooling layers.
-            unpool (`torch.nn.Module`): unpooling layers.
             graph_lvl0 (`Graph`): graph at level 0, the coarsenest graph.
             graph_lvl1 (`Graph`): graph at level 1.
             graph_lvl2 (`Graph`): graph at level 2.
@@ -290,13 +282,12 @@ class UChebNet(nn.Module):
             graph_lvl4 (`Graph`): graph at level 4.
             graph_lvl5 (`Graph`): graph at level 5, the finest graph.
         """
-        super(UChebNet, self).__init__()
+        super(SO3GEUChebNet, self).__init__()
 
-        self.encoder = ChebEncoder(
+        self.encoder = SO3GEChebEncoder(
             in_channels,
             out_channels,
             kernel_size,
-            pool,
             graph_lvl0,
             graph_lvl1,
             graph_lvl2,
@@ -304,12 +295,10 @@ class UChebNet(nn.Module):
             graph_lvl4,
             graph_lvl5,
         )
-        self.decoder = ChebDecoder(
+        self.decoder = SO3GEChebDecoder(
             in_channels,
             out_channels,
             kernel_size,
-            pool,
-            unpool,
             graph_lvl0,
             graph_lvl1,
             graph_lvl2,

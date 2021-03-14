@@ -5,12 +5,10 @@ import torch
 import wandb
 from gechebnet.datas.dataloaders import get_equiv_test_loaders, get_train_val_loaders
 from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
-from gechebnet.engines.utils import prepare_batch, sample_edges, sample_nodes, wandb_log
-from gechebnet.graphs.graphs import RandomSubGraph, SE2GEGraph
-from gechebnet.geometry.se2 import se2_uniform_sampling
-from gechebnet.nn.layers.pools import CubicPool
-from gechebnet.nn.models.chebnets import WideResGEChebNet
-from gechebnet.nn.models.convnets import WideResConvNet
+from gechebnet.engines.utils import prepare_batch, wandb_log
+from gechebnet.graphs.graphs import R2GEGraph, SE2GEGraph
+from gechebnet.nn.layers.pools import SE2SpatialPool
+from gechebnet.nn.models.chebnets import WideResSE2GEChebNet
 from gechebnet.nn.models.utils import capacity
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
@@ -19,27 +17,47 @@ from torch.nn.functional import nll_loss
 from torch.optim import Adam
 
 
-def build_config(anisotropic: bool, pool: bool) -> dict:
+def build_config(anisotropic, pool):
     """
     Gets training configuration.
 
     Args:
-        anisotropic (bool): if True, use an anisotropic graph manifold.
-        coupled_sym (bool): if True, use coupled symmetric layers.
         pool (bool): if True, use a pooling layers.
 
     Returns:
         (dict): configuration dictionnary.
     """
 
+    if not anisotropic:
+        return {
+            "kernel_size": 4,
+            "eps": 1.0,
+            "K": 8,
+            "ntheta": 1,
+            "xi_0": 1.0,
+            "xi_1": 1.0,
+            "xi_2": 1.0,
+        }
+
+    if pool:
+        return {
+            "kernel_size": 4,
+            "eps": 0.1,
+            "K": 8,
+            "ntheta": 6,
+            "xi_0": 2.048 / (8 ** 2),
+            "xi_1": 2.048 / (16 ** 2),
+            "xi_2": 2.048 / (32 ** 2),
+        }
+
     return {
         "kernel_size": 4,
-        "eps": 0.1 if anisotropic else 1.0,
+        "eps": 0.1,
         "K": 8,
-        "ntheta": 6 if anisotropic else 1,
-        "xi_0": 1 if not anisotropic else 2.048 / (8 ** 2) if pool else 2.048 / (32 ** 2),
-        "xi_1": 1 if not anisotropic else 2.048 / (16 ** 2) if pool else 2.048 / (32 ** 2),
-        "xi_2": 1 if not anisotropic else 2.048 / (32 ** 2),
+        "ntheta": 6,
+        "xi_0": None,
+        "xi_1": None,
+        "xi_2": 2.048 / (32 ** 2),
     }
 
 
@@ -61,44 +79,62 @@ def train(config=None):
         device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
         # Load model and optimizer
-        uniform_sampling_lvl0 = se2_uniform_sampling(8 if args.pool else 32, 8 if args.pool else 32, config.ntheta)
-        graph_lvl0 = SE2GEGraph(
-            uniform_sampling_lvl0,
-            K=config.K,
-            sigmas=(1.0, config.eps, config.xi_0),
-            path_to_graph=args.path_to_graph,
-        )
-        sub_graph_lvl0 = RandomSubGraph(graph_lvl0)
+        if args.pool:
+            if args.anisotropic:
+                graph_lvl0 = SE2GEGraph(
+                    [8, 8, config.ntheta],
+                    K=config.K,
+                    sigmas=(1.0, config.eps, config.xi_0),
+                    path_to_graph=args.path_to_graph,
+                )
 
-        uniform_sampling_lvl1 = se2_uniform_sampling(16 if args.pool else 32, 16 if args.pool else 32, config.ntheta)
-        graph_lvl1 = SE2GEGraph(
-            uniform_sampling_lvl1,
-            K=config.K,
-            sigmas=(1.0, config.eps, config.xi_1),
-            path_to_graph=args.path_to_graph,
-        )
-        sub_graph_lvl1 = RandomSubGraph(graph_lvl1)
+                graph_lvl1 = SE2GEGraph(
+                    [16, 16, config.ntheta],
+                    K=config.K,
+                    sigmas=(1.0, config.eps, config.xi_1),
+                    path_to_graph=args.path_to_graph,
+                )
+            else:
+                graph_lvl0 = R2GEGraph(
+                    [8, 8, 1],
+                    K=config.K,
+                    sigmas=(1.0, config.eps, config.xi_0),
+                    path_to_graph=args.path_to_graph,
+                )
 
-        uniform_sampling_lvl2 = se2_uniform_sampling(32, 32, config.ntheta)
-        graph_lvl2 = SE2GEGraph(
-            uniform_sampling_lvl2,
-            K=config.K,
-            sigmas=(1.0, config.eps, config.xi_2),
-            path_to_graph=args.path_to_graph,
-        )
-        sub_graph_lvl2 = RandomSubGraph(graph_lvl2)
+                graph_lvl1 = R2GEGraph(
+                    [16, 16, 1],
+                    K=config.K,
+                    sigmas=(1.0, config.eps, config.xi_1),
+                    path_to_graph=args.path_to_graph,
+                )
+
+        if args.anisotropic:
+            graph_lvl2 = SE2GEGraph(
+                [32, 32, config.ntheta],
+                K=config.K,
+                sigmas=(1.0, config.eps, config.xi_2),
+                path_to_graph=args.path_to_graph,
+            )
+        else:
+            graph_lvl2 = R2GEGraph(
+                [32, 32, 1],
+                K=config.K,
+                sigmas=(1.0, config.eps, config.xi_2),
+                path_to_graph=args.path_to_graph,
+            )
 
         # Loads group equivariant Chebnet
-        model = WideResGEChebNet(
+        model = WideResSE2GEChebNet(
             in_channels=3,
             out_channels=10,
             kernel_size=config.kernel_size,
-            pool=CubicPool if args.pool else None,
-            graph_lvl0=sub_graph_lvl0,
-            graph_lvl1=sub_graph_lvl1,
-            graph_lvl2=sub_graph_lvl2,
+            graph_lvl0=graph_lvl0 if args.pool else graph_lvl2,
+            graph_lvl1=graph_lvl1 if args.pool else None,
+            graph_lvl2=graph_lvl2 if args.pool else None,
             depth=args.depth,
             widen_factor=args.widen_factor,
+            reduction=args.reduction if args.pool else None,
         ).to(device)
 
         wandb.log({"capacity": capacity(model)})
@@ -121,7 +157,7 @@ def train(config=None):
 
         # Load engines
         trainer = create_supervised_trainer(
-            graph=sub_graph_lvl2,
+            graph=graph_lvl2,
             model=model,
             optimizer=optimizer,
             loss_fn=nll_loss,
@@ -130,32 +166,12 @@ def train(config=None):
         )
         ProgressBar(persist=False, desc="Training").attach(trainer)
 
-        if args.sample_edges:
-            trainer.add_event_handler(
-                Events.ITERATION_STARTED,
-                sample_edges,
-                sub_graph_lvl0,
-                args.edges_rate,
-            )
-            trainer.add_event_handler(
-                Events.ITERATION_STARTED,
-                sample_edges,
-                sub_graph_lvl1,
-                args.edges_rate,
-            )
-            trainer.add_event_handler(
-                Events.ITERATION_STARTED,
-                sample_edges,
-                sub_graph_lvl2,
-                args.edges_rate,
-            )
-
         classic_metrics = {"classic_test_accuracy": Accuracy(), "classic_test_loss": Loss(nll_loss)}
         rotated_metrics = {"rotated_test_accuracy": Accuracy(), "rotated_test_loss": Loss(nll_loss)}
         flipped_metrics = {"flipped_test_accuracy": Accuracy(), "flipped_test_loss": Loss(nll_loss)}
 
         classic_evaluator = create_supervised_evaluator(
-            graph=sub_graph_lvl2,
+            graph=graph_lvl2,
             model=model,
             metrics=classic_metrics,
             device=device,
@@ -164,7 +180,7 @@ def train(config=None):
         ProgressBar(persist=False, desc="Evaluation").attach(classic_evaluator)
 
         rotated_evaluator = create_supervised_evaluator(
-            graph=sub_graph_lvl2,
+            graph=graph_lvl2,
             model=model,
             metrics=rotated_metrics,
             device=device,
@@ -173,27 +189,13 @@ def train(config=None):
         ProgressBar(persist=False, desc="Evaluation").attach(rotated_evaluator)
 
         flipped_evaluator = create_supervised_evaluator(
-            graph=sub_graph_lvl2,
+            graph=graph_lvl2,
             model=model,
             metrics=flipped_metrics,
             device=device,
             prepare_batch=prepare_batch,
         )
         ProgressBar(persist=False, desc="Evaluation").attach(flipped_evaluator)
-
-        if args.sample_edges:
-            trainer.add_event_handler(
-                Events.EPOCH_COMPLETED,
-                sub_graph_lvl0.reinit,
-            )
-            trainer.add_event_handler(
-                Events.EPOCH_COMPLETED,
-                sub_graph_lvl1.reinit,
-            )
-            trainer.add_event_handler(
-                Events.EPOCH_COMPLETED,
-                sub_graph_lvl2.reinit,
-            )
 
         trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, classic_evaluator, classic_test_loader)
         trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, rotated_evaluator, rotated_test_loader)
@@ -213,9 +215,8 @@ if __name__ == "__main__":
     parser.add_argument("--anisotropic", action="store_true", default=False)
     parser.add_argument("--depth", type=int, default=8)
     parser.add_argument("--widen_factor", type=int, default=2)
-    parser.add_argument("--sample_edges", action="store_true", default=False)
-    parser.add_argument("--edges_rate", type=float, default=1.0)  # rate of edges to sample
     parser.add_argument("--pool", action="store_true", default=False)
+    parser.add_argument("--reduction", type=str)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--cuda", action="store_true", default=False)
     args = parser.parse_args()
