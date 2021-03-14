@@ -79,14 +79,14 @@ def train(config=None):
             graph = SE2GEGraph(
                 [28, 28, config.ntheta],
                 K=config.K,
-                sigmas=(1.0, config.eps, config.xi_0),
+                sigmas=(1.0, config.eps, config.xi),
                 path_to_graph=args.path_to_graph,
             )
         else:
             graph = R2GEGraph(
-                [28, 28, 1],
+                [28, 28, config.ntheta],
                 K=config.K,
-                sigmas=(1.0, 1.0, 1.0),
+                sigmas=(1.0, config.eps, config.xi),
                 path_to_graph=args.path_to_graph,
             )
 
