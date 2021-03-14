@@ -39,7 +39,7 @@ def build_config(anisotropic, coupled_sym):
             "xi": 1.0,
         }
 
-    if coupled_sym:
+    if not coupled_sym:
         return {
             "kernel_size": 4,
             "eps": 0.1,
