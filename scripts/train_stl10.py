@@ -4,8 +4,7 @@ import os
 import torch
 import wandb
 from gechebnet.datas.dataloaders import get_test_loader, get_train_val_loaders
-from gechebnet.engines.engines import (create_supervised_evaluator,
-                                       create_supervised_trainer)
+from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engines.utils import prepare_batch, wandb_log
 from gechebnet.graphs.graphs import R2GEGraph, SE2GEGraph
 from gechebnet.nn.layers.pools import SE2SpatialPool
@@ -43,13 +42,12 @@ def build_config(anisotropic: bool) -> dict:
     return {
         "kernel_size": 4,
         "eps": 0.1,
-        "K": 8,
+        "K": 16,
         "ntheta": 6,
         "xi_0": 2.048 / (24 ** 2),
-        "xi_1": 2.048 / (48** 2),
+        "xi_1": 2.048 / (48 ** 2),
         "xi_2": 2.048 / (96 ** 2),
     }
-
 
 
 def train(config=None):
@@ -93,7 +91,7 @@ def train(config=None):
             )
         else:
             graph_lvl0 = R2GEGraph(
-                24, 24, 1],
+                [24, 24, 1],
                 K=config.K,
                 sigmas=(1.0, config.eps, config.xi_0),
                 path_to_graph=args.path_to_graph,
@@ -123,7 +121,7 @@ def train(config=None):
             graph_lvl2=graph_lvl2,
             depth=args.depth,
             widen_factor=args.widen_factor,
-            reduction="max",
+            reduction=args.reduction,
         ).to(device)
 
         wandb.log({"capacity": capacity(model)})
@@ -145,7 +143,7 @@ def train(config=None):
 
         # Load engines
         trainer = create_supervised_trainer(
-            graph=sub_graph_lvl2,
+            graph=graph_lvl2,
             model=model,
             optimizer=optimizer,
             loss_fn=nll_loss,
@@ -157,7 +155,7 @@ def train(config=None):
         metrics = {"test_accuracy": Accuracy(), "test_loss": Loss(nll_loss)}
 
         evaluator = create_supervised_evaluator(
-            graph=sub_graph_lvl2,
+            graph=graph_lvl2,
             model=model,
             metrics=metrics,
             device=device,
@@ -179,6 +177,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_epochs", type=int)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--anisotropic", action="store_true", default=False)
+    parser.add_argument("--reduction", type=str)
     parser.add_argument("--depth", type=int, default=14)
     parser.add_argument("--widen_factor", type=int, default=4)
     parser.add_argument("--lr", type=float, default=1e-3)

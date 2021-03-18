@@ -20,28 +20,42 @@ from torch.nn.functional import nll_loss
 from torch.optim import Adam
 
 
-def build_config(anisotropic: bool) -> dict:
+def build_config(anisotropic):
     """
     Gets training configuration.
 
     Args:
-        anisotropic (bool): if True, use an anisotropic graph manifold.
+        pool (bool): if True, use a pooling layers.
 
     Returns:
         (dict): configuration dictionnary.
     """
 
+    if not anisotropic:
+        return {
+            "kernel_size": 3,
+            "eps": 1.0,
+            "K": 8,
+            "ntheta": 1,
+            "xi_0": 1.0,
+            "xi_1": 1.0,
+            "xi_2": 1.0,
+            "xi_3": 1.0,
+            "xi_4": 1.0,
+            "xi_5": 1.0,
+        }
+
     return {
-        "R": 3,
-        "eps": 0.1 if anisotropic else 1.0,
-        "K": 8,
-        "nalpha": 6 if anisotropic else 1,
-        "xi_0": 50.0 / (10 * 4 ** 0 + 2) if anisotropic else 1.0,
-        "xi_1": 50.0 / (10 * 4 ** 1 + 2) if anisotropic else 1.0,
-        "xi_2": 50.0 / (10 * 4 ** 2 + 2) if anisotropic else 1.0,
-        "xi_3": 50.0 / (10 * 4 ** 3 + 2) if anisotropic else 1.0,
-        "xi_4": 50.0 / (10 * 4 ** 4 + 2) if anisotropic else 1.0,
-        "xi_5": 50.0 / (10 * 4 ** 5 + 2) if anisotropic else 1.0,
+        "kernel_size": 3,
+        "eps": 0.1,
+        "K": 16,
+        "ntheta": 6,
+        "xi_0": 10.0 / (10 * 4 ** 0 + 2),
+        "xi_1": 10.0 / (10 * 4 ** 1 + 2),
+        "xi_2": 10.0 / (10 * 4 ** 2 + 2),
+        "xi_3": 10.0 / (10 * 4 ** 3 + 2),
+        "xi_4": 10.0 / (10 * 4 ** 4 + 2),
+        "xi_5": 10.0 / (10 * 4 ** 5 + 2),
     }
 
 

@@ -45,7 +45,7 @@ class SE2SpatialPool(nn.Module):
             raise ValueError(f"{reduction} is not a valid value for reduction, must be 'max' 'avg' or 'rand'.")
 
         self.index = self.get_reduction_index(size, kernel_size)
-        
+
         if reduction == "rand":
             self.reduction = rand_pool
         elif reduction == "max":
@@ -76,6 +76,61 @@ class SE2SpatialPool(nn.Module):
 
         index = theta_index[:, None, None] * Fin + xy_index[None, :, :]
         return index.reshape(-1, kernel_size ** 2).long()
+
+    def forward(self, x):
+        """
+        Args:
+            x (`torch.Tensor`): input tensor.
+
+        Returns:
+            (`torch.Tensor`): pooled tensor.
+        """
+        if self.shortcut:
+            return x
+
+        return self.reduction(x, self.index)
+
+
+class SE2OrientationPool(nn.Module):
+    """
+    A SE(2) oritenation pooling layer. Required the nodes to be ordered L, H, W.
+    """
+
+    def __init__(self, kernel_size, size, reduction):
+        """
+        Args:
+            kernel_size (int): pooling reduction size.
+            size (sequence of ints): size in format (nx, ny, ntheta)
+            reduction (str): reduction operation.
+        """
+        super(SE2OrientationPool, self).__init__()
+
+        if reduction not in {"max", "avg", "rand"}:
+            raise ValueError(f"{reduction} is not a valid value for reduction, must be 'max' 'avg' or 'rand'.")
+
+        self.index = self.get_reduction_index(size, kernel_size)
+
+        if reduction == "rand":
+            self.reduction = rand_pool
+        elif reduction == "max":
+            self.reduction = max_pool
+        else:
+            self.reduction = avg_pool
+
+        self.shortcut = kernel_size == 1
+
+    def get_reduction_index(self, size, kernel_size):
+
+        nx, ny, ntheta = size
+        F = nx * ny
+
+        if not kernel_size in {1, ntheta}:
+            raise NotImplementedError
+
+        if kernel_size == 1:
+            return torch.arange(F * ntheta)
+
+        return torch.arange(F)[:, None] + (torch.arange(ntheta) * F)[None, :]
 
     def forward(self, x):
         """
