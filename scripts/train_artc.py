@@ -7,10 +7,8 @@ from gechebnet.datas.dataloaders import get_test_loader, get_train_val_loaders
 from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engines.utils import prepare_batch, sample_edges, wandb_log
 from gechebnet.geometry.so3 import so3_uniform_sampling
-from gechebnet.graphs.graphs import RandomSubGraph, SO3GEGraph
-from gechebnet.nn.layers.pools import IcosahedralPool
-from gechebnet.nn.layers.unpools import IcosahedralUnpool
-from gechebnet.nn.models.chebnets import UChebNet
+from gechebnet.graphs.graphs import SO3GEGraph
+from gechebnet.nn.models.chebnets import SO3GEUChebNet
 from gechebnet.nn.models.utils import capacity
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
@@ -48,14 +46,14 @@ def build_config(anisotropic):
     return {
         "kernel_size": 3,
         "eps": 0.1,
-        "K": 16,
+        "K": 8,
         "ntheta": 6,
-        "xi_0": 10.0 / (10 * 4 ** 0 + 2),
-        "xi_1": 10.0 / (10 * 4 ** 1 + 2),
-        "xi_2": 10.0 / (10 * 4 ** 2 + 2),
-        "xi_3": 10.0 / (10 * 4 ** 3 + 2),
-        "xi_4": 10.0 / (10 * 4 ** 4 + 2),
-        "xi_5": 10.0 / (10 * 4 ** 5 + 2),
+        "xi_0": 10.0 / 12,
+        "xi_1": 10.0 / 42,
+        "xi_2": 10.0 / 162,
+        "xi_3": 10.0 / 642,
+        "xi_4": 10.0 / 2562,
+        "xi_5": 10.0 / 10242,
     }
 
 
@@ -77,73 +75,62 @@ def train(config=None):
         device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
         # Load model and optimizer
-        uniform_sampling_lvl0 = so3_uniform_sampling(args.path_to_sampling, 0, config.nalpha)
+
         graph_lvl0 = SO3GEGraph(
-            uniform_sampling_lvl0,
-            K=config.K,
+            size=[12, config.nalpha],
             sigmas=(1.0, config.eps, config.xi_0),
+            K=config.K,
             path_to_graph=args.path_to_graph,
         )
-        sub_graph_lvl0 = RandomSubGraph(graph_lvl0)
 
-        uniform_sampling_lvl1 = so3_uniform_sampling(args.path_to_sampling, 1, config.nalpha)
         graph_lvl1 = SO3GEGraph(
-            uniform_sampling_lvl1,
-            K=config.K,
+            size=[42, config.nalpha],
             sigmas=(1.0, config.eps, config.xi_1),
+            K=config.K,
             path_to_graph=args.path_to_graph,
         )
-        sub_graph_lvl1 = RandomSubGraph(graph_lvl1)
 
-        uniform_sampling_lvl2 = so3_uniform_sampling(args.path_to_sampling, 2, config.nalpha)
         graph_lvl2 = SO3GEGraph(
-            uniform_sampling_lvl2,
-            K=config.K,
+            size=[162, config.nalpha],
             sigmas=(1.0, config.eps, config.xi_2),
+            K=config.K,
             path_to_graph=args.path_to_graph,
         )
-        sub_graph_lvl2 = RandomSubGraph(graph_lvl2)
 
-        uniform_sampling_lvl3 = so3_uniform_sampling(args.path_to_sampling, 3, config.nalpha)
         graph_lvl3 = SO3GEGraph(
-            uniform_sampling_lvl3,
-            K=config.K,
+            size=[642, config.nalpha],
             sigmas=(1.0, config.eps, config.xi_3),
+            K=config.K,
             path_to_graph=args.path_to_graph,
         )
-        sub_graph_lvl3 = RandomSubGraph(graph_lvl3)
 
-        uniform_sampling_lvl4 = so3_uniform_sampling(args.path_to_sampling, 4, config.nalpha)
         graph_lvl4 = SO3GEGraph(
-            uniform_sampling_lvl4,
-            K=config.K,
+            size=[2562, config.nalpha],
             sigmas=(1.0, config.eps, config.xi_4),
-            path_to_graph=args.path_to_graph,
-        )
-        sub_graph_lvl4 = RandomSubGraph(graph_lvl4)
-
-        uniform_sampling_lvl5 = so3_uniform_sampling(args.path_to_sampling, 5, config.nalpha)
-        graph_lvl5 = SO3GEGraph(
-            uniform_sampling_lvl5,
             K=config.K,
-            sigmas=(1.0, config.eps, config.xi_5),
             path_to_graph=args.path_to_graph,
         )
-        sub_graph_lvl5 = RandomSubGraph(graph_lvl5)
+
+        graph_lvl5 = SO3GEGraph(
+            size=[10242, config.nalpha],
+            sigmas=(1.0, config.eps, config.xi_5),
+            K=config.K,
+            path_to_graph=args.path_to_graph,
+        )
 
         # Loads group equivariant Chebnet
-        model = UChebNet(
+        model = SO3GEUChebNet(
             16,
             3,
-            config.R,
-            IcosahedralPool,
-            IcosahedralUnpool,
-            sub_graph_lvl0,
-            sub_graph_lvl1,
-            sub_graph_lvl2,
-            sub_graph_lvl3,
-            sub_graph_lvl4,
-            sub_graph_lvl5,
+            config.kernel_size,
+            graph_lvl0,
+            graph_lvl1,
+            graph_lvl2,
+            graph_lvl3,
+            graph_lvl4,
+            graph_lvl5,
+            args.reduction,
+            args.expansion,
         ).to(device)
 
         wandb.log({"capacity": capacity(model)})
@@ -162,7 +149,7 @@ def train(config=None):
 
         # Load engines
         trainer = create_supervised_trainer(
-            graph=sub_graph_lvl5,
+            graph=graph_lvl5,
             model=model,
             optimizer=optimizer,
             loss_fn=nll_loss,
@@ -171,18 +158,18 @@ def train(config=None):
         )
         ProgressBar(persist=False, desc="Training").attach(trainer)
 
-        cm = ConfusionMatrix(num_classes=3)
+        # cm = ConfusionMatrix(num_classes=3)
         precision = Precision(average=False)
         recall = Recall(average=False)
         metrics = {
             "test_F1": Fbeta(1, precision=precision, recall=recall),
-            "test_mIoU": mIoU(cm),
-            "test_mIoU_nb": mIoU(cm, ignore_index=0),
+            # "test_mIoU": mIoU(cm),
+            # "test_mIoU_nb": mIoU(cm, ignore_index=0),
             "test_loss": Loss(nll_loss),
         }
 
         evaluator = create_supervised_evaluator(
-            graph=sub_graph_lvl5,
+            graph=graph_lvl5,
             model=model,
             metrics=metrics,
             device=device,
@@ -206,6 +193,8 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--anisotropic", action="store_true", default=False)
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--reduction", type=str)
+    parser.add_argument("--expansion", type=str)
     parser.add_argument("--cuda", action="store_true", default=False)
     args = parser.parse_args()
 

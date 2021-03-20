@@ -134,6 +134,7 @@ class SO3GEChebEncoder(nn.Module):
         graph_lvl3,
         graph_lvl4,
         graph_lvl5,
+        reduction,
     ):
         """
         Args:
@@ -153,19 +154,19 @@ class SO3GEChebEncoder(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.block5 = ResidualBlock(16, 32, ChebConv, kernel_size, graph=graph_lvl5)
 
-        self.pool5_4 = SO3SpatialPool(2, graph_lvl5.size, "max")
+        self.pool5_4 = SO3SpatialPool(2, graph_lvl5.size, reduction)
         self.block4 = ResidualBlock(32, 64, ChebConv, kernel_size, graph=graph_lvl4)
 
-        self.pool4_3 = SO3SpatialPool(2, graph_lvl4.size, "max")
+        self.pool4_3 = SO3SpatialPool(2, graph_lvl4.size, reduction)
         self.block3 = ResidualBlock(64, 128, ChebConv, kernel_size, graph=graph_lvl3)
 
-        self.pool3_2 = SO3SpatialPool(2, graph_lvl3.size, "max")
+        self.pool3_2 = SO3SpatialPool(2, graph_lvl3.size, reduction)
         self.block2 = ResidualBlock(128, 256, ChebConv, kernel_size, graph=graph_lvl2)
 
-        self.pool2_1 = SO3SpatialPool(2, graph_lvl2.size, "max")
+        self.pool2_1 = SO3SpatialPool(2, graph_lvl2.size, reduction)
         self.block1 = ResidualBlock(256, 256, ChebConv, kernel_size, graph=graph_lvl1)
 
-        self.pool1_0 = SO3SpatialPool(2, graph_lvl1.size, "max")
+        self.pool1_0 = SO3SpatialPool(2, graph_lvl1.size, reduction)
         self.block0 = ResidualBlock(256, 256, ChebConv, kernel_size, graph=graph_lvl0)
 
     def forward(self, x):
@@ -202,6 +203,8 @@ class SO3GEChebDecoder(nn.Module):
         graph_lvl3,
         graph_lvl4,
         graph_lvl5,
+        reduction,
+        expansion,
     ):
         """
         Args:
@@ -217,11 +220,11 @@ class SO3GEChebDecoder(nn.Module):
         """
         super(SO3GEChebDecoder, self).__init__()
 
-        self.unpool0_1 = SO3SpatialUnpool(2, graph_lvl0.size, "max")
-        self.unpool1_2 = SO3SpatialUnpool(2, graph_lvl1.size, "max")
-        self.unpool2_3 = SO3SpatialUnpool(2, graph_lvl2.size, "max")
-        self.unpool3_4 = SO3SpatialUnpool(2, graph_lvl3.size, "max")
-        self.unpool4_5 = SO3SpatialUnpool(2, graph_lvl4.size, "max")
+        self.unpool0_1 = SO3SpatialUnpool(2, graph_lvl0.size, expansion)
+        self.unpool1_2 = SO3SpatialUnpool(2, graph_lvl1.size, expansion)
+        self.unpool2_3 = SO3SpatialUnpool(2, graph_lvl2.size, expansion)
+        self.unpool3_4 = SO3SpatialUnpool(2, graph_lvl3.size, expansion)
+        self.unpool4_5 = SO3SpatialUnpool(2, graph_lvl4.size, expansion)
 
         self.block0 = ResidualBlock(256, 256, ChebConv, kernel_size, graph=graph_lvl0)
         self.block1 = ResidualBlock(512, 256, ChebConv, kernel_size, graph=graph_lvl1)
@@ -231,7 +234,7 @@ class SO3GEChebDecoder(nn.Module):
         self.block5 = ResidualBlock(64, 16, ChebConv, kernel_size, graph=graph_lvl5)
 
         # pool on layers to break the symmetry axis
-        self.pool5 = SO3OrientationPool(graph_lvl5.size[-1], graph_lvl5.size, "max")
+        self.pool5 = SO3OrientationPool(graph_lvl5.size[-1], graph_lvl5.size, reduction)
         self.conv = ChebConv(16, out_channels, kernel_size=1, bias=False, graph=graph_lvl5)
         self.logsoftmax = nn.LogSoftmax(dim=1)
 
@@ -269,6 +272,8 @@ class SO3GEUChebNet(nn.Module):
         graph_lvl3,
         graph_lvl4,
         graph_lvl5,
+        reduction,
+        expansion,
     ):
         """
         Args:
@@ -294,6 +299,7 @@ class SO3GEUChebNet(nn.Module):
             graph_lvl3,
             graph_lvl4,
             graph_lvl5,
+            reduction,
         )
         self.decoder = SO3GEChebDecoder(
             in_channels,
@@ -305,6 +311,8 @@ class SO3GEUChebNet(nn.Module):
             graph_lvl3,
             graph_lvl4,
             graph_lvl5,
+            reduction,
+            expansion,
         )
 
     def forward(self, x):
