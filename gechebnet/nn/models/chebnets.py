@@ -177,8 +177,6 @@ class SO3GEChebEncoder(nn.Module):
         Returns:
             (`torch.Tensor`): encoded tensor.
         """
-        print(x.shape)
-        print(self.conv.graph.size)
         x_enc5 = self.block5(self.relu(self.conv(x)))
         x_enc4 = self.block4(self.pool5_4(x_enc5))
         x_enc3 = self.block3(self.pool4_3(x_enc4))
