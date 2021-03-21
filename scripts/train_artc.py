@@ -183,13 +183,13 @@ def train(config=None):
         train_loader, _ = get_train_val_loaders(
             "artc",
             batch_size=args.batch_size,
-            num_layers=args.nalpha,
+            num_layers=config.nalpha,
             val_ratio=0.0,
             path_to_data=args.path_to_data,
         )
 
         test_loader = get_test_loader(
-            "artc", batch_size=args.batch_size, num_layers=args.nalpha, path_to_data=args.path_to_data
+            "artc", batch_size=args.batch_size, num_layers=config.nalpha, path_to_data=args.path_to_data
         )
 
         # Load engines
