@@ -144,16 +144,15 @@ def train(config=None):
         # Load dataloaders
         train_loader, _ = get_train_val_loaders(
             "cifar10",
+            num_layers=config.ntheta,
             batch_size=args.batch_size,
             val_ratio=0.0,
             path_to_data=args.path_to_data,
         )
 
-        (
-            classic_test_loader,
-            rotated_test_loader,
-            flipped_test_loader,
-        ) = get_equiv_test_loaders("cifar10", batch_size=args.batch_size, path_to_data=args.path_to_data)
+        (classic_test_loader, rotated_test_loader, flipped_test_loader,) = get_equiv_test_loaders(
+            "cifar10", num_layers=config.ntheta, batch_size=args.batch_size, path_to_data=args.path_to_data
+        )
 
         # Load engines
         trainer = create_supervised_trainer(
