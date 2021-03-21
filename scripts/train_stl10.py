@@ -119,7 +119,7 @@ def train(config=None):
             graph_lvl0=graph_lvl0,
             graph_lvl1=graph_lvl1,
             graph_lvl2=graph_lvl2,
-            depth=args.depth,
+            res_depth=args.res_depth,
             widen_factor=args.widen_factor,
             reduction=args.reduction,
         ).to(device)
@@ -178,7 +178,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--anisotropic", action="store_true", default=False)
     parser.add_argument("--reduction", type=str)
-    parser.add_argument("--depth", type=int, default=14)
+    parser.add_argument("--res_depth", type=int, default=3)
     parser.add_argument("--widen_factor", type=int, default=4)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--cuda", action="store_true", default=False)

@@ -132,7 +132,7 @@ def train(config=None):
             graph_lvl0=graph_lvl0 if args.pool else graph_lvl2,
             graph_lvl1=graph_lvl1 if args.pool else None,
             graph_lvl2=graph_lvl2 if args.pool else None,
-            depth=args.depth,
+            res_depth=args.res_depth,
             widen_factor=args.widen_factor,
             reduction=args.reduction if args.pool else None,
         ).to(device)
@@ -213,7 +213,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_epochs", type=int)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--anisotropic", action="store_true", default=False)
-    parser.add_argument("--depth", type=int, default=8)
+    parser.add_argument("--res_depth", type=int, default=2)
     parser.add_argument("--widen_factor", type=int, default=2)
     parser.add_argument("--pool", action="store_true", default=False)
     parser.add_argument("--reduction", type=str)

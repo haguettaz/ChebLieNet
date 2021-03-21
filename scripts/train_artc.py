@@ -160,6 +160,13 @@ def train(config=None):
                 path_to_graph=args.path_to_graph,
             )
 
+        output_graph = S2GEGraph(
+            size=[10242, 1],
+            sigmas=(1.0, 1.0, 1.0),
+            K=config.K,
+            path_to_graph=args.path_to_graph,
+        )
+
         # Loads group equivariant Chebnet
         model = SO3GEUChebNet(
             16,
@@ -171,6 +178,7 @@ def train(config=None):
             graph_lvl3,
             graph_lvl4,
             graph_lvl5,
+            output_graph,
             args.reduction,
             args.expansion,
         ).to(device)

@@ -99,7 +99,7 @@ def train(config=None):
             out_channels=10,
             kernel_size=config.kernel_size,
             graph_lvl0=sub_graph,
-            depth=args.depth,
+            res_depth=args.res_depth,
             widen_factor=args.widen_factor,
         ).to(device)
 
@@ -213,7 +213,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--anisotropic", action="store_true", default=False)
     parser.add_argument("--coupled_sym", action="store_true", default=False)
-    parser.add_argument("--depth", type=int, default=8)
+    parser.add_argument("--res_depth", type=int, default=2)
     parser.add_argument("--widen_factor", type=int, default=2)
     parser.add_argument("--sample_edges", action="store_true", default=False)
     parser.add_argument("--edges_rate", type=float, default=1.0)  # rate of edges to sample

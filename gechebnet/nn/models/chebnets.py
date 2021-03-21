@@ -23,7 +23,7 @@ class WideResSE2GEChebNet(nn.Module):
         graph_lvl0,
         graph_lvl1=None,
         graph_lvl2=None,
-        depth=8,
+        res_depth=2,
         widen_factor=1,
         reduction=None,
     ):
@@ -36,7 +36,7 @@ class WideResSE2GEChebNet(nn.Module):
             graph_lvl0 (`Graph`): graph at level 0, the coarsenest graph.
             graph_lvl1 (`Graph`): graph at level 1. Defaults to None.
             graph_lvl2 (`Graph`): graph at level 2, the finest graph. Defaults to None.
-            depth (int): depth of the neural network. Defaults to 8.
+            res_depth (int): depth of the neural network. Defaults to 8.
             widen_factor (int, optional): widen factor of the neural network. Defaults to 1.
 
         Raises:
@@ -44,14 +44,10 @@ class WideResSE2GEChebNet(nn.Module):
         """
         super(WideResSE2GEChebNet, self).__init__()
 
-        if (depth - 2) % 6:
-            raise ValueError(f"{depth} is not a valid value for depth")
-
         if not reduction is None and (graph_lvl1 is None or graph_lvl2 is None):
             raise ValueError(f"Incompatible value for pool and graphs")
 
         hidden_channels = [16, 16 * widen_factor, 32 * widen_factor, 64 * widen_factor]
-        num_layers = (depth - 2) // 6
 
         self.conv = ChebConv(
             in_channels,
@@ -68,7 +64,7 @@ class WideResSE2GEChebNet(nn.Module):
         self.block2 = NetworkBlock(
             hidden_channels[0],
             hidden_channels[1],
-            num_layers,
+            res_depth,
             ResidualBlock,
             ChebConv,
             kernel_size,
@@ -77,14 +73,14 @@ class WideResSE2GEChebNet(nn.Module):
         self.block1 = NetworkBlock(
             hidden_channels[1],
             hidden_channels[2],
-            num_layers,
+            res_depth,
             ResidualBlock,
             ChebConv,
             kernel_size,
             graph=graph_lvl0 if reduction is None else graph_lvl1,
         )
         self.block0 = NetworkBlock(
-            hidden_channels[2], hidden_channels[3], num_layers, ResidualBlock, ChebConv, kernel_size, graph=graph_lvl0
+            hidden_channels[2], hidden_channels[3], res_depth, ResidualBlock, ChebConv, kernel_size, graph=graph_lvl0
         )
 
         # output layer : global max pooling + fc
@@ -203,6 +199,7 @@ class SO3GEChebDecoder(nn.Module):
         graph_lvl3,
         graph_lvl4,
         graph_lvl5,
+        output_graph,
         reduction,
         expansion,
     ):
@@ -217,6 +214,7 @@ class SO3GEChebDecoder(nn.Module):
             graph_lvl3 (`Graph`): graph at level 3.
             graph_lvl4 (`Graph`): graph at level 4.
             graph_lvl5 (`Graph`): graph at level 5, the finest graph.
+            output_graph (`Graph`):
         """
         super(SO3GEChebDecoder, self).__init__()
 
@@ -235,7 +233,7 @@ class SO3GEChebDecoder(nn.Module):
 
         # pool on layers to break the symmetry axis
         self.pool5 = SO3OrientationPool(graph_lvl5.size[-1], graph_lvl5.size, reduction)
-        self.conv = ChebConv(16, out_channels, kernel_size=1, bias=False, graph=graph_lvl5)
+        self.conv = ChebConv(16, out_channels, kernel_size=1, bias=False, graph=output_graph)
         self.logsoftmax = nn.LogSoftmax(dim=1)
 
     def forward(self, x_enc0, x_enc1, x_enc2, x_enc3, x_enc4, x_enc5):
@@ -272,6 +270,7 @@ class SO3GEUChebNet(nn.Module):
         graph_lvl3,
         graph_lvl4,
         graph_lvl5,
+        output_graph,
         reduction,
         expansion,
     ):
@@ -311,6 +310,7 @@ class SO3GEUChebNet(nn.Module):
             graph_lvl3,
             graph_lvl4,
             graph_lvl5,
+            output_graph,
             reduction,
             expansion,
         )
