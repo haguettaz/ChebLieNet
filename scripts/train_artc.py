@@ -45,7 +45,7 @@ def build_config(anisotropic):
     return {
         "kernel_size": 3,
         "eps": 0.1,
-        "K": 8,
+        "K": 16,
         "nalpha": 6,
         "xi_0": 10.0 / 12,
         "xi_1": 10.0 / 42,
@@ -188,7 +188,9 @@ def train(config=None):
             path_to_data=args.path_to_data,
         )
 
-        test_loader = get_test_loader("artc", batch_size=args.batch_size, num_layers=args.nalpha, path_to_data=args.path_to_data)
+        test_loader = get_test_loader(
+            "artc", batch_size=args.batch_size, num_layers=args.nalpha, path_to_data=args.path_to_data
+        )
 
         # Load engines
         trainer = create_supervised_trainer(
