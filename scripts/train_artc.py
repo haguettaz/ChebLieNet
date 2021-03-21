@@ -6,7 +6,7 @@ import wandb
 from gechebnet.datas.dataloaders import get_test_loader, get_train_val_loaders
 from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engines.utils import prepare_batch, wandb_log
-from gechebnet.graphs.graphs import SO3GEGraph
+from gechebnet.graphs.graphs import S2GEGraph, SO3GEGraph
 from gechebnet.nn.models.chebnets import SO3GEUChebNet
 from gechebnet.nn.models.utils import capacity
 from ignite.contrib.handlers import ProgressBar
@@ -74,48 +74,91 @@ def train(config=None):
         device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
         # Load model and optimizer
+        if args.anisotropic:
+            graph_lvl0 = SO3GEGraph(
+                size=[12, config.nalpha],
+                sigmas=(1.0, config.eps, config.xi_0),
+                K=config.K,
+                path_to_graph=args.path_to_graph,
+            )
 
-        graph_lvl0 = SO3GEGraph(
-            size=[12, config.nalpha],
-            sigmas=(1.0, config.eps, config.xi_0),
-            K=config.K,
-            path_to_graph=args.path_to_graph,
-        )
+            graph_lvl1 = SO3GEGraph(
+                size=[42, config.nalpha],
+                sigmas=(1.0, config.eps, config.xi_1),
+                K=config.K,
+                path_to_graph=args.path_to_graph,
+            )
 
-        graph_lvl1 = SO3GEGraph(
-            size=[42, config.nalpha],
-            sigmas=(1.0, config.eps, config.xi_1),
-            K=config.K,
-            path_to_graph=args.path_to_graph,
-        )
+            graph_lvl2 = SO3GEGraph(
+                size=[162, config.nalpha],
+                sigmas=(1.0, config.eps, config.xi_2),
+                K=config.K,
+                path_to_graph=args.path_to_graph,
+            )
 
-        graph_lvl2 = SO3GEGraph(
-            size=[162, config.nalpha],
-            sigmas=(1.0, config.eps, config.xi_2),
-            K=config.K,
-            path_to_graph=args.path_to_graph,
-        )
+            graph_lvl3 = SO3GEGraph(
+                size=[642, config.nalpha],
+                sigmas=(1.0, config.eps, config.xi_3),
+                K=config.K,
+                path_to_graph=args.path_to_graph,
+            )
 
-        graph_lvl3 = SO3GEGraph(
-            size=[642, config.nalpha],
-            sigmas=(1.0, config.eps, config.xi_3),
-            K=config.K,
-            path_to_graph=args.path_to_graph,
-        )
+            graph_lvl4 = SO3GEGraph(
+                size=[2562, config.nalpha],
+                sigmas=(1.0, config.eps, config.xi_4),
+                K=config.K,
+                path_to_graph=args.path_to_graph,
+            )
 
-        graph_lvl4 = SO3GEGraph(
-            size=[2562, config.nalpha],
-            sigmas=(1.0, config.eps, config.xi_4),
-            K=config.K,
-            path_to_graph=args.path_to_graph,
-        )
+            graph_lvl5 = SO3GEGraph(
+                size=[10242, config.nalpha],
+                sigmas=(1.0, config.eps, config.xi_5),
+                K=config.K,
+                path_to_graph=args.path_to_graph,
+            )
 
-        graph_lvl5 = SO3GEGraph(
-            size=[10242, config.nalpha],
-            sigmas=(1.0, config.eps, config.xi_5),
-            K=config.K,
-            path_to_graph=args.path_to_graph,
-        )
+        else:
+            graph_lvl0 = S2GEGraph(
+                size=[12, config.nalpha],
+                sigmas=(1.0, config.eps, config.xi_0),
+                K=config.K,
+                path_to_graph=args.path_to_graph,
+            )
+
+            graph_lvl1 = S2GEGraph(
+                size=[42, config.nalpha],
+                sigmas=(1.0, config.eps, config.xi_1),
+                K=config.K,
+                path_to_graph=args.path_to_graph,
+            )
+
+            graph_lvl2 = S2GEGraph(
+                size=[162, config.nalpha],
+                sigmas=(1.0, config.eps, config.xi_2),
+                K=config.K,
+                path_to_graph=args.path_to_graph,
+            )
+
+            graph_lvl3 = S2GEGraph(
+                size=[642, config.nalpha],
+                sigmas=(1.0, config.eps, config.xi_3),
+                K=config.K,
+                path_to_graph=args.path_to_graph,
+            )
+
+            graph_lvl4 = S2GEGraph(
+                size=[2562, config.nalpha],
+                sigmas=(1.0, config.eps, config.xi_4),
+                K=config.K,
+                path_to_graph=args.path_to_graph,
+            )
+
+            graph_lvl5 = S2GEGraph(
+                size=[10242, config.nalpha],
+                sigmas=(1.0, config.eps, config.xi_5),
+                K=config.K,
+                path_to_graph=args.path_to_graph,
+            )
 
         # Loads group equivariant Chebnet
         model = SO3GEUChebNet(
