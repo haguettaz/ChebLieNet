@@ -45,7 +45,7 @@ def build_config(anisotropic):
     return {
         "kernel_size": 3,
         "eps": 0.1,
-        "K": 16,
+        "K": 8,
         "nalpha": 6,
         "xi_0": 10.0 / 12,
         "xi_1": 10.0 / 42,
