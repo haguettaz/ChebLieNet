@@ -330,7 +330,7 @@ class GEGraph(Graph):
     Basic class for an (anisotropic) group equivariant graph.
     """
 
-    def __init__(self, size, sigmas, K, path_to_graph):
+    def __init__(self, size, sigmas, K, path_to_graph, kernel="gaussian"):
         """
         Args:
             uniform_sampling (`torch.Tensor`): uniform sampling on the group manifold in format (D, V) where
@@ -341,9 +341,8 @@ class GEGraph(Graph):
         super().__init__()
 
         self.size = size
-        self.sigmas = sigmas
-        self.K = K
-        self.str_repr = f"{self.manifold}-{self.size}-{self.K}-{self.sigmas}"
+        self.str_repr = f"{self.manifold}-{self.size}-{K}-{sigmas}-{kernel}"
+        self._initkernel(kernel)
 
         if self.check_graph_exists(path_to_graph):
             print("Graph already exists: LOADING...")
@@ -353,10 +352,29 @@ class GEGraph(Graph):
         else:
             print("Graph does not already exist: INITIALIZATION...")
             self._initnodes(size)
-            self._initedges(self.sigmas, self.K)
+            self._initedges(sigmas, K)
             print("Done!")
             self.save(path_to_graph)
             print("Saved!")
+
+    def _initkernel(self, kernel):
+        """
+        [summary]
+
+        Args:
+            kernel ([type]): [description]
+        """
+        if kernel not in {"gaussian", "cauchy", "laplace", "rectangular"}:
+            raise ValueError(f"{kernel} is not a valid value for kernel")
+
+        if kernel == "gaussian":
+            self.kernel = lambda sq_dist, w: torch.exp(-sq_dist / w)
+        elif kernel == "cauchy":
+            self.kernel = lambda sq_dist, w: (1 / (1 + -sq_dist / w))
+        elif kernel == "laplace":
+            self.kernel = lambda sq_dist, w: torch.exp(-torch.sqrt(sq_dist / w))
+        elif kernel == "rectangular":
+            self.kernel = lambda sq_dist, w: torch.heaviside(sq_dist / w, torch.zeros(1))
 
     def _initnodes(self, size):
         """
@@ -394,8 +412,9 @@ class GEGraph(Graph):
         edge_index, edge_sqdist = remove_duplicated_edges(edge_index, edge_sqdist)
         self.edge_index, self.edge_sqdist = to_undirected(edge_index, edge_sqdist, self_loop=False)
 
-        weight_kernel = lambda sqdistc, tc: torch.exp(-sqdistc / (4 * tc))
-        self.edge_weight = weight_kernel(self.edge_sqdist, 0.2 * self.edge_sqdist.mean())
+        kernel_width = 0.8 * self.edge_sqdist.mean()
+
+        self.edge_weight = self.kernel(self.edge_sqdist, kernel_width)
 
 
 class SE2GEGraph(GEGraph):
@@ -404,7 +423,7 @@ class SE2GEGraph(GEGraph):
     Riemannian distances are encoded in the graph's edges.
     """
 
-    def __init__(self, size, sigmas, K, path_to_graph):
+    def __init__(self, size, sigmas, K, path_to_graph, kernel="gaussian"):
         """
         Args:
             size (list of ints): size of the grid in format (nx, ny,ntheta).
@@ -420,7 +439,7 @@ class SE2GEGraph(GEGraph):
         if len(sigmas) != 3:
             raise ValueError(f"sigmas must be 3-dimensional")
 
-        super().__init__(size, sigmas, K, path_to_graph)
+        super().__init__(size, sigmas, K, path_to_graph, kernel)
 
     def uniform_sampling(self, size):
         return se2_uniform_sampling(*size)
@@ -512,7 +531,7 @@ class R2GEGraph(GEGraph):
     Riemannian distances are encoded in the graph's edges.
     """
 
-    def __init__(self, size, sigmas, K, path_to_graph):
+    def __init__(self, size, sigmas, K, path_to_graph, kernel="gaussian"):
         """
         Args:
             size (list of ints): size of the grid in format (nx, ny,ntheta).
@@ -528,7 +547,7 @@ class R2GEGraph(GEGraph):
         if len(sigmas) != 3:
             raise ValueError(f"sigmas must be 3-dimensional")
 
-        super().__init__(size, sigmas, K, path_to_graph)
+        super().__init__(size, sigmas, K, path_to_graph, kernel)
 
     def uniform_sampling(self, size):
         return r2_uniform_sampling(size[0], size[1])
@@ -620,7 +639,7 @@ class SO3GEGraph(GEGraph):
     Riemannian distances are encoded in the graph's edges.
     """
 
-    def __init__(self, size, sigmas, K, path_to_graph):
+    def __init__(self, size, sigmas, K, path_to_graph, kernel="gaussian"):
         """
         Args:
             size (list of ints): size of the spherical grid in format (ns, nalpha).
@@ -637,7 +656,7 @@ class SO3GEGraph(GEGraph):
         if len(sigmas) != 3:
             raise ValueError(f"sigmas must be 3-dimensional")
 
-        super().__init__(size, sigmas, K, path_to_graph)
+        super().__init__(size, sigmas, K, path_to_graph, kernel)
 
     def uniform_sampling(self, size):
         return so3_uniform_sampling(*size)
@@ -731,7 +750,7 @@ class S2GEGraph(GEGraph):
     Riemannian distances are encoded in the graph's edges.
     """
 
-    def __init__(self, size, sigmas, K, path_to_graph):
+    def __init__(self, size, sigmas, K, path_to_graph, kernel="gaussian"):
         """
         Args:
             size (list of ints): size of the spherical grid in format (ns, nalpha).
@@ -748,7 +767,7 @@ class S2GEGraph(GEGraph):
         if len(sigmas) != 3:
             raise ValueError(f"sigmas must be 2-dimensional")
 
-        super().__init__(size, sigmas, K, path_to_graph)
+        super().__init__(size, sigmas, K, path_to_graph, kernel)
 
     def uniform_sampling(self, size):
         return s2_uniform_sampling(size[0])
