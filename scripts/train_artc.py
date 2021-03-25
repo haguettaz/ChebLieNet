@@ -240,11 +240,10 @@ def train(config=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path_to_sampling", type=str)
     parser.add_argument("--path_to_graph", type=str)
     parser.add_argument("--path_to_data", type=str)
-    parser.add_argument("--num_experiments", type=int)
-    parser.add_argument("--max_epochs", type=int)
+    parser.add_argument("--num_experiments", type=int, default=1)
+    parser.add_argument("--max_epochs", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--anisotropic", action="store_true", default=False)
     parser.add_argument("--lr", type=float, default=1e-3)
