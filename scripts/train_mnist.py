@@ -2,6 +2,13 @@ import argparse
 import os
 
 import torch
+from ignite.contrib.handlers import ProgressBar
+from ignite.engine import Engine, Events
+from ignite.handlers import Checkpoint, DiskSaver
+from ignite.metrics import Accuracy, Loss
+from torch.nn.functional import nll_loss
+from torch.optim import Adam
+
 import wandb
 from gechebnet.datas.dataloaders import get_equiv_test_loaders, get_train_val_loaders
 from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
@@ -9,12 +16,6 @@ from gechebnet.engines.utils import prepare_batch, sample_edges, sample_nodes, w
 from gechebnet.graphs.graphs import R2GEGraph, RandomSubGraph, SE2GEGraph
 from gechebnet.nn.models.chebnets import WideResSE2GEChebNet
 from gechebnet.nn.models.utils import capacity
-from ignite.contrib.handlers import ProgressBar
-from ignite.engine import Engine, Events
-from ignite.handlers import Checkpoint, DiskSaver
-from ignite.metrics import Accuracy, Loss
-from torch.nn.functional import nll_loss
-from torch.optim import Adam
 
 
 def build_config(anisotropic, coupled_sym):
@@ -110,17 +111,15 @@ def train(config=None):
         # Load dataloaders
         train_loader, _ = get_train_val_loaders(
             "mnist",
-            num_layers=config.ntheta, 
+            num_layers=config.ntheta,
             batch_size=args.batch_size,
             val_ratio=0.0,
             path_to_data=args.path_to_data,
         )
 
-        (
-            classic_test_loader,
-            rotated_test_loader,
-            flipped_test_loader,
-        ) = get_equiv_test_loaders("mnist", num_layers=config.ntheta, batch_size=args.batch_size, path_to_data=args.path_to_data)
+        (classic_test_loader, rotated_test_loader, flipped_test_loader,) = get_equiv_test_loaders(
+            "mnist", num_layers=config.ntheta, batch_size=args.batch_size, path_to_data=args.path_to_data
+        )
 
         # Load engines
         trainer = create_supervised_trainer(
@@ -209,8 +208,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--path_to_graph", type=str)
     parser.add_argument("--path_to_data", type=str)
-    parser.add_argument("--num_experiments", type=int)
-    parser.add_argument("--max_epochs", type=int)
+    parser.add_argument("--num_experiments", type=int, default=1)
+    parser.add_argument("--max_epochs", type=int, default=20)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--anisotropic", action="store_true", default=False)
     parser.add_argument("--coupled_sym", action="store_true", default=False)
