@@ -32,9 +32,9 @@ $ pip3 install -e GroupEquivariantChebNets
 * [`nn_layers.ipynb`]: convolution, pooling and unpooling layers.
 * [`eigen_space.ipynb`]: eigenmaps of the group manifold graphs.
 
-[`group_manifold_graph.ipynb`]: https://nbviewer.jupyter.org/github/ebekkers/GroupEquivariantChebNets/blob/main/notebooks/graph_manifold.ipynb
-[`nn_layers.ipynb`]: https://nbviewer.jupyter.org/github/ebekkers/GroupEquivariantChebNets/blob/main/notebooks/nn_layers.ipynb
-[`eigen_space.ipynb`]: https://nbviewer.jupyter.org/github/ebekkers/GroupEquivariantChebNets/blob/main/notebooks/eigen_space.ipynb
+[`group_manifold_graph.ipynb`]: https://github.com/ebekkers/GroupEquivariantChebNets/blob/main/notebooks/graph_manifold.ipynb
+[`nn_layers.ipynb`]: https://github.com/github/ebekkers/GroupEquivariantChebNets/blob/main/notebooks/nn_layers.ipynb
+[`eigen_space.ipynb`]: https://github.com/github/ebekkers/GroupEquivariantChebNets/blob/main/notebooks/eigen_space.ipynb
 
 ## Reproducing our results
 
