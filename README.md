@@ -1,5 +1,5 @@
 # Group Equivariant ChebNets
-[Hugo Aguettaz], [Erik J Bekkers], [Michael Defferrard]
+[Hugo Aguettaz], [Erik J Bekkers], [Michaël Defferrard]
 
 [Hugo Aguettaz]: https://people.epfl.ch/hugo.aguettaz
 [Erik J Bekkers]: https://erikbekkers.bitbucket.io/
