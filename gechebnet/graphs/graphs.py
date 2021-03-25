@@ -400,16 +400,14 @@ class GEGraph(Graph):
 
 class SE2GEGraph(GEGraph):
     """
-    Object representing a SE(2) group equivariant graph. It can be considered as a discretization of
-    the SE(2) group where vertices corresponds to group elements and edges are proportional to the anisotropic
-    SE(2) riemannian distances between group elements.
+    Approximation of the SE(2) group manifold. The vertices correspond to group elements and the anisotropic
+    Riemannian distances are encoded in the graph's edges.
     """
 
     def __init__(self, size, sigmas, K, path_to_graph):
         """
         Args:
-            uniform_sampling (`torch.FloatTensor`): uniform sampling on the SE(2) group manifold in format (D, V)
-                where V corresponds to the number of samples points and D to the dimension of the group.
+            size (list of ints): size of the grid in format (nx, ny,ntheta).
             sigmas (tuple of floats): anisotropy's coefficients.
             K (int): number of neighbors.
             path_to_graph (str): path to the folder to save graph.
@@ -510,16 +508,14 @@ class SE2GEGraph(GEGraph):
 
 class R2GEGraph(GEGraph):
     """
-    Object representing a SE(2) group equivariant graph. It can be considered as a discretization of
-    the SE(2) group where vertices corresponds to group elements and edges are proportional to the anisotropic
-    SE(2) riemannian distances between group elements.
+    Approximation of the R(2) manifold. The vertices correspond to manifold elements and the anisotropic
+    Riemannian distances are encoded in the graph's edges.
     """
 
     def __init__(self, size, sigmas, K, path_to_graph):
         """
         Args:
-            uniform_sampling (`torch.FloatTensor`): uniform sampling on the SE(2) group manifold in format (D, V)
-                where V corresponds to the number of samples points and D to the dimension of the group.
+            size (list of ints): size of the grid in format (nx, ny,ntheta).
             sigmas (tuple of floats): anisotropy's coefficients.
             K (int): number of neighbors.
             path_to_graph (str): path to the folder to save graph.
@@ -620,16 +616,14 @@ class R2GEGraph(GEGraph):
 
 class SO3GEGraph(GEGraph):
     """
-    Object representing a SO(3) group equivariant graph. It can be considered as a discretization of
-    the SO(3) group where nodes corresponds to group elements and edges are proportional to the anisotropic
-    SO(3) riemannian distances between group elements.
+    Approximation of the SO(3) group manifold. The vertices correspond to group elements and the anisotropic
+    Riemannian distances are encoded in the graph's edges.
     """
 
     def __init__(self, size, sigmas, K, path_to_graph):
         """
         Args:
-            uniform_sampling (`torch.FloatTensor`): uniform sampling on the SO(3) group manifold in format (D, V)
-                where V corresponds to the number of samples points and D to the dimension of the group.
+            size (list of ints): size of the spherical grid in format (ns, nalpha).
             sigmas (tuple of floats): anisotropy's coefficients.
             K (int): number of neighbors.
             path_to_graph (str): path to the folder to save graph.
@@ -733,16 +727,14 @@ class SO3GEGraph(GEGraph):
 
 class S2GEGraph(GEGraph):
     """
-    Object representing a SO(3) group equivariant graph. It can be considered as a discretization of
-    the SO(3) group where nodes corresponds to group elements and edges are proportional to the anisotropic
-    SO(3) riemannian distances between group elements.
+    Approximation of the S(2) manifold. The vertices correspond to manifold elements and the anisotropic
+    Riemannian distances are encoded in the graph's edges.
     """
 
     def __init__(self, size, sigmas, K, path_to_graph):
         """
         Args:
-            uniform_sampling (`torch.FloatTensor`): uniform sampling on the SO(3) group manifold in format (D, V)
-                where V corresponds to the number of samples points and D to the dimension of the group.
+            size (list of ints): size of the spherical grid in format (ns, nalpha).
             sigmas (tuple of floats): anisotropy's coefficients.
             K (int): number of neighbors.
             path_to_graph (str): path to the folder to save graph.

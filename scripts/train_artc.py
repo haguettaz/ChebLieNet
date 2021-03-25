@@ -58,7 +58,7 @@ def build_config(anisotropic):
 
 def train(config=None):
     """
-    Trains a model on MNIST and evaluates its performance on MNIST, Flip-MNIST and 90Rot-MNIST.
+    U-net-like model training on ClimateNet for the segmentation of extreme meteorogolical events.
 
     Args:
         config (dict, optional): configuration dictionnary. Defaults to None.
@@ -75,6 +75,7 @@ def train(config=None):
 
         # Load model and optimizer
         if args.anisotropic:
+            # anisotropic kernels
             graph_lvl0 = SO3GEGraph(
                 size=[12, config.nalpha],
                 sigmas=(1.0, config.eps, config.xi_0),
@@ -118,6 +119,7 @@ def train(config=None):
             )
 
         else:
+            # isotropic kernels
             graph_lvl0 = S2GEGraph(
                 size=[12, config.nalpha],
                 sigmas=(1.0, config.eps, config.xi_0),
@@ -211,13 +213,13 @@ def train(config=None):
         )
         ProgressBar(persist=False, desc="Training").attach(trainer)
 
-        # cm = ConfusionMatrix(num_classes=3)
+        cm = ConfusionMatrix(num_classes=3)
         precision = Precision(average=False)
         recall = Recall(average=False)
         metrics = {
             "test_F1": Fbeta(1, precision=precision, recall=recall),
-            # "test_mIoU": mIoU(cm),
-            # "test_mIoU_nb": mIoU(cm, ignore_index=0),
+            "test_mIoU": mIoU(cm),
+            "test_mIoU_nb": mIoU(cm, ignore_index=0),
             "test_loss": Loss(nll_loss),
         }
 
