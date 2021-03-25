@@ -1,9 +1,9 @@
 # Group Equivariant ChebNets
 [Hugo Aguettaz], [Erik J Bekkers], [Michael Defferrard]
 
-[Stefania Ebli]: https://people.epfl.ch/stefania.ebli
+[Hugo Aguettaz]: https://people.epfl.ch/hugo.aguettaz
+[Erik J Bekkers]: https://erikbekkers.bitbucket.io/
 [Michaël Defferrard]: https://deff.ch/
-[Gard Spreemann]: https://www.epfl.ch/labs/hessbellwald-lab/
 
 > We introduce group manifold graph neural networks, a novel approach designed  to  perform  anisotropic  convolution  on  data  lying on  a  group  manifold.
 > Recently, much  research  has  been  done  in  group  equivariant  neural  networks  and  graph  neural  networks. In this project, we combine both to create group graph equivariant neural networks, a stable andeasy to control algorithm. 
