@@ -2,19 +2,21 @@ import argparse
 import os
 
 import torch
-import wandb
-from gechebnet.datas.dataloaders import get_test_loader, get_train_val_loaders
-from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
-from gechebnet.engines.utils import prepare_batch, wandb_log
-from gechebnet.graphs.graphs import S2GEGraph, SO3GEGraph
-from gechebnet.nn.models.chebnets import SO3GEUChebNet
-from gechebnet.nn.models.utils import capacity
 from ignite.contrib.handlers import ProgressBar
+from ignite.contrib.metrics import AveragePrecision
 from ignite.engine import Events
 from ignite.metrics import Accuracy, ConfusionMatrix, Fbeta, Loss, Precision, Recall
 from ignite.metrics.confusion_matrix import cmAccuracy, mIoU
 from torch.nn.functional import nll_loss
 from torch.optim import Adam
+
+import wandb
+from gechebnet.datas.dataloaders import get_test_loader, get_train_val_loaders
+from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
+from gechebnet.engines.utils import output_transform, prepare_batch, wandb_log
+from gechebnet.graphs.graphs import S2GEGraph, SO3GEGraph
+from gechebnet.nn.models.chebnets import SO3GEUChebNet
+from gechebnet.nn.models.utils import capacity
 
 
 def build_config(anisotropic):
@@ -213,14 +215,36 @@ def train(config=None):
         )
         ProgressBar(persist=False, desc="Training").attach(trainer)
 
+        # cm matrix based matrix : F1, mIoU
         cm = ConfusionMatrix(num_classes=3)
-        precision = Precision(average=False)
-        recall = Recall(average=False)
+        f1 = Fbeta(1, precision=Precision(average=False), recall=Recall(average=False))
+        miou = mIoU(cm)
+        miou_wo_bg = mIoU(cm, ignore_index=0)
+
+        # per class accuracies
+        acc_bg = Accuracy(output_transform=lambda batch, cl: output_transform(batch, 0))
+        acc_ar = Accuracy(output_transform=lambda batch, cl: output_transform(batch, 1))
+        acc_tc = Accuracy(output_transform=lambda batch, cl: output_transform(batch, 2))
+
+        # mean average precision
+        ap_bg = AveragePrecision(output_transform=lambda batch, cl: output_transform(batch, 0))
+        ap_ar = AveragePrecision(output_transform=lambda batch, cl: output_transform(batch, 1))
+        ap_tc = AveragePrecision(output_transform=lambda batch, cl: output_transform(batch, 2))
+
+        # loss
+        loss = Loss(nll_loss)
+
         metrics = {
-            "test_F1": Fbeta(1, precision=precision, recall=recall),
-            "test_mIoU": mIoU(cm),
-            "test_mIoU_nb": mIoU(cm, ignore_index=0),
-            "test_loss": Loss(nll_loss),
+            "test_F1": f1,
+            "test_mIoU": miou,
+            "test_mIoU_bg": miou_wo_bg,
+            "test_loss": loss,
+            "test_acc_bg": acc_bg,
+            "test_acc_ar": acc_ar,
+            "test_acc_tc": acc_tc,
+            "test_AP_bg": ap_bg,
+            "test_AP_ar": ap_ar,
+            "test_AP_tc": ap_tc,
         }
 
         evaluator = create_supervised_evaluator(
