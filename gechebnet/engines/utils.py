@@ -24,6 +24,23 @@ def prepare_batch(batch, graph, device):
     return image.to(device), target.to(device)
 
 
+def output_transform(batch, cl):
+    """
+    output transforms for segmentation task and evaluation per class
+    """
+    y_pred, y = batch
+
+    mask = y == cl
+    y[mask] = 1
+    y[~mask] = 0
+
+    mask = y_pred == cl
+    y_pred[mask] = 1
+    y_pred[~mask] = 0
+
+    return y_pred, y
+
+
 def wandb_log(trainer, evaluator, data_loader):
     """
     Launch the evaluator ignite's engine and log performance with wandb.
