@@ -215,11 +215,13 @@ def train(config=None):
         )
         ProgressBar(persist=False, desc="Training").attach(trainer)
 
-        # cm matrix based matrix : F1, mIoU
+        # confusion matrix based metrics
         cm = ConfusionMatrix(num_classes=3)
-        f1 = Fbeta(1, precision=Precision(average=False), recall=Recall(average=False))
         miou = mIoU(cm)
         miou_wo_bg = mIoU(cm, ignore_index=0)
+
+        # f1 score
+        f1 = Fbeta(1, precision=Precision(average=False), recall=Recall(average=False))
 
         # per class accuracies
         acc_bg = Accuracy(output_transform=lambda batch, cl: output_transform(batch, 0))
