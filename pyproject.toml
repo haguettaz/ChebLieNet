@@ -1,6 +1,6 @@
 [tool.black]
 line-length = 150
-target-version = ['py36']
+target-version = ['py37']
 
 [tool.isort]
 multi_line_output = 3
@@ -8,36 +8,12 @@ include_trailing_comma = true
 force_grid_wrap = 0
 use_parentheses = true
 line_length = 150
-known_third_party = ["torch", "ignite", "cv2", "wand", "PIL", "tensorboardX", "sacred", "skimage"]
-
-[tool.pylint.messages_control]
-# C0330: (bad-continuation; i.e. "Wrong hanging indentation before block") We are using Black that does not respect this
-# C0411: Wrong import order (we use isort instead)
-# R0801: Similar lines in N files
-# R0902: Too many instance attributes
-# R0903: Too few public methods (min 2)
-# R0904: Too many public methods (max 20)
-# R0912: Too many branches
-# R0913: Too many arguments
-# R0914: Too many local variables
-# R0915: Too many statements
-# R1702: Too many nested blocks
-# W0621: Redefining name '$' from outer scope
-# W1202 W1203: Use % formatting in logging functions and pass the % parameters as argument
-disable = "C0330, C0411, R0801, R0902, R0903, R0904, R0912, R0913, R0914, R0915, R1702, W0621, W1202, W1203, W1503"
-max-line-length = "150"
-argument-rgx = "[A-Z]|[a-z_][a-z0-9_]{1,30}$"
-attr-rgx = "[A-Z]|[a-z_][a-z0-9_]{1,30}$"
-variable-rgx = "[A-Z]|[a-z_][a-z0-9_]{1,30}$"
-output-format = "colorized"
-extension-pkg-whitelist = "cv2, numpy, torch, ignite, scipy"
-generated-members = "numpy.*, torch.*, ignite.*"
-ignored-modules = "torch, torchvision, ignite"
+known_third_party = ['sklearn', 'ignite', 'wandb']
 
 [build-system]
+build-backend = 'setuptools.build_meta'
 requires = [
     "setuptools >= 40.0.4",
     "setuptools_scm >= 2.0.0, <4",
     "wheel >= 0.29.0",
 ]
-build-backend = 'setuptools.build_meta'

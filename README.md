@@ -14,14 +14,16 @@
 
 ## Installation
 
-To use this package, we recommend using a conda environment:
-
-1. Create a new environment with python 3.7 and activate it
+We recommend using a virtual environment to install this package, as it does not need root privileges. The steps to follow are:
+1. Create a new virtual environment:
 ```
-$ conda create -n chebnets python=3.7
-$ conda activate chebnets
+python3 -m venv gechebnet
 ```
-2. Install GroupEquivariantChebNets (and all dependencies):
+2. Activate it
+```
+source gechebnet/bin/activate
+```
+3. Install GroupEquivariantChebNets:
 ```
 $ pip3 install -e GroupEquivariantChebNets
 ```
