@@ -17,11 +17,11 @@
 We recommend using a virtual environment to install this package, as it does not need root privileges. The steps to follow are:
 1. Create a new virtual environment:
 ```
-python3 -m venv gechebnet
+$ python3 -m venv gechebnet
 ```
 2. Activate it
 ```
-source gechebnet/bin/activate
+$ source gechebnet/bin/activate
 ```
 3. Install GroupEquivariantChebNets:
 ```
