@@ -2,6 +2,7 @@ import argparse
 import os
 
 import torch
+import wandb
 from ignite.contrib.handlers import ProgressBar
 from ignite.contrib.metrics import AveragePrecision
 from ignite.engine import Events
@@ -10,7 +11,6 @@ from ignite.metrics.confusion_matrix import cmAccuracy, mIoU
 from torch.nn.functional import nll_loss
 from torch.optim import Adam
 
-import wandb
 from gechebnet.datas.dataloaders import get_test_loader, get_train_val_loaders
 from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
 from gechebnet.engines.utils import output_transform, prepare_batch, wandb_log
@@ -224,14 +224,14 @@ def train(config=None):
         f1 = Fbeta(1, precision=Precision(average=False), recall=Recall(average=False))
 
         # per class accuracies
-        acc_bg = Accuracy(output_transform=lambda batch, cl: output_transform(batch, 0))
-        acc_ar = Accuracy(output_transform=lambda batch, cl: output_transform(batch, 1))
-        acc_tc = Accuracy(output_transform=lambda batch, cl: output_transform(batch, 2))
+        acc_bg = Accuracy(output_transform=lambda batch: output_transform(batch, 0))
+        acc_ar = Accuracy(output_transform=lambda batch: output_transform(batch, 1))
+        acc_tc = Accuracy(output_transform=lambda batch: output_transform(batch, 2))
 
         # mean average precision
-        ap_bg = AveragePrecision(output_transform=lambda batch, cl: output_transform(batch, 0))
-        ap_ar = AveragePrecision(output_transform=lambda batch, cl: output_transform(batch, 1))
-        ap_tc = AveragePrecision(output_transform=lambda batch, cl: output_transform(batch, 2))
+        ap_bg = AveragePrecision(output_transform=lambda batch: output_transform(batch, 0))
+        ap_ar = AveragePrecision(output_transform=lambda batch: output_transform(batch, 1))
+        ap_tc = AveragePrecision(output_transform=lambda batch: output_transform(batch, 2))
 
         # loss
         loss = Loss(nll_loss)
