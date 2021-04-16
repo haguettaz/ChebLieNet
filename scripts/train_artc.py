@@ -254,7 +254,7 @@ def train(config=None):
         )
         ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
 
-        _ = trainer.add_event_handler(Events.ITERATION_COMPLETED, wandb_log, evaluator, test_loader)
+        _ = trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, evaluator, test_loader)
 
         # Launchs training
         trainer.run(train_loader, max_epochs=args.max_epochs)
