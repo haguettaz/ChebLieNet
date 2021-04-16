@@ -28,7 +28,11 @@ def output_transform(batch, cl):
     """
     output transforms for segmentation task and evaluation per class
     """
+    B, C, V = y_pred.shape
     y_pred, y = batch
+
+    y_pred = y_pred.permute(0,2,1)
+    y = y.permute(0,2,1)
 
     mask = y == cl
     y[mask] = 1
@@ -38,7 +42,7 @@ def output_transform(batch, cl):
     y_pred[mask] = 1
     y_pred[~mask] = 0
 
-    return y_pred, y
+    return y_pred.view(B*V, C), y.view(B*V, C)
 
 
 def wandb_log(trainer, evaluator, data_loader):
