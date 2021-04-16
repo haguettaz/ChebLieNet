@@ -13,7 +13,7 @@ from torch.optim import Adam
 
 from gechebnet.datas.dataloaders import get_test_loader, get_train_val_loaders
 from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
-from gechebnet.engines.utils import output_transform, prepare_batch, wandb_log
+from gechebnet.engines.utils import output_transform_accuracy, output_transform_mAP, prepare_batch, wandb_log
 from gechebnet.graphs.graphs import S2GEGraph, SO3GEGraph
 from gechebnet.nn.models.chebnets import SO3GEUChebNet
 from gechebnet.nn.models.utils import capacity
@@ -224,14 +224,12 @@ def train(config=None):
         f1 = Fbeta(1, precision=Precision(average=False), recall=Recall(average=False))
 
         # per class accuracies
-        acc_bg = Accuracy(output_transform=lambda batch: output_transform(batch, 0))
-        acc_ar = Accuracy(output_transform=lambda batch: output_transform(batch, 1))
-        acc_tc = Accuracy(output_transform=lambda batch: output_transform(batch, 2))
+        acc_bg = Accuracy(output_transform=lambda batch: output_transform_accuracy(batch, 0))
+        acc_ar = Accuracy(output_transform=lambda batch: output_transform_accuracy(batch, 1))
+        acc_tc = Accuracy(output_transform=lambda batch: output_transform_accuracy(batch, 2))
 
         # mean average precision
-        ap_bg = AveragePrecision(output_transform=lambda batch: output_transform(batch, 0))
-        ap_ar = AveragePrecision(output_transform=lambda batch: output_transform(batch, 1))
-        ap_tc = AveragePrecision(output_transform=lambda batch: output_transform(batch, 2))
+        mean_average_precision = AveragePrecision(output_transform=output_transform_mAP)
 
         # loss
         loss = Loss(nll_loss)
@@ -244,9 +242,7 @@ def train(config=None):
             "test_acc_bg": acc_bg,
             "test_acc_ar": acc_ar,
             "test_acc_tc": acc_tc,
-            "test_AP_bg": ap_bg,
-            "test_AP_ar": ap_ar,
-            "test_AP_tc": ap_tc,
+            "test_mAP": mean_average_precision,
         }
 
         evaluator = create_supervised_evaluator(
@@ -258,7 +254,7 @@ def train(config=None):
         )
         ProgressBar(persist=False, desc="Evaluation").attach(evaluator)
 
-        _ = trainer.add_event_handler(Events.EPOCH_COMPLETED, wandb_log, evaluator, test_loader)
+        _ = trainer.add_event_handler(Events.ITERATION_COMPLETED, wandb_log, evaluator, test_loader)
 
         # Launchs training
         trainer.run(train_loader, max_epochs=args.max_epochs)

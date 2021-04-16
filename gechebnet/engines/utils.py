@@ -1,6 +1,8 @@
 # coding=utf-8
 
+import torch
 import wandb
+from torch.nn.functional import one_hot
 
 
 def prepare_batch(batch, graph, device):
@@ -24,25 +26,43 @@ def prepare_batch(batch, graph, device):
     return image.to(device), target.to(device)
 
 
-def output_transform(batch, cl):
+def output_transform_mAP(batch):
     """
-    output transforms for segmentation task and evaluation per class
+    Output transform for mean average precision
     """
-    B, C, V = y_pred.shape
     y_pred, y = batch
 
-    y_pred = y_pred.permute(0,2,1)
-    y = y.permute(0,2,1)
+    B, C, V = y_pred.shape
+
+    y_pred = y_pred.permute(0, 2, 1).reshape(B * V, C)
+    y_pred_one_hot = one_hot(y_pred.argmax(dim=1))
+
+    y = y.reshape(B * V)
+    y_one_hot = one_hot(y)
+
+    return y_pred_one_hot, y_one_hot
+
+
+def output_transform_accuracy(batch, cl):
+    """
+    Output transforms for pixelwise accuracy per class
+    """
+    y_pred, y = batch
+
+    B, C, V = y_pred.shape
+
+    y_pred = y_pred.permute(0, 2, 1).reshape(B * V, C)
+    y = y.reshape(B * V)
+
+    mask = y_pred.argmax(dim=1) == cl
+    y_pred_vec = torch.zeros(B * V)
+    y_pred_vec[mask] = 1.0
 
     mask = y == cl
-    y[mask] = 1
-    y[~mask] = 0
+    y_vec = torch.zeros(B * V)
+    y_vec[mask] = 1.0
 
-    mask = y_pred == cl
-    y_pred[mask] = 1
-    y_pred[~mask] = 0
-
-    return y_pred.view(B*V, C), y.view(B*V, C)
+    return y_pred_vec, y_vec
 
 
 def wandb_log(trainer, evaluator, data_loader):
