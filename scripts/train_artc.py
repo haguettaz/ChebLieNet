@@ -13,7 +13,7 @@ from torch.optim import Adam
 
 from gechebnet.datas.dataloaders import get_test_loader, get_train_val_loaders
 from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
-from gechebnet.engines.utils import output_transform_accuracy, output_transform_mAP, prepare_batch, wandb_log
+from gechebnet.engines.utils import PerClassAccuracy, output_transform_mAP, prepare_batch, wandb_log
 from gechebnet.graphs.graphs import S2GEGraph, SO3GEGraph
 from gechebnet.nn.models.chebnets import SO3GEUChebNet
 from gechebnet.nn.models.utils import capacity
@@ -224,9 +224,12 @@ def train(config=None):
         f1 = Fbeta(1, precision=Precision(average=False), recall=Recall(average=False))
 
         # per class accuracies
-        acc_bg = Accuracy(output_transform=lambda batch: output_transform_accuracy(batch, 0))
-        acc_ar = Accuracy(output_transform=lambda batch: output_transform_accuracy(batch, 1))
-        acc_tc = Accuracy(output_transform=lambda batch: output_transform_accuracy(batch, 2))
+        acc_bg = PerClassAccuracy(0)
+        acc_ar = PerClassAccuracy(1)
+        acc_tc = PerClassAccuracy(2)
+        # acc_bg = Accuracy(output_transform=lambda batch: output_transform_accuracy(batch, 0))
+        # acc_ar = Accuracy(output_transform=lambda batch: output_transform_accuracy(batch, 1))
+        # acc_tc = Accuracy(output_transform=lambda batch: output_transform_accuracy(batch, 2))
 
         # mean average precision
         mean_average_precision = AveragePrecision(output_transform=output_transform_mAP)
