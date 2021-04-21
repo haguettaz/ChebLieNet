@@ -85,7 +85,9 @@ class PerClassAccuracy(Metric):
     def update(self, output):
         y_pred, y = output[0].detach(), output[1].detach()
         indices = torch.argmax(y_pred, dim=1)
-        mask = (indices == self.cl) | (y == self.cl)
+
+        # we only keep sample with true label cl
+        mask = y == self.cl
         y = y[mask]
         indices = indices[mask]
         correct = torch.eq(indices, y).view(-1)
