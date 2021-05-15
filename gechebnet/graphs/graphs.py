@@ -26,8 +26,9 @@ from ..geometry.so import (
     so3_uniform_sampling,
 )
 from ..geometry.utils import betagamma2xyz, xyz2betagamma
+from ..utils.utils import round
 from .gsp import get_fourier_basis, get_laplacian, get_rescaled_laplacian
-from .utils import remove_duplicated_edges, to_undirected
+from .utils import to_undirected
 
 
 class Graph:
@@ -402,16 +403,21 @@ class GEGraph(Graph):
 
         # compute all pairwise distances of the graph. WARNING: can possibly take a lot of time!!
         for idx in tqdm(self.node_index, file=sys.stdout):
-            sqdist = self.riemannian_sqdist(Gg[idx], Gg, Re)
+            sqdist = round(self.riemannian_sqdist(Gg[idx], Gg, Re), 6)
             values, indices = torch.topk(sqdist, largest=False, k=K + 1, sorted=False)
             edge_sqdist[idx * (K + 1) : (idx + 1) * (K + 1)] = values
             edge_index[0, idx * (K + 1) : (idx + 1) * (K + 1)] = idx
             edge_index[1, idx * (K + 1) : (idx + 1) * (K + 1)] = indices
 
-        # remove duplicated edges and self-loops and make the graph undirected
-        edge_index, edge_sqdist = remove_duplicated_edges(edge_index, edge_sqdist)
-        self.edge_index, self.edge_sqdist = to_undirected(edge_index, edge_sqdist, self_loop=False)
+        # make the graph undirected and avoid asymetries at the boundaries using a maximum squared distance
+        # between connected vertices
+        mask = edge_index[0] == self.centroid_node
+        max_sqdist = edge_sqdist[mask].max()
+        self.edge_index, self.edge_sqdist = to_undirected(
+            edge_index, edge_sqdist, self.num_nodes, max_sqdist, self_loop=False
+        )
 
+        # the kernel width is proportional to the mean squared distance between connected vertices
         kernel_width = 0.8 * self.edge_sqdist.mean()
 
         self.edge_weight = self.kernel(self.edge_sqdist, kernel_width)
@@ -443,6 +449,10 @@ class SE2GEGraph(GEGraph):
 
     def uniform_sampling(self, size):
         return se2_uniform_sampling(*size)
+
+    @property
+    def centroid_node(self):
+        return self.size[0] // 2 + self.size[1] // 2 * self.size[0]
 
     def riemannian_sqdist(self, Gg, Gh, Re):
         """
@@ -542,7 +552,7 @@ class R2GEGraph(GEGraph):
         self.manifold = "r2"
 
         if len(size) != 3:
-            raise ValueError(f"size must be 2-dimensional")
+            raise ValueError(f"size must be 3-dimensional")
 
         if len(sigmas) != 3:
             raise ValueError(f"sigmas must be 3-dimensional")
@@ -551,6 +561,10 @@ class R2GEGraph(GEGraph):
 
     def uniform_sampling(self, size):
         return r2_uniform_sampling(size[0], size[1])
+
+    @property
+    def centroid_node(self):
+        return self.size[0] // 2 + self.size[1] // 2 * self.size[0]
 
     def riemannian_sqdist(self, Gg, Gh, Re):
         """
@@ -660,6 +674,10 @@ class SO3GEGraph(GEGraph):
 
     def uniform_sampling(self, size):
         return so3_uniform_sampling(*size)
+
+    @property
+    def centroid_node(self):
+        return 0
 
     def riemannian_sqdist(self, Gg, Gh, Re):
         """
@@ -771,6 +789,10 @@ class S2GEGraph(GEGraph):
 
     def uniform_sampling(self, size):
         return s2_uniform_sampling(size[0])
+
+    @property
+    def centroid_node(self):
+        return 0
 
     def riemannian_sqdist(self, Gg, Gh, Re):
         """
