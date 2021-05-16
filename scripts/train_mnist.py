@@ -44,7 +44,7 @@ def build_config(anisotropic, coupled_sym):
         return {
             "kernel_size": 4,
             "eps": 0.1,
-            "K": 8,
+            "K": 16,
             "ntheta": 6,
             "xi": 1e6,
         }
@@ -52,7 +52,7 @@ def build_config(anisotropic, coupled_sym):
     return {
         "kernel_size": 4,
         "eps": 0.1,
-        "K": 8,
+        "K": 16,
         "ntheta": 6,
         "xi": 2.048 / (28 ** 2),
     }
