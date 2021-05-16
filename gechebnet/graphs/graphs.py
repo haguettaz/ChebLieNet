@@ -246,18 +246,17 @@ class RandomSubGraph(Graph):
         """
         print("Sample edges...")
         # samples N (undirected) edges from the original graph based on their weights
-        edge_attr = torch.stack((self.graph.edge_weight, self.graph.edge_sqdist))
-        edge_index, edge_attr = remove_duplicated_edges(self.graph.edge_index, edge_attr)
-        num_samples = math.ceil(rate * edge_attr[0].nelement())
-        sampled_edges = torch.multinomial(edge_attr[0], num_samples)
+        num_samples = math.ceil(rate * self.graph.edge_weight.nelement())
+        sampled_edges = torch.multinomial(self.graph.edge_weight, num_samples)
 
-        edge_index, edge_attr = to_undirected(
-            edge_index[..., sampled_edges], edge_attr[..., sampled_edges], self_loop=False
+        self.edge_index, self.edge_sqdist = to_undirected(
+            self.graph.edge_index[..., sampled_edges],
+            self.graph.edge_sqdist[..., sampled_edges],
+            self.graph.num_nodes,
+            self.graph.max_sqdist,
+            self_loop=False,
         )
-
-        self.edge_index = edge_index
-        self.edge_weight = edge_attr[0]
-        self.edge_sqdist = edge_attr[1]
+        self.edge_weight = self.graph.kernel(self.edge_sqdist, self.graph.kernel_width)
         print("Done!")
 
     def node_sampling(self, rate):
@@ -412,15 +411,15 @@ class GEGraph(Graph):
         # make the graph undirected and avoid asymetries at the boundaries using a maximum squared distance
         # between connected vertices
         mask = edge_index[0] == self.centroid_node
-        max_sqdist = edge_sqdist[mask].max()
+        self.max_sqdist = edge_sqdist[mask].max()
         self.edge_index, self.edge_sqdist = to_undirected(
-            edge_index, edge_sqdist, self.num_nodes, max_sqdist, self_loop=False
+            edge_index, edge_sqdist, self.num_nodes, self.max_sqdist, self_loop=False
         )
 
         # the kernel width is proportional to the mean squared distance between connected vertices
-        kernel_width = 0.8 * self.edge_sqdist.mean()
+        self.kernel_width = 0.8 * self.edge_sqdist.mean()
 
-        self.edge_weight = self.kernel(self.edge_sqdist, kernel_width)
+        self.edge_weight = self.kernel(self.edge_sqdist, self.kernel_width)
 
 
 class SE2GEGraph(GEGraph):
