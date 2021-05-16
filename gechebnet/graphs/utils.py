@@ -3,7 +3,7 @@
 import torch
 
 
-def to_undirected(edge_index, edge_sqdist, num_nodes, max_sqdist, self_loop=False):
+def to_undirected(edge_index, edge_sqdist, edge_weight=None, num_nodes=None, max_sqdist=None, self_loop=False):
     """
     Make the graph undirected, that is create an inverse edge for each edge.
 
@@ -18,24 +18,40 @@ def to_undirected(edge_index, edge_sqdist, num_nodes, max_sqdist, self_loop=Fals
         (`torch.LongTensor`): indices of graph's edges.
         (`torch.FloatTensor`): attributes of graph's edges.
     """
+    num_nodes = num_nodes or edge_index.max() + 1
+
     sqdist_matrix = torch.sparse.FloatTensor(edge_index, edge_sqdist, torch.Size((num_nodes, num_nodes))).to_dense()
 
-    mask = (sqdist_matrix.t() == sqdist_matrix) & (sqdist_matrix <= max_sqdist)
+    mask = sqdist_matrix.t() == sqdist_matrix
+    if max_sqdist is not None:
+        mask &= sqdist_matrix <= max_sqdist
 
     undirected_sqdist_matrix = torch.zeros_like(sqdist_matrix)
     undirected_sqdist_matrix[mask] = sqdist_matrix[mask]
     undirected_sqdist_matrix = undirected_sqdist_matrix.to_sparse()
 
+    if edge_weight is not None:
+        weight_matrix = torch.sparse.FloatTensor(edge_index, edge_weight, torch.Size((num_nodes, num_nodes))).to_dense()
+        undirected_weight_matrix = torch.zeros_like(weight_matrix)
+        undirected_weight_matrix[mask] = weight_matrix[mask]
+        undirected_weight_matrix = undirected_weight_matrix.to_sparse()
+
     edge_index = undirected_sqdist_matrix.indices()
     edge_sqdist = undirected_sqdist_matrix.values()
 
+    if edge_weight is not None:
+        edge_weight = undirected_weight_matrix.values()
+
     if self_loop:
-        return edge_index, edge_sqdist
+        if edge_weight is None:
+            return edge_index, edge_sqdist
 
-    return remove_self_loops(edge_index, edge_sqdist)
+        return edge_index, edge_sqdist, edge_weight
+
+    return remove_self_loops(edge_index, edge_sqdist, edge_weight)
 
 
-def remove_self_loops(edge_index, edge_attr):
+def remove_self_loops(edge_index, edge_sqdist, edge_weight=None):
     """
     Removes all self-loop in the graph.
 
@@ -49,7 +65,10 @@ def remove_self_loops(edge_index, edge_attr):
     """
     mask = edge_index[0] != edge_index[1]
 
-    return edge_index[..., mask], edge_attr[..., mask]
+    if edge_weight is None:
+        return edge_index[..., mask], edge_sqdist[mask]
+
+    return edge_index[..., mask], edge_sqdist[mask], edge_weight[mask]
 
 
 def add_self_loops(edge_index, edge_attr, weight=1.0):

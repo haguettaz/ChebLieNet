@@ -235,6 +235,7 @@ class RandomSubGraph(Graph):
         self.edge_sqdist = self.graph.edge_sqdist.clone()
         print("Done!")
 
+    # TODO: improve algorithm because it is too slow for now
     def edge_sampling(self, rate):
         """
         Randomly samples a given rate of edges from the original graph to generate a random sub-graph.
@@ -245,18 +246,21 @@ class RandomSubGraph(Graph):
             rate (float): rate of edges to sample.
         """
         print("Sample edges...")
-        # samples N (undirected) edges from the original graph based on their weights
-        num_samples = math.ceil(rate * self.graph.edge_weight.nelement())
-        sampled_edges = torch.multinomial(self.graph.edge_weight, num_samples)
+        mask = self.graph.edge_index[0] < self.graph.edge_index[1]
+        edge_index = self.graph.edge_index[..., mask]
+        edge_weight = self.graph.edge_weight[mask]
+        edge_sqdist = self.graph.edge_sqdist[mask]
 
-        self.edge_index, self.edge_sqdist = to_undirected(
-            self.graph.edge_index[..., sampled_edges],
-            self.graph.edge_sqdist[..., sampled_edges],
-            self.graph.num_nodes,
-            self.graph.max_sqdist,
-            self_loop=False,
-        )
-        self.edge_weight = self.graph.kernel(self.edge_sqdist, self.graph.kernel_width)
+        num_samples = math.ceil(rate * edge_weight.nelement())
+        sampled_edges = torch.multinomial(edge_weight, num_samples)
+
+        sampled_edge_index = edge_index[..., sampled_edges]
+        sampled_edge_weight = edge_weight[sampled_edges]
+        sampled_edge_sqdist = edge_sqdist[sampled_edges]
+
+        self.edge_index = torch.cat((sampled_edge_index.flip(0), sampled_edge_index), 1)
+        self.edge_weight = sampled_edge_weight.repeat(2)
+        self.edge_sqdist = sampled_edge_sqdist.repeat(2)
         print("Done!")
 
     def node_sampling(self, rate):
@@ -413,7 +417,7 @@ class GEGraph(Graph):
         mask = edge_index[0] == self.centroid_node
         self.max_sqdist = edge_sqdist[mask].max()
         self.edge_index, self.edge_sqdist = to_undirected(
-            edge_index, edge_sqdist, self.num_nodes, self.max_sqdist, self_loop=False
+            edge_index, edge_sqdist, None, self.num_nodes, self.max_sqdist, self_loop=False
         )
 
         # the kernel width is proportional to the mean squared distance between connected vertices
