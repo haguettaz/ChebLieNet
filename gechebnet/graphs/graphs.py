@@ -415,15 +415,15 @@ class GEGraph(Graph):
         # make the graph undirected and avoid asymetries at the boundaries using a maximum squared distance
         # between connected vertices
         mask = edge_index[0] == self.centroid_node
-        self.max_sqdist = edge_sqdist[mask].max()
+        max_sqdist = edge_sqdist[mask].max()
         self.edge_index, self.edge_sqdist = to_undirected(
-            edge_index, edge_sqdist, None, self.num_nodes, self.max_sqdist, self_loop=False
+            edge_index, edge_sqdist, None, self.num_nodes, max_sqdist, self_loop=False
         )
 
         # the kernel width is proportional to the mean squared distance between connected vertices
-        self.kernel_width = 0.8 * self.edge_sqdist.mean()
+        kernel_width = 0.8 * self.edge_sqdist.mean()
 
-        self.edge_weight = self.kernel(self.edge_sqdist, self.kernel_width)
+        self.edge_weight = self.kernel(self.edge_sqdist, kernel_width)
 
 
 class SE2GEGraph(GEGraph):

@@ -43,7 +43,7 @@ def build_config(anisotropic, pool):
         return {
             "kernel_size": 4,
             "eps": 0.1,
-            "K": 8,
+            "K": 16,
             "ntheta": 6,
             "xi_0": 2.048 / (8 ** 2),
             "xi_1": 2.048 / (16 ** 2),

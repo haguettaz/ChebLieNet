@@ -84,7 +84,7 @@ class WideResSE2GEChebNet(nn.Module):
         )
 
         # output layer : global max pooling + fc
-        self.globalpool = GlobalPool(graph_lvl0.num_nodes, "max")
+        self.globalpool = GlobalPool("max")
         self.fc = nn.Linear(hidden_channels[3], out_channels)
         self.logsoftmax = nn.LogSoftmax(dim=1)
 

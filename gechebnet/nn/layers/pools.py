@@ -11,17 +11,23 @@ from torch import nn
 from ...utils.utils import mod
 
 
-def avg_pool(x, index):
-    out = x[..., index].mean(dim=-1)
-    return out
+def avg_pool(x, index=None):
+    if index is None:
+        return x.mean(dim=-1)
+    return x[..., index].mean(dim=-1)
 
 
-def max_pool(x, index):
+def max_pool(x, index=None):
+    if index is None:
+        out, _ = x.max(dim=-1)
+        return out
     out, _ = x[..., index].max(dim=-1)
     return out
 
 
-def rand_pool(x, index):
+def rand_pool(x, index=None):
+    if index is None:
+        raise NotImplementedError
     N, K = index.shape
     out = x[..., index[torch.arange(N), torch.randint(K, (N,))]]
     return out
@@ -265,10 +271,10 @@ class GlobalPool(nn.Module):
     A global pooling layer, on spatial and orientation's dimensions.
     """
 
-    def __init__(self, size, reduction):
+    def __init__(self, reduction):
         """
         Args:
-            size (int): size of the graph, that is its number of nodes.
+            reduction (int): size of the graph, that is its number of nodes.
         """
 
         super(GlobalPool, self).__init__()
@@ -276,17 +282,12 @@ class GlobalPool(nn.Module):
         if reduction not in {"max", "avg", "rand"}:
             raise ValueError(f"{reduction} is not a valid value for reduction, must be 'max' 'avg' or 'rand'.")
 
-        self.index = self.get_reduction_index(size)
-
         if reduction == "rand":
             self.reduction = rand_pool
         elif reduction == "max":
             self.reduction = max_pool
         else:
             self.reduction = avg_pool
-
-    def get_reduction_index(self, size):
-        return torch.arange(size).unsqueeze(0)
 
     def forward(self, x):
         """
@@ -297,4 +298,4 @@ class GlobalPool(nn.Module):
             (`torch.Tensor`): pooled tensor.
         """
 
-        return self.reduction(x, self.index)
+        return self.reduction(x)
