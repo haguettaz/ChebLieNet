@@ -1,14 +1,11 @@
-# Group Equivariant ChebNets
+# GEChebNet:  A group-equivariant neural network to exploit anisotropies via anisotropic manifolds
 [Hugo Aguettaz], [Erik J Bekkers], [Michaël Defferrard]
 
 [Hugo Aguettaz]: https://people.epfl.ch/hugo.aguettaz
 [Erik J Bekkers]: https://erikbekkers.bitbucket.io/
 [Michaël Defferrard]: https://deff.ch/
 
-> We introduce group manifold graph neural networks, a novel approach designed  to  perform  anisotropic  convolution  on  data  lying on  a  group  manifold.
-> Recently, much  research  has  been  done  in  group  equivariant  neural  networks  and  graph  neural  networks. In this project, we combine both to create group graph equivariant neural networks, a stable andeasy to control algorithm. 
-> Group equivariance is achieved via anisotropic spectral (Chebyshev) graph convolutions on graphs with anisotropic left-invariant Riemannian distance-based affinities encoded on the edges.  
-> We show that this method gives promising results, performing better than isotropic kernels on CIFAR10, STL10, and ClimateNet while being highly adaptable.  We discuss the different hyper-parameters of this approach and gives the first ablation study of such neural networks.
+We introduce Group Equivariant ChebNets, a group-equivariant method on (anisotropic) manifolds. Surfing on the success of graph- and group-based neural networks, we take advantage of the recent developments in the geometric deep learning field to derive a new approach to exploit any anisotropies in data. Via discrete approximations of Lie groups, we develop a graph neural network made of anisotropic convolutional layers (Chebyshev convolutions), spatial pooling and unpooling layers, and global pooling layers. Group equivariance is achieved via equivariant and invariant operators on graphs with anisotropic left-invariant Riemannian distance-based affinities encoded on the edges. Thanks to its simple form, the Riemannian metric can be used to model any anisotropy's intensities, both in the spatial and orientation domains. Hence we open the doors to a better understanding of anisotropic properties. We empirically prove the existence of (data-dependent) sweet spots for anisotropic parameters on CIFAR10. This crucial result is an evidence to the necessity of using tunable anisotropic kernels. We also evaluate the scalability of this approach on STL10 and ClimateNet, showing its great adaptability to diverse tasks and the benefit of using anisotropic kernels.
 
 [PyTorch]: https://pytorch.org
 
