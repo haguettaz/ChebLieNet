@@ -29,7 +29,7 @@ def rand_unpool(x, index):
 
 class SE2SpatialUnpool(nn.Module):
     """
-    A SE(2) spatial unpooling layer. Required the nodes to be ordered L, H, W.
+    A SE(2) spatial unpooling layer. Required the  to be ordered L, H, W.
     """
 
     def __init__(self, kernel_size, size, expansion):

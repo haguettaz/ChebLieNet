@@ -10,7 +10,7 @@ from .utils import add_self_loops, remove_self_loops
 def get_laplacian(
     edge_index,
     edge_weight,
-    num_nodes,
+    num_vertices,
     device=None,
 ):
     """
@@ -19,20 +19,20 @@ def get_laplacian(
     Args:
         edge_index (`torch.LongTensor`): edges' indices.
         edge_weight (`torch.FloatTensor`): edges' weights.
-        num_nodes (int): number of nodes.
+        num_vertices (int): number of vertices.
         device (`torch.device`, optional): computation device. Defaults to None.
 
     Returns:
         (`torch.sparse.FloatTensor`): symmetric normalized laplacian.
     """
 
-    node_degree = torch.zeros(num_nodes).scatter_add(0, edge_index[0], edge_weight)
+    node_degree = torch.zeros(num_vertices).scatter_add(0, edge_index[0], edge_weight)
 
     node_degree_norm = node_degree.pow(-0.5)
     edge_weight = -(edge_weight * node_degree_norm[edge_index[0]] * node_degree_norm[edge_index[1]])
 
     edge_index, edge_weight = add_self_loops(edge_index, edge_weight)
-    laplacian = torch.sparse.FloatTensor(edge_index, edge_weight, torch.Size((num_nodes, num_nodes)))
+    laplacian = torch.sparse.FloatTensor(edge_index, edge_weight, torch.Size((num_vertices, num_vertices)))
     laplacian = laplacian.to(device)
     return laplacian
 
@@ -40,7 +40,7 @@ def get_laplacian(
 def get_rescaled_laplacian(
     edge_index,
     edge_weight,
-    num_nodes,
+    num_vertices,
     lmax=2.0,
     device=None,
 ):
@@ -50,19 +50,19 @@ def get_rescaled_laplacian(
     Args:
         edge_index (`torch.LongTensor`): edges' indices.
         edge_weight (`torch.FloatTensor`): edges' weights.
-        num_nodes (int): number of nodes.
+        num_vertices (int): number of vertices.
         lmax (float): maximum eigenvalue. Defaults to 2.0.
         device (`torch.device`, optional): computation device. Defaults to None.
 
     Returns:
         (`torch.sparse.FloatTensor`): rescaled symmetric normalized laplacian.
     """
-    node_degree = torch.zeros(num_nodes).scatter_add(0, edge_index[0], edge_weight)
+    node_degree = torch.zeros(num_vertices).scatter_add(0, edge_index[0], edge_weight)
 
     node_degree_norm = node_degree.pow(-0.5)
     edge_weight = -2 / lmax * (edge_weight * node_degree_norm[edge_index[0]] * node_degree_norm[edge_index[1]])
 
-    laplacian = torch.sparse.FloatTensor(edge_index, edge_weight, torch.Size((num_nodes, num_nodes)))
+    laplacian = torch.sparse.FloatTensor(edge_index, edge_weight, torch.Size((num_vertices, num_vertices)))
     laplacian = laplacian.to(device)
     return laplacian
 

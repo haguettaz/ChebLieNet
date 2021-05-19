@@ -9,22 +9,8 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from ..geometry.se import (
-    r2_matrix,
-    r2_riemannian_sqdist,
-    r2_uniform_sampling,
-    se2_matrix,
-    se2_riemannian_sqdist,
-    se2_uniform_sampling,
-)
-from ..geometry.so import (
-    s2_matrix,
-    s2_riemannian_sqdist,
-    s2_uniform_sampling,
-    so3_matrix,
-    so3_riemannian_sqdist,
-    so3_uniform_sampling,
-)
+from ..geometry.se import r2_matrix, r2_riemannian_sqdist, r2_uniform_sampling, se2_matrix, se2_riemannian_sqdist, se2_uniform_sampling
+from ..geometry.so import s2_matrix, s2_riemannian_sqdist, s2_uniform_sampling, so3_matrix, so3_riemannian_sqdist, so3_uniform_sampling
 from ..geometry.utils import betagamma2xyz, xyz2betagamma
 from ..utils.utils import round
 from .gsp import get_fourier_basis, get_laplacian, get_rescaled_laplacian
@@ -46,9 +32,11 @@ class Graph:
         """
         if not hasattr(self, "laplacian"):
             if rescale:
-                self.laplacian = get_rescaled_laplacian(self.edge_index, self.edge_weight, self.num_nodes, 2.0, device)
+                self.laplacian = get_rescaled_laplacian(
+                    self.edge_index, self.edge_weight, self.num_vertices, 2.0, device
+                )
             else:
-                self.laplacian = get_laplacian(self.edge_index, self.edge_weight, self.num_nodes, device=device)
+                self.laplacian = get_laplacian(self.edge_index, self.edge_weight, self.num_vertices, device=device)
 
         return self.laplacian
 
@@ -82,14 +70,14 @@ class Graph:
         return Phi @ np.diag(kernel(lambdas)) @ Phi.T
 
     @property
-    def num_nodes(self):
+    def num_vertices(self):
         """
-        Return the total number of nodes of the graph.
+        Return the total number of vertices of the graph.
 
         Returns:
-            (int): number of nodes.
+            (int): number of vertices.
         """
-        return self.node_index.shape[0]
+        return self.vertex_index.shape[0]
 
     @property
     def num_edges(self):
@@ -101,22 +89,22 @@ class Graph:
         """
         return self.edge_index.shape[1]
 
-    def neighborhood(self, node_index):
+    def neighborhood(self, vertex_index):
         """
-        Returns the node's neighborhood.
+        Returns the vertex's neighborhood.
 
         Args:
-            node_index (int): node index.
+            vertex_index (int): vertex index.
 
         Returns:
             (`torch.LongTensor`): neighbors' indices.
-            (`torch.FloatTensor`): weights of edges from node to neighbors.
-            (`torch.FloatTensor`): squared riemannian distance from node to neighbors.
+            (`torch.FloatTensor`): weights of edges from vertex to neighbors.
+            (`torch.FloatTensor`): squared riemannian distance from vertex to neighbors.
         """
-        if not node_index in self.node_index:
-            raise ValueError(f"{node_index} is not a valid index")
+        if not vertex_index in self.vertex_index:
+            raise ValueError(f"{vertex_index} is not a valid vertex index")
 
-        mask = self.edge_index[0] == node_index
+        mask = self.edge_index[0] == vertex_index
         return self.edge_index[1, mask], self.edge_weight[mask], self.edge_sqdist[mask]
 
     @property
@@ -125,7 +113,7 @@ class Graph:
         Returns:
             (bool): True if the graph is connected, i.e. it does not contain isolated vertex.
         """
-        return torch.allclose(self.edge_index.unique(), self.node_index.unique())
+        return torch.allclose(self.edge_index.unique(), self.vertex_index.unique())
 
     @property
     def is_undirected(self):
@@ -133,10 +121,10 @@ class Graph:
         Returns:
             (bool): True if the graph is undirected.
         """
-        edge_out, _ = self.edge_index[0].sort()
-        edge_in, _ = self.edge_index[1].sort()
-
-        return torch.allclose(edge_out, edge_in)
+        matrix = torch.sparse.FloatTensor(
+            self.edge_index, self.edge_weight, torch.Size((self.num_vertices, self.num_vertices))
+        )
+        return ((matrix - matrix.t()).coalesce().values().abs().sum() < 1e-6).item()
 
     def save(self, path_to_graph):
         """
@@ -145,28 +133,28 @@ class Graph:
 
         os.makedirs(path_to_graph, exist_ok=True)
 
-        torch.save(self.node_index, os.path.join(path_to_graph, f"{self.hash_repr()}_node_index.pt"))
+        torch.save(self.vertex_index, os.path.join(path_to_graph, f"{self.hash_repr()}_vertex_index.pt"))
 
         torch.save(self.edge_index, os.path.join(path_to_graph, f"{self.hash_repr()}_edge_index.pt"))
         torch.save(self.edge_sqdist, os.path.join(path_to_graph, f"{self.hash_repr()}_edge_sqdist.pt"))
         torch.save(self.edge_weight, os.path.join(path_to_graph, f"{self.hash_repr()}_edge_weight.pt"))
 
-        for node_attr in self.node_attributes:
-            torch.save(getattr(self, node_attr), os.path.join(path_to_graph, f"{self.hash_repr()}_{node_attr}.pt"))
+        for vertex_attr in self.vertex_attributes:
+            torch.save(getattr(self, vertex_attr), os.path.join(path_to_graph, f"{self.hash_repr()}_{vertex_attr}.pt"))
 
     def load(self, path_to_graph):
         """
         Load graph's attributes.
         """
 
-        self.node_index = torch.load(os.path.join(path_to_graph, f"{self.hash_repr()}_node_index.pt"))
+        self.vertex_index = torch.load(os.path.join(path_to_graph, f"{self.hash_repr()}_vertex_index.pt"))
 
         self.edge_index = torch.load(os.path.join(path_to_graph, f"{self.hash_repr()}_edge_index.pt"))
         self.edge_sqdist = torch.load(os.path.join(path_to_graph, f"{self.hash_repr()}_edge_sqdist.pt"))
         self.edge_weight = torch.load(os.path.join(path_to_graph, f"{self.hash_repr()}_edge_weight.pt"))
 
-        for node_attr in self.node_attributes:
-            setattr(self, node_attr, torch.load(os.path.join(path_to_graph, f"{self.hash_repr()}_{node_attr}.pt")))
+        for vertex_attr in self.vertex_attributes:
+            setattr(self, vertex_attr, torch.load(os.path.join(path_to_graph, f"{self.hash_repr()}_{vertex_attr}.pt")))
 
     def hash_repr(self):
         return hashlib.sha256(self.str_repr.encode("utf-8")).hexdigest()
@@ -177,7 +165,7 @@ class Graph:
             (bool): True if the graph exists in the graphs' directory.
         """
 
-        if not os.path.exists(os.path.join(path_to_graph, f"{self.hash_repr()}_node_index.pt")):
+        if not os.path.exists(os.path.join(path_to_graph, f"{self.hash_repr()}_vertex_index.pt")):
             return False
 
         if not os.path.exists(os.path.join(path_to_graph, f"{self.hash_repr()}_edge_index.pt")):
@@ -189,8 +177,8 @@ class Graph:
         if not os.path.exists(os.path.join(path_to_graph, f"{self.hash_repr()}_edge_sqdist.pt")):
             return False
 
-        for node_attr in self.node_attributes:
-            if not os.path.exists(os.path.join(path_to_graph, f"{self.hash_repr()}_{node_attr}.pt")):
+        for vertex_attr in self.vertex_attributes:
+            if not os.path.exists(os.path.join(path_to_graph, f"{self.hash_repr()}_{vertex_attr}.pt")):
                 return False
 
         return True
@@ -206,10 +194,10 @@ class RandomSubGraph(Graph):
         self.graph = graph
         self.manifold = self.graph.manifold
 
-        self.node_index = self.graph.node_index.clone()
-        self.sub_node_index = self.node_index.clone()
+        self.vertex_index = self.graph.vertex_index.clone()
+        self.sub_vertex_index = self.vertex_index.clone()
 
-        for attr in self.graph.node_attributes:
+        for attr in self.graph.vertex_attributes:
             setattr(self, attr, getattr(graph, attr))
 
         self.edge_index = self.graph.edge_index.clone()
@@ -218,16 +206,16 @@ class RandomSubGraph(Graph):
 
     def reinit(self):
         """
-        Reinitialize random sub-graph nodes and edges' attributes.
+        Reinitialize random sub-graph vertices and edges' attributes.
         """
         print("Reinit graph...")
         if hasattr(self, "laplacian"):
             del self.laplacian
 
-        self.node_index = self.graph.node_index.clone()
-        self.sub_node_index = self.node_index.clone()
+        self.vertex_index = self.graph.vertex_index.clone()
+        self.sub_vertex_index = self.vertex_index.clone()
 
-        for attr in self.graph.node_attributes:
+        for attr in self.graph.vertex_attributes:
             setattr(self, attr, getattr(self.graph, attr))
 
         self.edge_index = self.graph.edge_index.clone()
@@ -235,8 +223,7 @@ class RandomSubGraph(Graph):
         self.edge_sqdist = self.graph.edge_sqdist.clone()
         print("Done!")
 
-    # TODO: improve algorithm because it is too slow for now
-    def edge_sampling(self, rate):
+    def edges_sampling(self, rate):
         """
         Randomly samples a given rate of edges from the original graph to generate a random sub-graph.
         The graph is assumed to be undirected and the probability for an edge to be sampled is proportional
@@ -263,33 +250,33 @@ class RandomSubGraph(Graph):
         self.edge_sqdist = sampled_edge_sqdist.repeat(2)
         print("Done!")
 
-    def node_sampling(self, rate):
+    def vertices_sampling(self, rate):
         """
-        Randomly samples a given rate of nodes from the original graph to generate a random sub-graph.
-        All the nodes have the same probability being sampled. After having sampled the vertices, only the
-        edges between sampled nodes are conserved.
+        Randomly samples a given rate of vertices from the original graph to generate a random subgraph.
+        All the vertices have the same probability being sampled and at the end of the algorithm, it only remains
+        edges between sampled vertices.
 
-        Warning: nodes' sampling is not compatible with pooling and unpooling operations.
+        Warning: vertices' sampling is not compatible with pooling and unpooling operations for now!!!
 
         Args:
-            rate (float): rate of nodes to sample.
+            rate (float): rate of vertices to sample.
         """
-        print("Sample nodes...")
-        # samples N nodes from the original graph
-        num_samples = math.floor(rate * self.graph.num_nodes)
-        sampled_nodes, _ = torch.multinomial(torch.ones(self.graph.num_nodes), num_samples).sort()
+        print("Sample vertices...")
+        # samples N vertices from the original graph
+        num_samples = math.floor(rate * self.graph.num_vertices)
+        sampled_vertices, _ = torch.multinomial(torch.ones(self.graph.num_vertices), num_samples).sort()
 
-        self.node_index = torch.arange(num_samples)
+        self.vertex_index = torch.arange(num_samples)
 
-        self.sub_node_index = sampled_nodes.clone()
+        self.sub_vertex_index = sampled_vertices.clone()
 
-        for attr in self.graph.node_attributes:
-            setattr(self, attr, getattr(self.graph, attr)[sampled_nodes])
+        for attr in self.graph.vertex_attributes:
+            setattr(self, attr, getattr(self.graph, attr)[sampled_vertices])
 
-        # selects edges between sampled nodes and resets the edge indices with the current node mapping
-        node_mapping = torch.empty(self.graph.num_nodes, dtype=torch.long).fill_(-1)
-        node_mapping[self.graph.node_index[sampled_nodes]] = self.node_index
-        edge_index = node_mapping[self.graph.edge_index]
+        # selects edges between sampled vertices and resets the edge indices with the current vertex mapping
+        vertex_mapping = torch.empty(self.graph.num_vertices, dtype=torch.long).fill_(-1)
+        vertex_mapping[self.graph.vertex_index[sampled_vertices]] = self.vertex_index
+        edge_index = vertex_mapping[self.graph.edge_index]
         mask = (edge_index[0] >= 0) & (edge_index[1] >= 0)
         self.edge_index = edge_index[:, mask]
         self.edge_weight = self.graph.edge_weight[mask]
@@ -298,7 +285,7 @@ class RandomSubGraph(Graph):
 
     def cartesian_pos(self, axis=None):
         """
-        Returns the cartesian position of the graph's nodes.
+        Returns the cartesian position of the graph's vertices.
 
         Args:
             axis (str, optional): cartesian axis. If None, return all axis. Defaults to None.
@@ -311,22 +298,22 @@ class RandomSubGraph(Graph):
         x, y, z = self.graph.cartesian_pos()
 
         if axis == "x":
-            return x[self.sub_node_index]
+            return x[self.sub_vertex_index]
         if axis == "y":
-            return y[self.sub_node_index]
+            return y[self.sub_vertex_index]
         if axis == "z":
-            return z[self.sub_node_index]
-        return x[self.sub_node_index], y[self.sub_node_index], z[self.sub_node_index]
+            return z[self.sub_vertex_index]
+        return x[self.sub_vertex_index], y[self.sub_vertex_index], z[self.sub_vertex_index]
 
     @property
-    def node_attributes(self):
+    def vertex_attributes(self):
         """
-        Returns the graph's nodes attributes.
+        Returns the graph's vertices attributes.
 
         Returns:
-            (tuple): tuple of nodes' attributes
+            (tuple): tuple of vertices' attributes
         """
-        return self.graph.node_attributes
+        return self.graph.vertex_attributes
 
 
 class GEGraph(Graph):
@@ -355,7 +342,7 @@ class GEGraph(Graph):
 
         else:
             print("Graph does not already exist: INITIALIZATION...")
-            self._initnodes(size)
+            self._initvertices(size)
             self._initedges(sigmas, K)
             print("Done!")
             self.save(path_to_graph)
@@ -380,7 +367,7 @@ class GEGraph(Graph):
         elif kernel == "rectangular":
             self.kernel = lambda sq_dist, w: torch.heaviside(sq_dist / w, torch.zeros(1))
 
-    def _initnodes(self, size):
+    def _initvertices(self, size):
         """
         Args:
             uniform_sampling (tuple of `torch.Tensor`): tuple of uniform sampling on the group manifold, one element
@@ -388,10 +375,10 @@ class GEGraph(Graph):
         """
 
         samples = self.uniform_sampling(size)
-        self.node_index = torch.arange(len(samples[0]))
+        self.vertex_index = torch.arange(len(samples[0]))
 
         for dim, dim_samples in zip(self.group_dim, samples):
-            setattr(self, f"node_{dim}", dim_samples)
+            setattr(self, f"vertex_{dim}", dim_samples)
 
     def _initedges(self, sigmas, K):
         """
@@ -400,12 +387,12 @@ class GEGraph(Graph):
             K (int): number of neighbors per vertex.
         """
         Gg = self.general_linear_group_element
-        edge_sqdist = torch.empty(self.num_nodes * (K + 1))
-        edge_index = torch.empty((2, self.num_nodes * (K + 1)), dtype=torch.long)
+        edge_sqdist = torch.empty(self.num_vertices * (K + 1))
+        edge_index = torch.empty((2, self.num_vertices * (K + 1)), dtype=torch.long)
         Re = torch.diag(torch.tensor(sigmas))
 
         # compute all pairwise distances of the graph. WARNING: can possibly take a lot of time!!
-        for idx in tqdm(self.node_index, file=sys.stdout):
+        for idx in tqdm(self.vertex_index, file=sys.stdout):
             sqdist = round(self.riemannian_sqdist(Gg[idx], Gg, Re), 6)
             values, indices = torch.topk(sqdist, largest=False, k=K + 1, sorted=False)
             edge_sqdist[idx * (K + 1) : (idx + 1) * (K + 1)] = values
@@ -414,10 +401,10 @@ class GEGraph(Graph):
 
         # make the graph undirected and avoid asymetries at the boundaries using a maximum squared distance
         # between connected vertices
-        mask = edge_index[0] == self.centroid_node
+        mask = edge_index[0] == self.centroid_vertex
         max_sqdist = edge_sqdist[mask].max()
         self.edge_index, self.edge_sqdist = to_undirected(
-            edge_index, edge_sqdist, None, self.num_nodes, max_sqdist, self_loop=False
+            edge_index, edge_sqdist, None, self.num_vertices, max_sqdist, self_loop=False
         )
 
         # the kernel width is proportional to the mean squared distance between connected vertices
@@ -454,7 +441,7 @@ class SE2GEGraph(GEGraph):
         return se2_uniform_sampling(*size)
 
     @property
-    def centroid_node(self):
+    def centroid_vertex(self):
         return self.size[0] // 2 + self.size[1] // 2 * self.size[0]
 
     def riemannian_sqdist(self, Gg, Gh, Re):
@@ -480,7 +467,7 @@ class SE2GEGraph(GEGraph):
         Returns:
             (`torch.FloatTensor`): SE(2) group's elements.
         """
-        return self.node_x, self.node_y, self.node_theta
+        return self.vertex_x, self.vertex_y, self.vertex_theta
 
     @property
     def general_linear_group_element(self):
@@ -490,7 +477,7 @@ class SE2GEGraph(GEGraph):
         Returns:
             (`torch.FloatTensor`): GL(3) group's elements.
         """
-        return se2_matrix(self.node_x, self.node_y, self.node_theta)
+        return se2_matrix(self.vertex_x, self.vertex_y, self.vertex_theta)
 
     @property
     def group_dim(self):
@@ -519,23 +506,23 @@ class SE2GEGraph(GEGraph):
             (`torch.FloatTensor`, optional): z positions.
         """
         if axis is None:
-            return self.node_x, self.node_y, self.node_theta
+            return self.vertex_x, self.vertex_y, self.vertex_theta
         if axis == "x":
-            return self.node_x
+            return self.vertex_x
         if axis == "y":
-            return self.node_y
+            return self.vertex_y
         if axis == "z":
-            return self.node_theta
+            return self.vertex_theta
 
     @property
-    def node_attributes(self):
+    def vertex_attributes(self):
         """
-        Returns the graph's nodes attributes.
+        Returns the graph's vertices attributes.
 
         Returns:
-            (tuple): tuple of nodes' attributes
+            (tuple): tuple of vertices' attributes
         """
-        return ("node_x", "node_y", "node_theta")
+        return ("vertex_x", "vertex_y", "vertex_theta")
 
 
 class R2GEGraph(GEGraph):
@@ -566,7 +553,7 @@ class R2GEGraph(GEGraph):
         return r2_uniform_sampling(size[0], size[1])
 
     @property
-    def centroid_node(self):
+    def centroid_vertex(self):
         return self.size[0] // 2 + self.size[1] // 2 * self.size[0]
 
     def riemannian_sqdist(self, Gg, Gh, Re):
@@ -592,7 +579,7 @@ class R2GEGraph(GEGraph):
         Returns:
             (`torch.FloatTensor`): SE(2) group's elements.
         """
-        return self.node_x, self.node_y
+        return self.vertex_x, self.vertex_y
 
     @property
     def general_linear_group_element(self):
@@ -602,7 +589,7 @@ class R2GEGraph(GEGraph):
         Returns:
             (`torch.FloatTensor`): GL(3) group's elements.
         """
-        return r2_matrix(self.node_x, self.node_y)
+        return r2_matrix(self.vertex_x, self.vertex_y)
 
     @property
     def group_dim(self):
@@ -631,23 +618,23 @@ class R2GEGraph(GEGraph):
             (`torch.FloatTensor`, optional): z positions.
         """
         if axis is None:
-            return self.node_x, self.node_y, torch.zeros(self.num_nodes)
+            return self.vertex_x, self.vertex_y, torch.zeros(self.num_vertices)
         if axis == "x":
-            return self.node_x
+            return self.vertex_x
         if axis == "y":
-            return self.node_y
+            return self.vertex_y
         if axis == "z":
-            return torch.zeros(self.num_nodes)
+            return torch.zeros(self.num_vertices)
 
     @property
-    def node_attributes(self):
+    def vertex_attributes(self):
         """
-        Returns the graph's nodes attributes.
+        Returns the graph's vertices attributes.
 
         Returns:
-            (tuple): tuple of nodes' attributes
+            (tuple): tuple of vertices' attributes
         """
-        return ("node_x", "node_y")
+        return ("vertex_x", "vertex_y")
 
 
 class SO3GEGraph(GEGraph):
@@ -679,7 +666,7 @@ class SO3GEGraph(GEGraph):
         return so3_uniform_sampling(*size)
 
     @property
-    def centroid_node(self):
+    def centroid_vertex(self):
         return 0
 
     def riemannian_sqdist(self, Gg, Gh, Re):
@@ -705,7 +692,7 @@ class SO3GEGraph(GEGraph):
         Returns:
             (`torch.FloatTensor`): SO(3) group's elements.
         """
-        return self.node_alpha, self.node_beta, self.node_gamma
+        return self.vertex_alpha, self.vertex_beta, self.vertex_gamma
 
     @property
     def general_linear_group_element(self):
@@ -715,7 +702,7 @@ class SO3GEGraph(GEGraph):
         Returns:
             (`torch.FloatTensor`): GL(3) group's elements.
         """
-        return so3_matrix(self.node_alpha, self.node_beta, self.node_gamma)
+        return so3_matrix(self.vertex_alpha, self.vertex_beta, self.vertex_gamma)
 
     @property
     def group_dim(self):
@@ -745,24 +732,24 @@ class SO3GEGraph(GEGraph):
         """
 
         if not axis is None:
-            return (2 * math.pi + self.node_alpha) * betagamma2xyz(self.node_beta, self.node_gamma, axis)
+            return (2 * math.pi + self.vertex_alpha) * betagamma2xyz(self.vertex_beta, self.vertex_gamma, axis)
 
-        x, y, z = betagamma2xyz(self.node_beta, self.node_gamma, axis)
-        x *= 2 * math.pi + self.node_alpha
-        y *= 2 * math.pi + self.node_alpha
-        z *= 2 * math.pi + self.node_alpha
+        x, y, z = betagamma2xyz(self.vertex_beta, self.vertex_gamma, axis)
+        x *= 2 * math.pi + self.vertex_alpha
+        y *= 2 * math.pi + self.vertex_alpha
+        z *= 2 * math.pi + self.vertex_alpha
 
         return x, y, z
 
     @property
-    def node_attributes(self):
+    def vertex_attributes(self):
         """
-        Returns the graph's nodes attributes.
+        Returns the graph's vertices attributes.
 
         Returns:
-            (tuple): tuple of nodes' attributes
+            (tuple): tuple of vertices' attributes
         """
-        return ("node_alpha", "node_beta", "node_gamma")
+        return ("vertex_alpha", "vertex_beta", "vertex_gamma")
 
 
 class S2GEGraph(GEGraph):
@@ -794,7 +781,7 @@ class S2GEGraph(GEGraph):
         return s2_uniform_sampling(size[0])
 
     @property
-    def centroid_node(self):
+    def centroid_vertex(self):
         return 0
 
     def riemannian_sqdist(self, Gg, Gh, Re):
@@ -820,7 +807,7 @@ class S2GEGraph(GEGraph):
         Returns:
             (`torch.FloatTensor`): SO(3) group's elements.
         """
-        return self.node_beta, self.node_gamma
+        return self.vertex_beta, self.vertex_gamma
 
     @property
     def general_linear_group_element(self):
@@ -830,7 +817,7 @@ class S2GEGraph(GEGraph):
         Returns:
             (`torch.FloatTensor`): GL(3) group's elements.
         """
-        return s2_matrix(self.node_beta, self.node_gamma)
+        return s2_matrix(self.vertex_beta, self.vertex_gamma)
 
     @property
     def group_dim(self):
@@ -858,14 +845,14 @@ class S2GEGraph(GEGraph):
             (`torch.FloatTensor`, optional): y positions.
             (`torch.FloatTensor`, optional): z positions.
         """
-        return betagamma2xyz(self.node_beta, self.node_gamma, axis)
+        return betagamma2xyz(self.vertex_beta, self.vertex_gamma, axis)
 
     @property
-    def node_attributes(self):
+    def vertex_attributes(self):
         """
-        Returns the graph's nodes attributes.
+        Returns the graph's vertices attributes.
 
         Returns:
-            (tuple): tuple of nodes' attributes
+            (tuple): tuple of vertices' attributes
         """
-        return ("node_beta", "node_gamma")
+        return ("vertex_beta", "vertex_gamma")

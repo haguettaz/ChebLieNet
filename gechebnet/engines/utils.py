@@ -23,8 +23,8 @@ def prepare_batch(batch, graph, device):
     """
     image, target = batch
 
-    if hasattr(graph, "sub_node_index"):
-        return image[..., graph.sub_node_index].to(device), target.to(device)
+    if hasattr(graph, "sub_vertex_indices"):
+        return image[..., graph.sub_vertex_indices].to(device), target.to(device)
 
     return image.to(device), target.to(device)
 
@@ -115,32 +115,3 @@ def wandb_log(trainer, evaluator, data_loader):
     metrics = evaluator.state.metrics
     for k in metrics:
         wandb.log({k: metrics[k], "epoch": trainer.state.epoch})
-
-
-def sample_edges(trainer, graph, rate):
-    """
-    Perform a random edges' sampling of the given graph.
-    For details, we refer to `gechebnet.graphs.graphs.RandomSubGraph.edge_sampling`
-
-    Args:
-        trainer (`Engine`): trainer ignite's engine.
-        graph (`Graph`): graph.
-        rate (float): rate of edges to randomly sample.
-    """
-
-    graph.reinit()
-    graph.edge_sampling(rate)
-
-
-def sample_nodes(trainer, graph, rate):
-    """
-    Perform a random nodes' sampling of the given graph.
-    For details, we refer to `gechebnet.graphs.graphs.RandomSubGraph.node_sampling`
-
-    Args:
-        trainer (`Engine`): trainer ignite's engine.
-        graph (`Graph`): graph.
-        rate (float): rate of nodes to randomly sample.
-    """
-    graph.reinit()
-    graph.node_sampling(rate)

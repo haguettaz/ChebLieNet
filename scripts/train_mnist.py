@@ -12,7 +12,7 @@ from torch.optim import Adam
 import wandb
 from gechebnet.datas.dataloaders import get_equiv_test_loaders, get_train_val_loaders
 from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
-from gechebnet.engines.utils import prepare_batch, sample_edges, sample_nodes, wandb_log
+from gechebnet.engines.utils import prepare_batch, sample_edges, sample_, wandb_log
 from gechebnet.graphs.graphs import R2GEGraph, RandomSubGraph, SE2GEGraph
 from gechebnet.nn.models.chebnets import WideResSE2GEChebNet
 from gechebnet.nn.models.utils import capacity
@@ -91,7 +91,7 @@ def train(config=None):
                 path_to_graph=args.path_to_graph,
             )
 
-        # we use random sub graphs to evaluate the effect of edges and nodes' sampling
+        # we use random sub graphs to evaluate the effect of edges and ' sampling
         sub_graph = RandomSubGraph(graph)
 
         # Loads group equivariant Chebnet
@@ -163,29 +163,29 @@ def train(config=None):
         )
         ProgressBar(persist=False, desc="Evaluation").attach(flipped_evaluator)
 
-        if args.sample_edges or args.sample_nodes:
+        if args.sample_edges or args.sample_vertices:
             trainer.add_event_handler(
                 Events.ITERATION_STARTED,
                 sub_graph.reinit,
             )
 
-            # consider all nodes and edges for the evaluation
+            # consider all  and edges for the evaluation
             trainer.add_event_handler(
                 Events.EPOCH_COMPLETED,
                 sub_graph.reinit,
             )
 
-            if args.sample_nodes:
+            if args.sample_:
                 trainer.add_event_handler(
                     Events.ITERATION_STARTED,
-                    sub_graph.node_sampling,
-                    args.nodes_rate,
+                    sub_graph.vertices_sampling,
+                    args._rate,
                 )
 
             if args.sample_edges:
                 trainer.add_event_handler(
                     Events.ITERATION_STARTED,
-                    sub_graph.edge_sampling,
+                    sub_graph.edges_sampling,
                     args.edges_rate,
                 )
 
@@ -217,8 +217,8 @@ if __name__ == "__main__":
     parser.add_argument("--widen_factor", type=int, default=2)
     parser.add_argument("--sample_edges", action="store_true", default=False)
     parser.add_argument("--edges_rate", type=float, default=1.0)  # rate of edges to sample
-    parser.add_argument("--sample_nodes", action="store_true", default=False)
-    parser.add_argument("--nodes_rate", type=float, default=1.0)  # rate of nodes to sample
+    parser.add_argument("--sample_", action="store_true", default=False)
+    parser.add_argument("--_rate", type=float, default=1.0)  # rate of  to sample
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--cuda", action="store_true", default=False)
     parser.add_argument("--save_models", action="store_true", default=False)

@@ -35,7 +35,7 @@ def rand_pool(x, index=None):
 
 class SE2SpatialPool(nn.Module):
     """
-    A SE(2) spatial pooling layer. Required the nodes to be ordered L, H, W.
+    A SE(2) spatial pooling layer. Required the  to be ordered L, H, W.
     """
 
     def __init__(self, kernel_size, size, reduction):
@@ -99,7 +99,7 @@ class SE2SpatialPool(nn.Module):
 
 class SE2OrientationPool(nn.Module):
     """
-    A SE(2) oritenation pooling layer. Required the nodes to be ordered L, H, W.
+    A SE(2) oritenation pooling layer. Required the  to be ordered L, H, W.
     """
 
     def __init__(self, kernel_size, size, reduction):
@@ -274,7 +274,7 @@ class GlobalPool(nn.Module):
     def __init__(self, reduction):
         """
         Args:
-            reduction (int): size of the graph, that is its number of nodes.
+            reduction (int): size of the graph, that is its number of .
         """
 
         super(GlobalPool, self).__init__()

@@ -3,14 +3,14 @@
 import torch
 
 
-def to_undirected(edge_index, edge_sqdist, edge_weight=None, num_nodes=None, max_sqdist=None, self_loop=False):
+def to_undirected(edge_index, edge_sqdist, edge_weight=None, num_vertices=None, max_sqdist=None, self_loop=False):
     """
     Make the graph undirected, that is create an inverse edge for each edge.
 
     Args:
         edge_index (`torch.LongTensor`): indices of vertices connected by the edges of the graph.
         edge_sqdist (`torch.FloatTensor`): squared distances encoded on the edges of the graph.
-        num_nodes (int): number of vertices of the graph.
+        num_vertices (int): number of vertices of the graph.
         max_sqdist (float): maximum squared distance between two connected vertices.
         self_loop (bool): indicator wether the graph contains self loop.
 
@@ -18,9 +18,9 @@ def to_undirected(edge_index, edge_sqdist, edge_weight=None, num_nodes=None, max
         (`torch.LongTensor`): indices of graph's edges.
         (`torch.FloatTensor`): attributes of graph's edges.
     """
-    num_nodes = num_nodes or edge_index.max() + 1
+    num_vertices = num_vertices or edge_index.max() + 1
 
-    sqdist_matrix = torch.sparse.FloatTensor(edge_index, edge_sqdist, torch.Size((num_nodes, num_nodes))).to_dense()
+    sqdist_matrix = torch.sparse.FloatTensor(edge_index, edge_sqdist, torch.Size((num_vertices, num_vertices))).to_dense()
 
     mask = sqdist_matrix.t() == sqdist_matrix
     if max_sqdist is not None:
@@ -31,7 +31,7 @@ def to_undirected(edge_index, edge_sqdist, edge_weight=None, num_nodes=None, max
     undirected_sqdist_matrix = undirected_sqdist_matrix.to_sparse()
 
     if edge_weight is not None:
-        weight_matrix = torch.sparse.FloatTensor(edge_index, edge_weight, torch.Size((num_nodes, num_nodes))).to_dense()
+        weight_matrix = torch.sparse.FloatTensor(edge_index, edge_weight, torch.Size((num_vertices, num_vertices))).to_dense()
         undirected_weight_matrix = torch.zeros_like(weight_matrix)
         undirected_weight_matrix[mask] = weight_matrix[mask]
         undirected_weight_matrix = undirected_weight_matrix.to_sparse()
