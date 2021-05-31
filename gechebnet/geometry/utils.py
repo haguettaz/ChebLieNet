@@ -4,6 +4,17 @@ import torch
 
 
 def rotation_matrix(angle, axis, device=None):
+    """
+    Return a new tensor filled with rotation matrices.
+
+    Args:
+        angle (`torch.FloatTensor`): rotation angles.
+        axis (str): rotation axis, e.g. 'x' or 'y' or 'z'.
+        device (`torche.device`, optional): computation device. Defaults to None.
+
+    Returns:
+        (`torch.FloatTensor`): rotation matrices.
+    """
     R = torch.zeros(angle.nelement(), 3, 3, device=device)
     cos = torch.cos(angle)
     sin = torch.sin(angle)
@@ -50,20 +61,6 @@ def xyz2betagamma(x, y, z):
     beta = torch.acos(z)
     gamma = torch.atan2(y, x)
     return beta, gamma
-
-    # beta = torch.stack(
-    #     (
-    #         torch.atan2(-z, -torch.sqrt(x.pow(2) + y.pow(2))),
-    #         torch.atan2(-z, torch.sqrt(x.pow(2) + y.pow(2))),
-    #     ),
-    #     dim=-1,
-    # )
-
-    # gamma = torch.stack((torch.atan2(-y, -x), torch.atan2(y, x)), dim=-1)
-
-    # mask = (beta >= -math.pi) & (beta < math.pi) & (gamma >= -math.pi / 2) & (gamma < math.pi / 2)
-
-    # return beta[mask], gamma[mask]
 
 
 def betagamma2xyz(beta, gamma, axis=None):

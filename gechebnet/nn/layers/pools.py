@@ -97,61 +97,6 @@ class SE2SpatialPool(nn.Module):
         return self.reduction(x, self.index)
 
 
-class SE2OrientationPool(nn.Module):
-    """
-    A SE(2) oritenation pooling layer. Required the  to be ordered L, H, W.
-    """
-
-    def __init__(self, kernel_size, size, reduction):
-        """
-        Args:
-            kernel_size (int): pooling reduction size.
-            size (sequence of ints): size in format (nx, ny, ntheta)
-            reduction (str): reduction operation.
-        """
-        super(SE2OrientationPool, self).__init__()
-
-        if reduction not in {"max", "avg", "rand"}:
-            raise ValueError(f"{reduction} is not a valid value for reduction, must be 'max' 'avg' or 'rand'.")
-
-        self.index = self.get_reduction_index(size, kernel_size)
-
-        if reduction == "rand":
-            self.reduction = rand_pool
-        elif reduction == "max":
-            self.reduction = max_pool
-        else:
-            self.reduction = avg_pool
-
-        self.shortcut = kernel_size == 1
-
-    def get_reduction_index(self, size, kernel_size):
-
-        nx, ny, ntheta = size
-        F = nx * ny
-
-        if not kernel_size in {1, ntheta}:
-            raise NotImplementedError
-
-        if kernel_size == 1:
-            return torch.arange(F * ntheta)
-
-        return torch.arange(F)[:, None] + (torch.arange(ntheta) * F)[None, :]
-
-    def forward(self, x):
-        """
-        Args:
-            x (`torch.Tensor`): input tensor.
-
-        Returns:
-            (`torch.Tensor`): pooled tensor.
-        """
-        if self.shortcut:
-            return x
-
-        return self.reduction(x, self.index)
-
-
 class SO3SpatialPool(nn.Module):
     """
     An hyper-icosahedral pooling layer - well-suited for SO(3) group.
@@ -195,62 +140,6 @@ class SO3SpatialPool(nn.Module):
         indices = torch.load(io.BytesIO(pkl_data))[None, :, :] + (torch.arange(nalpha) * ns)[:, None, None]
 
         return indices.reshape(-1, 7)
-
-    def forward(self, x):
-        """
-        Args:
-            x (`torch.Tensor`): input tensor.
-
-        Returns:
-            (`torch.Tensor`): pooled tensor.
-        """
-        if self.shortcut:
-            return x
-
-        return self.reduction(x, self.index)
-
-
-class SO3OrientationPool(nn.Module):
-    """
-    An hyper-icosahedral pooling layer - well-suited for SO(3) group.
-    Pooling is based on the assumption the vertices are sorted the same way as Max Jiang.
-    See: https://github.com/maxjiang93/ugscnn/blob/master/meshcnn/mesh.py
-    """
-
-    def __init__(self, kernel_size, size, reduction):
-        """
-        Args:
-            kernel_size (int): pooling reduction size.
-            size (sequence of ints): dimensions of the hyper-icosahedre in format (L, F).
-        """
-
-        super(SO3OrientationPool, self).__init__()
-
-        if reduction not in {"max", "avg", "rand"}:
-            raise ValueError(f"{reduction} is not a valid value for reduction, must be 'max' 'avg' or 'rand'.")
-
-        self.index = self.get_reduction_index(size, kernel_size)
-
-        if reduction == "rand":
-            self.reduction = rand_pool
-        elif reduction == "max":
-            self.reduction = max_pool
-        else:
-            self.reduction = avg_pool
-
-        self.shortcut = kernel_size == 1
-
-    def get_reduction_index(self, size, kernel_size):
-
-        ns, nalpha = size
-
-        if not kernel_size in {1, nalpha}:
-            raise NotImplementedError
-
-        if kernel_size == 1:
-            return torch.arange(ns * nalpha)
-
-        return torch.arange(ns)[:, None] + (torch.arange(nalpha) * ns)[None, :]
 
     def forward(self, x):
         """

@@ -75,9 +75,9 @@ def get_fourier_basis(laplacian):
         laplacian (`torch.sparse.FloatTensor`): graph's laplacian.
 
     Returns:
-        (`np.ndarray`): eigenvalues of the graph's laplacian.
-        (`np.ndarray`): eigenvectors of the graph's laplacian
+        (`torch.FloatTensor`): eigenvalues of the graph's laplacian.
+        (`torch.FloatTensor`): eigenvectors of the graph's laplacian
     """
     lambdas, Phi = eigh(sparse_tensor_to_sparse_array(laplacian).toarray(), driver="ev")
 
-    return lambdas, Phi
+    return torch.from_numpy(lambdas), torch.from_numpy(Phi)

@@ -61,12 +61,12 @@ class Graph:
         Return the diffusion kernel of the graph specified by the kernel input.
 
         Args:
-            tau (float): time constant.
+            kernel (callable): diffusion kernel.
 
         Returns:
             (`np.ndarray`): diffusion kernel.
         """
-        lambdas, Phi = self.eigen_space
+        lambdas, Phi = self.get_eigen_space()
         return Phi @ np.diag(kernel(lambdas)) @ Phi.T
 
     @property
@@ -442,7 +442,7 @@ class SE2GEGraph(GEGraph):
 
     @property
     def centroid_vertex(self):
-        return self.size[0] // 2 + self.size[1] // 2 * self.size[0]
+        return self.size[0] // 2 + self.size[1] // 2 * self.size[0] + self.size[2] // 2 * self.size[0] * self.size[1]
 
     def riemannian_sqdist(self, Gg, Gh, Re):
         """

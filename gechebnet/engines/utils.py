@@ -46,28 +46,6 @@ def output_transform_mAP(batch):
     return y_pred_one_hot, y_one_hot
 
 
-# def output_transform_accuracy(batch, cl):
-#     """
-#     Output transforms for pixelwise accuracy per class
-#     """
-#     y_pred, y = batch
-
-#     B, C, V = y_pred.shape
-
-#     y_pred = y_pred.permute(0, 2, 1).reshape(B * V, C)
-#     y = y.reshape(B * V)
-
-#     mask = y_pred.argmax(dim=1) == cl
-#     y_pred_vec = torch.zeros(B * V)
-#     y_pred_vec[mask] = 1.0
-
-#     mask = y == cl
-#     y_vec = torch.zeros(B * V)
-#     y_vec[mask] = 1.0
-
-#     return y_pred_vec, y_vec
-
-
 class PerClassAccuracy(Metric):
     def __init__(self, cl, output_transform=lambda x: x, device="cpu"):
         self.cl = cl

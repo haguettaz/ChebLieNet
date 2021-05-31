@@ -45,7 +45,7 @@ def se2_uniform_sampling(nx, ny, ntheta):
 
     # uniformly samples alpha
     if ntheta < 2:
-        raise ValueError(f"Cannot sample element on SE2 with nalpha < 2. Use `r2_uniform_sampling` instead.")
+        raise ValueError(f"Cannot sample element on SE2 with ntheta < 2. Use `r2_uniform_sampling` instead.")
 
     theta = torch.arange(-math.pi / 2, math.pi / 2, math.pi / ntheta)
 

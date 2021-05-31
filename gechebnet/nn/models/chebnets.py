@@ -38,9 +38,10 @@ class WideResSE2GEChebNet(nn.Module):
             graph_lvl2 (`Graph`): graph at level 2, the finest graph. Defaults to None.
             res_depth (int): depth of the neural network. Defaults to 8.
             widen_factor (int, optional): widen factor of the neural network. Defaults to 1.
+            reduction (str, optional): reduction operator for base pooling. Defaults to None.
 
         Raises:
-            ValueError: depth must be compatible with the architecture.
+            ValueError: reduction have to be defined when three graphs are given.
         """
         super(WideResSE2GEChebNet, self).__init__()
 
@@ -143,6 +144,7 @@ class SO3GEChebEncoder(nn.Module):
             graph_lvl3 (`Graph`): graph at level 3.
             graph_lvl4 (`Graph`): graph at level 4.
             graph_lvl5 (`Graph`): graph at level 5, the finest graph.
+            reduction (str, optional): reduction operator for base pooling. Defaults to None.
         """
         super(SO3GEChebEncoder, self).__init__()
 
@@ -214,7 +216,9 @@ class SO3GEChebDecoder(nn.Module):
             graph_lvl3 (`Graph`): graph at level 3.
             graph_lvl4 (`Graph`): graph at level 4.
             graph_lvl5 (`Graph`): graph at level 5, the finest graph.
-            output_graph (`Graph`):
+            output_graph (`Graph`): output base graph, the finest graph on the base space.
+            reduction (str): reduction operator for base pooling. 
+            expansion (str): expansion operator for base pooling. 
         """
         super(SO3GEChebDecoder, self).__init__()
 
@@ -285,6 +289,9 @@ class SO3GEUChebNet(nn.Module):
             graph_lvl3 (`Graph`): graph at level 3.
             graph_lvl4 (`Graph`): graph at level 4.
             graph_lvl5 (`Graph`): graph at level 5, the finest graph.
+            output_graph (`Graph`): output base graph, the finest graph on the base space.
+            reduction (str): reduction operator for base pooling. 
+            expansion (str): expansion operator for base pooling. 
         """
         super(SO3GEUChebNet, self).__init__()
 

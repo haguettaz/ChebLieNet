@@ -14,7 +14,7 @@ from ..utils.utils import shuffle_tensor
 from .datasets import ARTCDataset
 from .transforms import BoolToInt, Compose, Normalize, Random90Rotation, ToGEGraphSignal, ToTensor
 
-# computed mean and std on the training sets.
+# computed means and standard deviations on the training sets before normalization
 MNIST_MEAN, MNIST_STD = (0.1307,), (0.3081,)
 STL10_MEAN, STL10_STD = (0.4472, 0.4396, 0.4050), (0.2606, 0.2567, 0.2700)
 CIFAR10_MEAN, CIFAR10_STD = (0.4914, 0.4822, 0.4465), (0.2470, 0.2435, 0.2616)
@@ -128,8 +128,8 @@ def get_train_val_loaders(dataset, batch_size=32, val_ratio=0.2, num_layers=6, p
 
 def get_equiv_test_loaders(dataset, batch_size=32, num_layers=6, path_to_data="data"):
     """
-    Get test dataloaders to test equivariance under rotation and flip property of the network.
-
+    Get test dataloaders to evaluate rotation- and flip-equivariance.
+    
     Args:
         dataset (str): name of the dataset.
         batch_size (int, optional): size of a batch. Defaults to 32.
@@ -246,7 +246,7 @@ def get_equiv_test_loaders(dataset, batch_size=32, num_layers=6, path_to_data="d
 def get_test_loader(dataset, batch_size=32, num_layers=6, path_to_data="data"):
 
     """
-    Gets test dataloaders to test equivariance under rotation and flip property of the network.
+    Gets test dataloaders.
 
     Args:
         dataset (str): name of the dataset.
