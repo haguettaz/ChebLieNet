@@ -11,12 +11,12 @@ from ignite.metrics.confusion_matrix import cmAccuracy, mIoU
 from torch.nn.functional import nll_loss
 from torch.optim import Adam
 
-from gechebnet.datas.dataloaders import get_test_loader, get_train_val_loaders
-from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
-from gechebnet.engines.utils import PerClassAccuracy, output_transform_mAP, prepare_batch, wandb_log
-from gechebnet.graphs.graphs import S2GEGraph, SO3GEGraph
-from gechebnet.nn.models.chebnets import SO3GEUChebNet
-from gechebnet.nn.models.utils import capacity
+from cheblienet.datas.dataloaders import get_test_loader, get_train_val_loaders
+from cheblienet.engines.engines import create_supervised_evaluator, create_supervised_trainer
+from cheblienet.engines.utils import PerClassAccuracy, output_transform_mAP, prepare_batch, wandb_log
+from cheblienet.graphs.graphs import S2GEGraph, SO3GEGraph
+from cheblienet.nn.models.chebnets import SO3GEUChebNet
+from cheblienet.nn.models.utils import capacity
 
 
 def build_config(anisotropic):
@@ -67,7 +67,7 @@ def train(config=None):
     """
 
     # Initialize a new wandb run
-    with wandb.init(config=config, project="gechebnet"):
+    with wandb.init(config=config, project="cheblienet"):
 
         config = wandb.config
         wandb.log({"dataset": "artc"})

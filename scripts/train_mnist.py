@@ -10,12 +10,12 @@ from torch.nn.functional import nll_loss
 from torch.optim import Adam
 
 import wandb
-from gechebnet.datas.dataloaders import get_equiv_test_loaders, get_train_val_loaders
-from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
-from gechebnet.engines.utils import prepare_batch, sample_edges, sample_, wandb_log
-from gechebnet.graphs.graphs import R2GEGraph, RandomSubGraph, SE2GEGraph
-from gechebnet.nn.models.chebnets import WideResSE2GEChebNet
-from gechebnet.nn.models.utils import capacity
+from cheblienet.datas.dataloaders import get_equiv_test_loaders, get_train_val_loaders
+from cheblienet.engines.engines import create_supervised_evaluator, create_supervised_trainer
+from cheblienet.engines.utils import prepare_batch, sample_edges, sample_, wandb_log
+from cheblienet.graphs.graphs import R2GEGraph, RandomSubGraph, SE2GEGraph
+from cheblienet.nn.models.chebnets import WideResSE2GEChebNet
+from cheblienet.nn.models.utils import capacity
 
 
 def build_config(anisotropic, coupled_sym):
@@ -67,7 +67,7 @@ def train(config=None):
     """
 
     # Initialize a new wandb run
-    with wandb.init(config=config, project="gechebnet"):
+    with wandb.init(config=config, project="cheblienet"):
 
         config = wandb.config
         wandb.log({"dataset": "mnist"})

@@ -71,8 +71,8 @@ EXTRA_REQUIRES = {"tests": TESTS_REQUIRES}
 
 
 setup(
-    name="gechebnet",
-    version=find_version("gechebnet", "__init__.py"),
+    name="cheblienet",
+    version=find_version("cheblienet", "__init__.py"),
     description="Description",
     long_description=read("README.md"),
     long_description_content_type="text/markdown",

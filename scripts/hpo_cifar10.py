@@ -4,14 +4,14 @@ import os
 
 import torch
 import wandb
-from gechebnet.datas.dataloaders import get_train_val_loaders
-from gechebnet.engine.engine import create_supervised_evaluator, create_supervised_trainer
-from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
-from gechebnet.engines.utils import prepare_batch, wandb_log
-from gechebnet.graphs.graphs import R2GEGraph, SE2GEGraph
-from gechebnet.nn.layers.pools import SE2SpatialPool
-from gechebnet.nn.models.chebnets import WideResSE2GEChebNet
-from gechebnet.nn.models.utils import capacity
+from cheblienet.datas.dataloaders import get_train_val_loaders
+from cheblienet.engine.engine import create_supervised_evaluator, create_supervised_trainer
+from cheblienet.engines.engines import create_supervised_evaluator, create_supervised_trainer
+from cheblienet.engines.utils import prepare_batch, wandb_log
+from cheblienet.graphs.graphs import R2GEGraph, SE2GEGraph
+from cheblienet.nn.layers.pools import SE2SpatialPool
+from cheblienet.nn.models.chebnets import WideResSE2GEChebNet
+from cheblienet.nn.models.utils import capacity
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
 from ignite.metrics import Accuracy, Loss
@@ -155,5 +155,5 @@ if __name__ == "__main__":
 
     sweep_config = build_sweep_config()
 
-    sweep_id = wandb.sweep(sweep_config, project="gechebnet")
+    sweep_id = wandb.sweep(sweep_config, project="cheblienet")
     wandb.agent(sweep_id, train, count=args.num_experiments)

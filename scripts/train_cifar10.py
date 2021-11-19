@@ -3,13 +3,13 @@ import os
 
 import torch
 import wandb
-from gechebnet.datas.dataloaders import get_equiv_test_loaders, get_train_val_loaders
-from gechebnet.engines.engines import create_supervised_evaluator, create_supervised_trainer
-from gechebnet.engines.utils import prepare_batch, wandb_log
-from gechebnet.graphs.graphs import R2GEGraph, SE2GEGraph
-from gechebnet.nn.layers.pools import SE2SpatialPool
-from gechebnet.nn.models.chebnets import WideResSE2GEChebNet
-from gechebnet.nn.models.utils import capacity
+from cheblienet.datas.dataloaders import get_equiv_test_loaders, get_train_val_loaders
+from cheblienet.engines.engines import create_supervised_evaluator, create_supervised_trainer
+from cheblienet.engines.utils import prepare_batch, wandb_log
+from cheblienet.graphs.graphs import R2GEGraph, SE2GEGraph
+from cheblienet.nn.layers.pools import SE2SpatialPool
+from cheblienet.nn.models.chebnets import WideResSE2GEChebNet
+from cheblienet.nn.models.utils import capacity
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import Events
 from ignite.metrics import Accuracy, Loss
@@ -70,7 +70,7 @@ def train(config=None):
     """
 
     # Initialize a new wandb run
-    with wandb.init(config=config, project="gechebnet"):
+    with wandb.init(config=config, project="cheblienet"):
 
         config = wandb.config
         wandb.log({"dataset": "cifar10"})
