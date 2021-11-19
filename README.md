@@ -1,4 +1,4 @@
-# ChebLieNet:  Invariant Spectral Graph NNs Turned Equivariant by Riemannian Geometry on Lie Groups
+# ChebLieNet: Invariant spectral graph NNs turned equivariant by Riemannian geometry on Lie groups
 [Hugo Aguettaz], [Erik J Bekkers], [Michaël Defferrard]
 
 [Hugo Aguettaz]: https://people.epfl.ch/hugo.aguettaz
