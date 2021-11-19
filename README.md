@@ -15,7 +15,7 @@
 > This crucial result is evidence of the benefice we could get by exploiting anisotropic properties in data.
 > We also evaluate the scalability of this approach on STL10 (image data) and ClimateNet (spherical data), showing its remarkable adaptability to diverse tasks.
 
-[PyTorch]: https://pytorch.org
+Paper: [`OpenReview:WsfXFxqZXRO`](https://openreview.net/forum?id=WsfXFxqZXRO)
 
 ## Installation
 
@@ -69,7 +69,6 @@ $ python3 -m scripts.train_stl10 --path_to_graph "$HOME"/ChebLieNet/graphs/saved
 ```
 $ python3 -m scripts.train_artc --path_to_graph "$HOME"/ChebLieNet/graphs/saved_graphs --path_to_data "$HOME"/data --anisotropic --reduction max --expansion avg
 ```
-
 
 ## License & citation
 
