@@ -73,3 +73,13 @@ $ python3 -m scripts.train_artc --path_to_graph "$HOME"/ChebLieNet/graphs/saved_
 ## License & citation
 
 The content of this repository is released under the terms of the [MIT license](LICENSE.txt).
+Please cite our paper if you use it.
+
+```
+@inproceedings{cheblienet,
+  title = {{ChebLieNet}: Invariant spectral graph {NN}s turned equivariant by Riemannian geometry on Lie groups},
+  author = {Aguettaz, Hugo and Bekkers, Erik J and Defferrard, Michaël},
+  year = {2021},
+  url = {https://openreview.net/forum?id=WsfXFxqZXRO},
+}
+```
