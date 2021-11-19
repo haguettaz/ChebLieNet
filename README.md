@@ -1,9 +1,8 @@
 # ChebLieNet: Invariant spectral graph NNs turned equivariant by Riemannian geometry on Lie groups
-[Hugo Aguettaz], [Erik J Bekkers], [Michaël Defferrard]
 
-[Hugo Aguettaz]: https://people.epfl.ch/hugo.aguettaz
-[Erik J Bekkers]: https://erikbekkers.bitbucket.io/
-[Michaël Defferrard]: https://deff.ch/
+[Hugo Aguettaz](https://www.linkedin.com/in/hugo-aguettaz),
+[Erik J. Bekkers](https://erikbekkers.bitbucket.io),
+[Michaël Defferrard](https://deff.ch)
 
 We introduce ChebLieNet, a group-equivariant method on (anisotropic) manifolds. Surfing on the success of graph- and group-based neural networks, we take advantage of the recent developments in the geometric deep learning field to derive a new approach to exploit any anisotropies in data. Via discrete approximations of Lie groups, we develop a graph neural network made of anisotropic convolutional layers (Chebyshev convolutions), spatial pooling and unpooling layers, and global pooling layers. Group equivariance is achieved via equivariant and invariant operators on graphs with anisotropic left-invariant Riemannian distance-based affinities encoded on the edges. Thanks to its simple form, the Riemannian metric can model any anisotropies, both in the spatial and orientation domains. This control on anisotropies of the Riemannian metrics allows to balance equivariance (anisotropic metric) against invariance (isotropic metric) of the graph convolution layers. Hence we open the doors to a better understanding of anisotropic properties. Furthermore, we empirically prove the existence of (data-dependent) sweet spots for anisotropic parameters on CIFAR10. This crucial result is evidence of the benefice we could get by exploiting anisotropic properties in data. We also evaluate the scalability of this approach on STL10 (image data) and ClimateNet (spherical data), showing its remarkable adaptability to diverse tasks.
 
