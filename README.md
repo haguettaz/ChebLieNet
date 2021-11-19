@@ -19,19 +19,22 @@ Paper: [`OpenReview:WsfXFxqZXRO`](https://openreview.net/forum?id=WsfXFxqZXRO)
 
 ## Installation
 
-We recommend using a virtual environment to install this package, as it does not need root privileges. The steps to follow are:
-1. Create a new virtual environment:
-```
-$ python3 -m venv cheblienet
-```
-2. Activate it
-```
-$ source cheblienet/bin/activate
-```
-3. Install ChebLieNet:
-```
-$ pip3 install -e ChebLieNet
-```
+1. Optionally, create and activate a virtual environment.
+    ```sh
+    python -m venv cheblienet
+    source cheblienet/bin/activate
+    python -m pip install --upgrade pip setuptools wheel
+    ```
+
+2. Clone this repository.
+    ```sh
+    git clone https://github.com/haguettaz/ChebLieNet.git
+    ```
+
+3. Install the ChebLieNet Python package (in editable mode).
+    ```sh
+    python -m pip install -e ChebLieNet
+    ```
 
 ## Notebooks
 
