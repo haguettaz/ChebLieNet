@@ -5,3 +5,5 @@ torch==1.7.1
 torchvision==0.8.2
 wandb==0.10.19
 tqdm<4.55
+matplotlib==3.3.3
+pandas==1.1.5
