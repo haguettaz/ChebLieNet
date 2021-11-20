@@ -38,15 +38,15 @@ Paper: [`OpenReview:WsfXFxqZXRO`](https://openreview.net/forum?id=WsfXFxqZXRO)
 
 ## Notebooks
 
-* [`group_manifold_graph.ipynb`]: group manifold graphs.
+* [`graph_manifold.ipynb`]: building graphs from sampled Lie groups.
+* [`eigen_space.ipynb`]: visualizing the Fourier modes (eigenspaces) of Lie groups.
+* [`graph_diffusion.ipynb`]: heat diffusion on Lie groups.
 * [`nn_layers.ipynb`]: convolution, pooling and unpooling layers.
-* [`eigen_space.ipynb`]: eigenmaps of the group manifold graphs.
-* [`graph_diffusion.ipynb`]: graph diffusion on group manifold graphs.
 
-[`group_manifold_graph.ipynb`]: https://github.com/haguettaz/ChebLieNet/blob/main/notebooks/graph_manifold.ipynb
-[`nn_layers.ipynb`]: https://github.com/github/haguettaz/ChebLieNet/blob/main/notebooks/nn_layers.ipynb
-[`eigen_space.ipynb`]: https://github.com/github/haguettaz/ChebLieNet/blob/main/notebooks/eigen_space.ipynb
-[`graph_diffusion.ipynb`]: https://github.com/github/haguettaz/ChebLieNet/blob/main/notebooks/graph_diffusion.ipynb
+[`graph_manifold.ipynb`]: https://nbviewer.jupyter.org/github/haguettaz/ChebLieNet/blob/outputs/notebooks/graph_manifold.ipynb
+[`nn_layers.ipynb`]: https://nbviewer.jupyter.org/github/haguettaz/ChebLieNet/blob/outputs/notebooks/nn_layers.ipynb
+[`eigen_space.ipynb`]: https://nbviewer.jupyter.org/github/haguettaz/ChebLieNet/blob/outputs/notebooks/eigen_space.ipynb
+[`graph_diffusion.ipynb`]: https://nbviewer.jupyter.org/github/haguettaz/ChebLieNet/blob/outputs/notebooks/graph_diffusion.ipynb
 
 ## Reproducing our results
 
