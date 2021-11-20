@@ -50,27 +50,28 @@ Paper: [`OpenReview:WsfXFxqZXRO`](https://openreview.net/forum?id=WsfXFxqZXRO)
 
 ## Reproducing our results
 
-Run the below to train a GroupEquivariantChebNet on MNIST, CIFAR10, STL10 or ClimateNet.
-1. Create data folder to download data into and move on the ChebLieNet folder
+Train a WideResNet on MNIST with anisotropic kernels.
+```sh
+python -m train_mnist --path_to_graph ./saved_graphs --path_to_data ./data \
+    --res_depth 2 --widen_factor 2 --anisotropic --coupled_sym
 ```
-$ mkdir data
-$ cd mkdir ChebLieNet
+
+Train a WideResNet on CIFAR10 with spatial random pooling and anisotropic kernels.
+```sh
+python -m train_cifar10 --path_to_graph ./saved_graphs --path_to_data ./data \
+    --res_depth 2 --widen_factor 4 --anisotropic --pool --reduction rand
 ```
-3. Train WideResNet on MNIST with anisotropic kernels:
+
+Train a WideResNet on STL10 with spatial random pooling and anisotropic kernels.
+```sh
+python -m train_stl10 --path_to_graph ./saved_graphs --path_to_data ./data \
+    --res_depth 3 --widen_factor 4 --anisotropic --reduction rand
 ```
-$ python3 -m scripts.train_mnist --path_to_graph "$HOME"/ChebLieNet/graphs/saved_graphs --path_to_data "$HOME"/data --res_depth 2 --widen_factor 2 --anisotropic --coupled_sym
-```
-3. Train WideResNet on CIFAR10 with spatial rand pooling and anisotropic kernels:
-```
-$ python3 -m scripts.train_cifar10 --path_to_graph "$HOME"/ChebLieNet/graphs/saved_graphs --path_to_data "$HOME"/data --res_depth 2 --widen_factor 4 --anisotropic --pool --reduction rand
-```
-4. Train WideResNet on STL10 with spatial rand pooling and anisotropic kernels:
-```
-$ python3 -m scripts.train_stl10 --path_to_graph "$HOME"/ChebLieNet/graphs/saved_graphs --path_to_data "$HOME"/data --res_depth 3 --widen_factor 4 --anisotropic --pool --reduction rand
-```
-5. Train U-Net on ClimateNet with spatial max pooling, average unpooling and anisotropic kernels:
-```
-$ python3 -m scripts.train_artc --path_to_graph "$HOME"/ChebLieNet/graphs/saved_graphs --path_to_data "$HOME"/data --anisotropic --reduction max --expansion avg
+
+Train a U-Net on ClimateNet with spatial max pooling, average unpooling, and anisotropic kernels.
+```sh
+python -m train_artc --path_to_graph ./saved_graphs --path_to_data ./data \
+    --anisotropic --reduction max --expansion avg
 ```
 
 ## License & citation
