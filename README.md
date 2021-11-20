@@ -53,25 +53,25 @@ Paper: [`OpenReview:WsfXFxqZXRO`](https://openreview.net/forum?id=WsfXFxqZXRO)
 Train a WideResNet on MNIST with anisotropic kernels.
 ```sh
 python -m train_mnist --path_to_graph ./saved_graphs --path_to_data ./data \
-    --res_depth 2 --widen_factor 2 --anisotropic --coupled_sym
+    --res_depth 2 --widen_factor 2 --anisotropic --coupled_sym --cuda
 ```
 
 Train a WideResNet on CIFAR10 with spatial random pooling and anisotropic kernels.
 ```sh
 python -m train_cifar10 --path_to_graph ./saved_graphs --path_to_data ./data \
-    --res_depth 2 --widen_factor 4 --anisotropic --pool --reduction rand
+    --res_depth 2 --widen_factor 4 --anisotropic --pool --reduction rand --cuda
 ```
 
 Train a WideResNet on STL10 with spatial random pooling and anisotropic kernels.
 ```sh
 python -m train_stl10 --path_to_graph ./saved_graphs --path_to_data ./data \
-    --res_depth 3 --widen_factor 4 --anisotropic --reduction rand
+    --res_depth 3 --widen_factor 4 --anisotropic --reduction rand --cuda
 ```
 
 Train a U-Net on ClimateNet with spatial max pooling, average unpooling, and anisotropic kernels.
 ```sh
 python -m train_artc --path_to_graph ./saved_graphs --path_to_data ./data \
-    --anisotropic --reduction max --expansion avg
+    --anisotropic --reduction max --expansion avg --cuda
 ```
 
 ## License & citation
