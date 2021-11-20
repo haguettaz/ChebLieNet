@@ -79,9 +79,6 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
-notebooks/data
-notebooks/wandb
-notebooks/model
 
 # IPython
 profile_default/
@@ -152,4 +149,7 @@ dmypy.json
 
 # wandb
 wandb
-saved_graphs
+
+# cached data
+saved_graphs/
+data/
