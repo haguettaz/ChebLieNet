@@ -19,6 +19,9 @@ Paper: [`OpenReview:WsfXFxqZXRO`](https://openreview.net/forum?id=WsfXFxqZXRO)
 
 ## Installation
 
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/haguettaz/ChebLieNet/outputs?urlpath=lab)
+&nbsp; Click the binder badge to run the code from your browser.
+
 1. Optionally, create and activate a virtual environment.
     ```sh
     python -m venv cheblienet
@@ -31,7 +34,7 @@ Paper: [`OpenReview:WsfXFxqZXRO`](https://openreview.net/forum?id=WsfXFxqZXRO)
     git clone https://github.com/haguettaz/ChebLieNet.git
     ```
 
-3. Install the ChebLieNet Python package (in editable mode).
+3. Install the ChebLieNet package and its dependencies.
     ```sh
     python -m pip install -e ChebLieNet
     ```
