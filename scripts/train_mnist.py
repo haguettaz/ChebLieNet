@@ -12,7 +12,7 @@ from torch.optim import Adam
 import wandb
 from cheblienet.datas.dataloaders import get_equiv_test_loaders, get_train_val_loaders
 from cheblienet.engines.engines import create_supervised_evaluator, create_supervised_trainer
-from cheblienet.engines.utils import prepare_batch, sample_edges, sample_, wandb_log
+from cheblienet.engines.utils import prepare_batch, wandb_log
 from cheblienet.graphs.graphs import R2GEGraph, RandomSubGraph, SE2GEGraph
 from cheblienet.nn.models.chebnets import WideResSE2GEChebNet
 from cheblienet.nn.models.utils import capacity
@@ -91,7 +91,7 @@ def train(config=None):
                 path_to_graph=args.path_to_graph,
             )
 
-        # we use random sub graphs to evaluate the effect of edges and ' sampling
+        # we use random sub graphs to evaluate the effect of edges and vertices' sampling
         sub_graph = RandomSubGraph(graph)
 
         # Loads group equivariant Chebnet
@@ -169,17 +169,17 @@ def train(config=None):
                 sub_graph.reinit,
             )
 
-            # consider all  and edges for the evaluation
+            # consider all vertices and edges for the evaluation
             trainer.add_event_handler(
                 Events.EPOCH_COMPLETED,
                 sub_graph.reinit,
             )
 
-            if args.sample_:
+            if args.sample_vertices:
                 trainer.add_event_handler(
                     Events.ITERATION_STARTED,
                     sub_graph.vertices_sampling,
-                    args._rate,
+                    args.vertices_rate,
                 )
 
             if args.sample_edges:
@@ -217,8 +217,8 @@ if __name__ == "__main__":
     parser.add_argument("--widen_factor", type=int, default=2)
     parser.add_argument("--sample_edges", action="store_true", default=False)
     parser.add_argument("--edges_rate", type=float, default=1.0)  # rate of edges to sample
-    parser.add_argument("--sample_", action="store_true", default=False)
-    parser.add_argument("--_rate", type=float, default=1.0)  # rate of  to sample
+    parser.add_argument("--sample_vertices", action="store_true", default=False)
+    parser.add_argument("--vertices_rate", type=float, default=1.0)  # rate of vertices to sample
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--cuda", action="store_true", default=False)
     parser.add_argument("--save_models", action="store_true", default=False)
