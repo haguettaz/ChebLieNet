@@ -148,7 +148,7 @@ dmypy.json
 .VSCodeCounter
 
 # wandb
-wandb
+wandb/
 
 # cached data
 saved_graphs/
