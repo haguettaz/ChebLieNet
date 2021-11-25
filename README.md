@@ -15,7 +15,7 @@
 > This crucial result is evidence of the benefice we could get by exploiting anisotropic properties in data.
 > We also evaluate the scalability of this approach on STL10 (image data) and ClimateNet (spherical data), showing its remarkable adaptability to diverse tasks.
 
-Paper: [`OpenReview:WsfXFxqZXRO`](https://openreview.net/forum?id=WsfXFxqZXRO)
+Paper: [`arXiv:2111.12139`](https://arxiv.org/abs/2111.12139), [`OpenReview:WsfXFxqZXRO`](https://openreview.net/forum?id=WsfXFxqZXRO).
 
 ## Installation
 
@@ -85,8 +85,10 @@ Please cite our paper if you use it.
 ```
 @inproceedings{cheblienet,
   title = {{ChebLieNet}: Invariant spectral graph {NN}s turned equivariant by Riemannian geometry on Lie groups},
-  author = {Aguettaz, Hugo and Bekkers, Erik J and Defferrard, Michaël},
+  author = {Aguettaz, Hugo and Bekkers, Erik J. and Defferrard, Michaël},
   year = {2021},
-  url = {https://openreview.net/forum?id=WsfXFxqZXRO},
+  archivePrefix={arXiv},
+  eprint={2111.12139},
+  url = {https://arxiv.org/abs/2111.12139},
 }
 ```
