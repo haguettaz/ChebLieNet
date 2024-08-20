@@ -1,4 +1,4 @@
-black==19.10b0
+black==24.3.0
 isort[requirements,pyproject]==4.3.21
 pre-commit<2.1
 pylint>=2.5,<2.6
